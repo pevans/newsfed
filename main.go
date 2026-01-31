@@ -3,55 +3,42 @@ package main
 import (
 	"fmt"
 	"log"
-	"time"
-
-	"github.com/google/uuid"
 )
 
 func main() {
 	// Create a news feed stored in the .news directory
-	feed, err := NewNewsFeed(".news")
+	feed, err := New(".news")
 	if err != nil {
 		log.Fatalf("Failed to create news feed: %v", err)
 	}
 
-	// Create some example news items
-	publisher1 := "TechNews Daily"
-	item1 := NewsItem{
-		ID:           uuid.New(),
-		Title:        "Go 1.26 Released with New Features",
-		Summary:      "The Go team has announced the release of Go 1.26, bringing improved performance and new standard library features.",
-		URL:          "https://go.dev/blog/go1.26",
-		Publisher:    &publisher1,
-		Authors:      []string{"The Go Team", "Jane Smith"},
-		PublishedAt:  time.Now().Add(-24 * time.Hour),
-		DiscoveredAt: time.Now(),
-		ViewedAt:     nil,
+	// Fetch a feed (this one is Atom format -- the code handles both RSS and
+	// Atom)
+	fmt.Println("Fetching feed from https://go.dev/blog/feed.atom...")
+	externalFeed, err := FetchFeed("https://go.dev/blog/feed.atom")
+	if err != nil {
+		log.Fatalf("Failed to fetch feed: %v", err)
 	}
 
-	publisher2 := "Dev Weekly"
-	item2 := NewsItem{
-		ID:           uuid.New(),
-		Title:        "Understanding Cloud Native Architecture",
-		Summary:      "A deep dive into cloud native patterns and how they enable scalable applications.",
-		URL:          "https://devweekly.com/cloud-native",
-		Publisher:    &publisher2,
-		Authors:      []string{"Alice Johnson"},
-		PublishedAt:  time.Now().Add(-48 * time.Hour),
-		DiscoveredAt: time.Now(),
-		ViewedAt:     nil,
+	fmt.Printf("Fetched feed: %s (format: %s)\n", externalFeed.Title, externalFeed.FeedType)
+	fmt.Printf("Found %d items in feed\n\n", len(externalFeed.Items))
+
+	// Convert feed items to NewsItems (works for both RSS and Atom)
+	newsItems := FeedToNewsItems(externalFeed)
+
+	// Add first 5 items to the feed (to avoid cluttering)
+	maxItems := 5
+	if len(newsItems) < maxItems {
+		maxItems = len(newsItems)
 	}
 
-	// Add items to the feed
-	if err := feed.Add(item1); err != nil {
-		log.Fatalf("Failed to add item1: %v", err)
-	}
-	if err := feed.Add(item2); err != nil {
-		log.Fatalf("Failed to add item2: %v", err)
+	for i := 0; i < maxItems; i++ {
+		if err := feed.Add(newsItems[i]); err != nil {
+			log.Fatalf("Failed to add item: %v", err)
+		}
 	}
 
-	fmt.Println("Added 2 items to the news feed in .news/")
-	fmt.Println()
+	fmt.Printf("Added %d items from external feed to local storage\n\n", maxItems)
 
 	// List all items in the feed
 	items, err := feed.List()
@@ -59,9 +46,15 @@ func main() {
 		log.Fatalf("Failed to list items: %v", err)
 	}
 
-	fmt.Printf("News feed contains %d items:\n", len(items))
+	fmt.Printf("News feed now contains %d items:\n", len(items))
 	for i, item := range items {
 		fmt.Printf("\n%d. %s\n", i+1, item.Title)
+		if item.Publisher != nil {
+			fmt.Printf("   Publisher: %s\n", *item.Publisher)
+		}
+		if len(item.Authors) > 0 {
+			fmt.Printf("   Authors: %s\n", item.Authors[0])
+		}
 		fmt.Printf("   Published: %s\n", item.PublishedAt.Format("2006-01-02"))
 		fmt.Printf("   URL: %s\n", item.URL)
 	}

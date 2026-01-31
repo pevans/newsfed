@@ -12,10 +12,10 @@ type NewsFeed struct {
 	storageDir string
 }
 
-// NewNewsFeed creates a new news feed with the specified storage directory
-func NewNewsFeed(storageDir string) (*NewsFeed, error) {
+// New creates a new news feed with the specified storage directory
+func New(storageDir string) (*NewsFeed, error) {
 	// Create the storage directory if it doesn't exist
-	if err := os.MkdirAll(storageDir, 0755); err != nil {
+	if err := os.MkdirAll(storageDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -36,14 +36,15 @@ func (nf *NewsFeed) Add(item NewsItem) error {
 	}
 
 	// Write to file
-	if err := os.WriteFile(filename, data, 0644); err != nil {
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
 		return fmt.Errorf("failed to write news item: %w", err)
 	}
 
 	return nil
 }
 
-// List returns all news items in the feed
+// List returns all news items in the feed. Corrupted or invalid files are
+// logged and skipped rather than causing the entire operation to fail.
 func (nf *NewsFeed) List() ([]NewsItem, error) {
 	entries, err := os.ReadDir(nf.storageDir)
 	if err != nil {
@@ -60,13 +61,15 @@ func (nf *NewsFeed) List() ([]NewsItem, error) {
 		filename := filepath.Join(nf.storageDir, entry.Name())
 		data, err := os.ReadFile(filename)
 		if err != nil {
-			return nil, fmt.Errorf("failed to read file %s: %w", entry.Name(), err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to read file %s: %v\n", entry.Name(), err)
+			continue
 		}
 
 		// Unmarshal the news item
 		var item NewsItem
 		if err := json.Unmarshal(data, &item); err != nil {
-			return nil, fmt.Errorf("failed to unmarshal file %s: %w", entry.Name(), err)
+			fmt.Fprintf(os.Stderr, "Warning: failed to unmarshal file %s: %v\n", entry.Name(), err)
+			continue
 		}
 
 		items = append(items, item)
