@@ -1,5 +1,6 @@
 ---
 Request For Comments: 2
+Title: External News Feed Ingestion
 Drafted At: 2026-01-30
 Authors:
   - Peter Evans
