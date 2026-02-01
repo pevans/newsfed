@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+
+	"github.com/google/uuid"
 )
 
 // NewsFeed represents a collection of news items stored in a directory
@@ -76,4 +78,48 @@ func (nf *NewsFeed) List() ([]NewsItem, error) {
 	}
 
 	return items, nil
+}
+
+// Get retrieves a news item by its ID.
+func (nf *NewsFeed) Get(id uuid.UUID) (*NewsItem, error) {
+	filename := filepath.Join(nf.storageDir, id.String()+".json")
+
+	// Read the file
+	data, err := os.ReadFile(filename)
+	if err != nil {
+		if os.IsNotExist(err) {
+			return nil, nil // Item not found (not an error)
+		}
+		return nil, fmt.Errorf("failed to read news item: %w", err)
+	}
+
+	// Unmarshal the news item
+	var item NewsItem
+	if err := json.Unmarshal(data, &item); err != nil {
+		return nil, fmt.Errorf("failed to unmarshal news item: %w", err)
+	}
+
+	return &item, nil
+}
+
+// Update updates an existing news item in the feed.
+func (nf *NewsFeed) Update(item NewsItem) error {
+	// Check if the item exists
+	filename := filepath.Join(nf.storageDir, item.ID.String()+".json")
+	if _, err := os.Stat(filename); os.IsNotExist(err) {
+		return fmt.Errorf("news item not found")
+	}
+
+	// Marshal the item to JSON
+	data, err := json.MarshalIndent(item, "", "  ")
+	if err != nil {
+		return fmt.Errorf("failed to marshal news item: %w", err)
+	}
+
+	// Write to file
+	if err := os.WriteFile(filename, data, 0o644); err != nil {
+		return fmt.Errorf("failed to write news item: %w", err)
+	}
+
+	return nil
 }

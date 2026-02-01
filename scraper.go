@@ -124,8 +124,8 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) New
 	// Discovered_at: set to current time when ingesting
 	discoveredAt := time.Now()
 
-	// Viewed_at: set to nil (not yet viewed)
-	var viewedAt *time.Time
+	// Pinned_at: set to nil (not yet pinned)
+	var pinnedAt *time.Time
 
 	return NewsItem{
 		ID:           id,
@@ -136,7 +136,7 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) New
 		Authors:      authors,
 		PublishedAt:  publishedAt,
 		DiscoveredAt: discoveredAt,
-		ViewedAt:     viewedAt,
+		PinnedAt:     pinnedAt,
 	}
 }
 
