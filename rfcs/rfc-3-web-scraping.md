@@ -143,7 +143,7 @@ Scraped article data maps to NewsItem fields as follows:
 - `published_at` -- From extracted date (via `date_selector` and
   `date_format`); fallback to current time
 - `discovered_at` -- Set to current time when ingesting
-- `viewed_at` -- Set to nil (not yet viewed)
+- `pinned_at` -- Set to nil (not yet pinned)
 
 ## 4.2. Deduplication Strategy
 

@@ -36,7 +36,9 @@ A single news item consists of at least the following fields:
 - `published_at`, a timestamp of when the news item was initially published.
 - `discovered_at`, a timestamp of when the news item was recorded in a news
   feed.
-- `viewed_at`, a timestamp of when the news item was viewed by the feed user.
+- `pinned_at`, a timestamp of when the news item was pinned by the feed user.
+  Items can be pinned to save them for later reference or to mark them as
+  important.
 
 ## 2.2. Structure of a news feed
 

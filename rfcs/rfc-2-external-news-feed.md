@@ -83,7 +83,7 @@ RSS items are mapped to NewsItem fields as follows:
   extension); if multiple authors are in a single field, parse as a list
 - `published_at` -- From `<pubDate>` element; parse as RFC 822 date format
 - `discovered_at` -- Set to current time when ingesting
-- `viewed_at` -- Set to nil (not yet viewed)
+- `pinned_at` -- Set to nil (not yet pinned)
 
 ### 2.3.2. RSS Deduplication Strategy
 
@@ -118,7 +118,7 @@ Atom entries are mapped to NewsItem fields as follows:
 - `published_at` -- From `<published>` element; if not present, use
   `<updated>` element; parse as ISO 8601 date format
 - `discovered_at` -- Set to current time when ingesting
-- `viewed_at` -- Set to nil (not yet viewed)
+- `pinned_at` -- Set to nil (not yet pinned)
 
 ### 2.4.2. Atom Deduplication Strategy
 
