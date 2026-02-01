@@ -42,6 +42,13 @@ else
     TOTAL_FAILED=$((TOTAL_FAILED + $?))
 fi
 
+# Test CORS Support (Section 6)
+if "$SCRIPT_DIR/test-cors.sh"; then
+    echo ""
+else
+    TOTAL_FAILED=$((TOTAL_FAILED + $?))
+fi
+
 # Final summary
 echo ""
 echo "=========================="

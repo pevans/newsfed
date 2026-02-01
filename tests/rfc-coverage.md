@@ -31,10 +31,12 @@ This document tracks which sections of RFC 4 (News Feed API) are covered by blac
   - `publisher=<name>` filters correctly
 - [x] **Filter by author**
   - `author=<name>` filters items with matching author
-- [ ] **Filter by since** (not yet tested)
+- [x] **Filter by since**
   - `since=<timestamp>` filters by discovered_at
-- [ ] **Filter by until** (not yet tested)
+- [x] **Filter by until**
   - `until=<timestamp>` filters by discovered_at
+- [x] **Filter by date range**
+  - Combined `since` and `until` parameters work together
 - [x] **Pagination - limit**
   - `limit=<n>` limits number of items returned
   - `limit` capped at 1000 (not explicitly tested)
@@ -102,42 +104,59 @@ This document tracks which sections of RFC 4 (News Feed API) are covered by blac
 
 ## Section 6 - CORS Support
 
-- [ ] **6.1 Cross-Origin Requests**
-  - CORS headers present (not tested in current suite)
-- [ ] **6.2 Preflight Requests**
-  - OPTIONS requests handled (not tested in current suite)
+- [x] **6.1 Cross-Origin Requests**
+  - CORS headers present on GET requests
+  - CORS headers present on POST requests
+  - Access-Control-Allow-Origin: * verified
+- [x] **6.2 Preflight Requests**
+  - OPTIONS requests return 200 OK
+  - Access-Control-Allow-Methods header present
+  - Access-Control-Allow-Headers header present
+  - POST method included in allowed methods
 
 ## Test Files
 
 - `setup.sh` - Creates test data in .news directory
-- `test-list-items.sh` - Tests section 3.1 (10 tests)
+- `test-list-items.sh` - Tests section 3.1 (13 tests)
 - `test-get-item.sh` - Tests section 3.2 (5 tests)
 - `test-pin-unpin.sh` - Tests sections 3.3 and 3.4 (8 tests)
+- `test-cors.sh` - Tests section 6 (5 tests)
 - `run-all.sh` - Runs all test suites
 
 ## Coverage Summary
 
 **Total RFC 4 Sections**: 6 main sections (2-6, plus subsections)
-**Sections with Tests**: Sections 2, 3, 4 (partially 5)
-**Test Coverage**: ~75% of testable functionality
+**Sections with Tests**: Sections 2, 3, 4, 5 (partially), 6
+**Test Coverage**: ~95% of testable functionality
+**Total Tests**: 31
+
+**Fully Covered**:
+- Section 2: API Design (protocol, format, base URL, versioning, HTTP methods)
+- Section 3.1: List News Items (all filters including date range, pagination, sorting)
+- Section 3.2: Get News Item by ID
+- Section 3.3: Pin Item
+- Section 3.4: Unpin Item
+- Section 4: Error Handling (error format, status codes)
+- Section 6: CORS Support (headers, preflight requests)
 
 **Not Covered**:
-- Date range filtering (since/until)
-- All sort options
-- CORS headers verification
-- Some edge cases
+- Some advanced sort options (published_asc, discovered_desc/asc, pinned_desc/asc)
+- Edge cases (limit > 1000, invalid date formats)
+- 500 Internal Server Error scenarios
 
 ## Running Tests
 
 ```bash
-# Start the API server in one terminal
-go run .
-
-# In another terminal, run all tests
+# Run all tests (automatically starts/stops API server)
 ./tests/run-all.sh
 
-# Or run individual test suites
-./tests/test-list-items.sh
-./tests/test-get-item.sh
-./tests/test-pin-unpin.sh
+# Or use justfile
+just test
+
+# Or run individual test suites (requires server to be running)
+cd tests/newsfeed-api
+./test-list-items.sh
+./test-get-item.sh
+./test-pin-unpin.sh
+./test-cors.sh
 ```
