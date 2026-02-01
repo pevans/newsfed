@@ -14,10 +14,17 @@ cleanup() {
         kill $SERVER_PID 2>/dev/null || true
         wait $SERVER_PID 2>/dev/null || true
     fi
+
+    # Also kill any server running on port 8080
+    local PORT_PID=$(lsof -ti:8080 2>/dev/null)
+    if [ -n "$PORT_PID" ]; then
+        echo "Stopping API server on port 8080 (PID: $PORT_PID)..."
+        kill $PORT_PID 2>/dev/null || true
+    fi
 }
 
-# Register cleanup function to run on exit
-trap cleanup EXIT
+# Register cleanup function to run on exit, interrupt, or termination
+trap cleanup EXIT INT TERM
 
 echo "newsfed Test Suite"
 echo "=================="
