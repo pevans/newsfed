@@ -17,18 +17,18 @@ test_response() {
     local check_func="$4"
 
     status_full=$(echo "$response" | tail -n 1)
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
 
     status=$(echo "$status_full" | sed "s/HTTP_STATUS://")
     if [ "$status" = "$expected_status" ]; then
-        if [ -z "$check_func" ] || $check_func "$body"; then
-            echo -e "\e[32m✓\e[0m $test_name"
+        if [ -z "$check_func" ] || echo "$body" | eval "$check_func"; then
+            printf "\033[32m✓\033[0m %s\n" "$test_name"
             PASSED=$((PASSED + 1))
             return 0
         fi
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Status: $status"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
@@ -106,10 +106,10 @@ test_response "Returns 200 OK with sources array" "$response" "200" \
 echo "Test 2: Verify response structure"
 body=$(curl -s "$BASE_URL/sources")
 if echo "$body" | jq -e '.sources and .total' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Response has required fields (sources, total)"
+    printf "\033[32m✓\033[0m %s\n" "Response has required fields (sources, total)"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Response missing required fields"
+    printf "\033[31m✗\033[0m %s\n" "Response missing required fields"
     FAILED=$((FAILED + 1))
 fi
 
@@ -147,10 +147,10 @@ test_response "Filters disabled sources correctly" "$response" "200" \
 echo "Test 8: Verify source has all required fields"
 body=$(curl -s "$BASE_URL/sources")
 if echo "$body" | jq -e '.sources[0] | .source_id and .source_type and .url and .name and .created_at and .updated_at' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Source has all required fields"
+    printf "\033[32m✓\033[0m %s\n" "Source has all required fields"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Source missing required fields"
+    printf "\033[31m✗\033[0m %s\n" "Source missing required fields"
     FAILED=$((FAILED + 1))
 fi
 
@@ -160,10 +160,10 @@ body=$(curl -s "$BASE_URL/sources")
 sources_length=$(echo "$body" | jq '.sources | length')
 total_value=$(echo "$body" | jq '.total')
 if [ "$sources_length" -eq "$total_value" ]; then
-    echo -e "\e[32m✓\e[0m Total count matches array length"
+    printf "\033[32m✓\033[0m %s\n" "Total count matches array length"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Total count ($total_value) doesn't match array length ($sources_length)"
+    printf "\033[31m✗\033[0m %s\n" "Total count ($total_value) doesn't match array length ($sources_length)"
     FAILED=$((FAILED + 1))
 fi
 

@@ -17,18 +17,18 @@ test_response() {
     local check_func="$4"
 
     status_full=$(echo "$response" | tail -n 1)
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
 
     status=$(echo "$status_full" | sed "s/HTTP_STATUS://")
     if [ "$status" = "$expected_status" ]; then
-        if [ -z "$check_func" ] || $check_func "$body"; then
-            echo -e "\e[32m✓\e[0m $test_name"
+        if [ -z "$check_func" ] || echo "$body" | eval "$check_func"; then
+            printf "\033[32m✓\033[0m %s\n" "$test_name"
             PASSED=$((PASSED + 1))
             return 0
         fi
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Status: $status"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
@@ -44,10 +44,10 @@ test_response "Returns 200 OK with config object" "$response" "200"
 echo "Test 2: Verify config has default_polling_interval field"
 body=$(curl -s "$BASE_URL/config")
 if echo "$body" | jq -e '.default_polling_interval' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Config has default_polling_interval field"
+    printf "\033[32m✓\033[0m %s\n" "Config has default_polling_interval field"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Config missing default_polling_interval field"
+    printf "\033[31m✗\033[0m %s\n" "Config missing default_polling_interval field"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi
@@ -66,10 +66,10 @@ test_response "Returns 200 OK with updated config" "$response" "200" \
 echo "Test 4: Verify config update persisted (GET after PUT)"
 body=$(curl -s "$BASE_URL/config")
 if echo "$body" | jq -e '.default_polling_interval == "2h"' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Config update persisted"
+    printf "\033[32m✓\033[0m %s\n" "Config update persisted"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Config update did not persist"
+    printf "\033[31m✗\033[0m %s\n" "Config update did not persist"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi
@@ -102,10 +102,10 @@ curl -s -X PUT "$BASE_URL/config" \
 new_value=$(curl -s "$BASE_URL/config" | jq -r '.default_polling_interval')
 
 if [ "$original_value" == "$new_value" ]; then
-    echo -e "\e[32m✓\e[0m Empty body does not change config"
+    printf "\033[32m✓\033[0m %s\n" "Empty body does not change config"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Empty body changed config unexpectedly"
+    printf "\033[31m✗\033[0m %s\n" "Empty body changed config unexpectedly"
     echo "  Original: $original_value"
     echo "  New: $new_value"
     FAILED=$((FAILED + 1))

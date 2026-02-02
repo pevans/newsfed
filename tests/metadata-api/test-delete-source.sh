@@ -19,12 +19,12 @@ test_response() {
 
     status=$(echo "$status_full" | sed "s/HTTP_STATUS://")
     if [ "$status" = "$expected_status" ]; then
-        echo -e "\e[32m✓\e[0m $test_name"
+        printf "\033[32m✓\033[0m %s\n" "$test_name"
         PASSED=$((PASSED + 1))
         return 0
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Status: $status"
     FAILED=$((FAILED + 1))
     return 1
@@ -67,10 +67,10 @@ test_response "GET returns 404 for deleted source" "$response" "404"
 echo "Test 3: Verify deleted source not in list"
 body=$(curl -s "$BASE_URL/sources")
 if echo "$body" | jq -e ".sources | any(.source_id == \"$SOURCE1_ID\")" >/dev/null 2>&1; then
-    echo -e "\e[31m✗\e[0m Deleted source still appears in list"
+    printf "\033[31m✗\033[0m %s\n" "Deleted source still appears in list"
     FAILED=$((FAILED + 1))
 else
-    echo -e "\e[32m✓\e[0m Deleted source not in list"
+    printf "\033[32m✓\033[0m %s\n" "Deleted source not in list"
     PASSED=$((PASSED + 1))
 fi
 
@@ -94,10 +94,10 @@ test_response "Returns 400 for invalid UUID" "$response" "400"
 echo "Test 7: Verify other sources still exist after deletion"
 body=$(curl -s "$BASE_URL/sources")
 if echo "$body" | jq -e ".sources | any(.source_id == \"$SOURCE2_ID\")" >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Other sources still exist"
+    printf "\033[32m✓\033[0m %s\n" "Other sources still exist"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Other sources were affected by deletion"
+    printf "\033[31m✗\033[0m %s\n" "Other sources were affected by deletion"
     FAILED=$((FAILED + 1))
 fi
 

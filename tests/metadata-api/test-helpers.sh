@@ -10,18 +10,18 @@ test_response() {
 
     # Extract body and status from response
     # Response format: <json_body>\nHTTP_STATUS:<code>
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
     status_line=$(echo "$response" | tail -n 1)
     status=$(echo "$status_line" | sed 's/HTTP_STATUS://')
 
     if [ "$status" = "$expected_status" ]; then
         if [ -z "$check_func" ] || eval "$check_func" <<< "$body"; then
-            echo -e "\e[32m✓\e[0m $test_name"
+            printf "\033[32m✓\033[0m %s\n" "$test_name"
             return 0
         fi
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Expected status: $expected_status, Got: $status"
     echo "  Body: $body"
     return 1

@@ -17,18 +17,18 @@ test_response() {
     local check_func="$4"
 
     status_full=$(echo "$response" | tail -n 1)
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
 
     status=$(echo "$status_full" | sed "s/HTTP_STATUS://")
     if [ "$status" = "$expected_status" ]; then
-        if [ -z "$check_func" ] || $check_func "$body"; then
-            echo -e "\e[32m✓\e[0m $test_name"
+        if [ -z "$check_func" ] || echo "$body" | eval "$check_func"; then
+            printf "\033[32m✓\033[0m %s\n" "$test_name"
             PASSED=$((PASSED + 1))
             return 0
         fi
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Status: $status"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
@@ -51,7 +51,7 @@ SOURCE2=$(curl -s -X POST "$BASE_URL/sources" \
     -H "Content-Type: application/json" \
     -d '{
         "source_type": "website",
-        "url": "https://example.com/articles",
+        "url": "https://example.com/update-test-website",
         "name": "Original Website",
         "scraper_config": {
             "discovery_mode": "direct",
@@ -80,10 +80,10 @@ test_response "Returns 200 OK with updated source" "$response" "200" \
 echo "Test 2: Verify update persisted (GET after PUT)"
 body=$(curl -s "$BASE_URL/sources/$SOURCE1_ID")
 if echo "$body" | jq -e '.name == "Updated Name"' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Update persisted correctly"
+    printf "\033[32m✓\033[0m %s\n" "Update persisted correctly"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Update did not persist"
+    printf "\033[31m✗\033[0m %s\n" "Update did not persist"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi
@@ -179,10 +179,10 @@ curl -s -X PUT "$BASE_URL/sources/$SOURCE1_ID" \
 new_updated_at=$(curl -s "$BASE_URL/sources/$SOURCE1_ID" | jq -r '.updated_at')
 
 if [ "$original_updated_at" != "$new_updated_at" ]; then
-    echo -e "\e[32m✓\e[0m updated_at timestamp changes after update"
+    printf "\033[32m✓\033[0m %s\n" "updated_at timestamp changes after update"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m updated_at timestamp did not change"
+    printf "\033[31m✗\033[0m %s\n" "updated_at timestamp did not change"
     echo "  Original: $original_updated_at"
     echo "  New: $new_updated_at"
     FAILED=$((FAILED + 1))

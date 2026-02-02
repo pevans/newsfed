@@ -17,18 +17,18 @@ test_response() {
     local check_func="$4"
 
     status_full=$(echo "$response" | tail -n 1)
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
 
     status=$(echo "$status_full" | sed "s/HTTP_STATUS://")
     if [ "$status" = "$expected_status" ]; then
-        if [ -z "$check_func" ] || $check_func "$body"; then
-            echo -e "\e[32m✓\e[0m $test_name"
+        if [ -z "$check_func" ] || echo "$body" | eval "$check_func"; then
+            printf "\033[32m✓\033[0m %s\n" "$test_name"
             PASSED=$((PASSED + 1))
             return 0
         fi
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Status: $status"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
@@ -54,7 +54,7 @@ response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$BASE_URL/sources" \
     -H "Content-Type: application/json" \
     -d '{
         "source_type": "atom",
-        "url": "https://example.com/atom-feed.xml",
+        "url": "https://example.com/create-test-atom.xml",
         "name": "Atom Feed"
     }')
 test_response "Returns 201 Created for Atom source" "$response" "201" \
@@ -66,7 +66,7 @@ response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$BASE_URL/sources" \
     -H "Content-Type: application/json" \
     -d '{
         "source_type": "website",
-        "url": "https://example.com/articles",
+        "url": "https://example.com/create-test-website",
         "name": "Website Scraper",
         "polling_interval": "2h",
         "scraper_config": {
@@ -90,10 +90,10 @@ body=$(curl -s -X POST "$BASE_URL/sources" \
         "name": "Enabled Feed"
     }')
 if echo "$body" | jq -e '.enabled_at != null' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Source is enabled by default (enabled_at is not null)"
+    printf "\033[32m✓\033[0m %s\n" "Source is enabled by default (enabled_at is not null)"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Source is not enabled by default"
+    printf "\033[31m✗\033[0m %s\n" "Source is not enabled by default"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi
@@ -104,7 +104,7 @@ response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$BASE_URL/sources" \
     -H "Content-Type: application/json" \
     -d '{
         "source_type": "rss",
-        "url": "https://example.com/disabled-feed.xml",
+        "url": "https://example.com/create-test-disabled.xml",
         "name": "Disabled Feed",
         "enabled_at": null
     }')
@@ -161,10 +161,10 @@ body=$(curl -s -X POST "$BASE_URL/sources" \
         "name": "Verify Fields Feed"
     }')
 if echo "$body" | jq -e '.source_id and .source_type and .url and .name and .created_at and .updated_at' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Created source has all required fields"
+    printf "\033[32m✓\033[0m %s\n" "Created source has all required fields"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Created source missing required fields"
+    printf "\033[31m✗\033[0m %s\n" "Created source missing required fields"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi

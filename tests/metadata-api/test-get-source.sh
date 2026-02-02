@@ -17,18 +17,18 @@ test_response() {
     local check_func="$4"
 
     status_full=$(echo "$response" | tail -n 1)
-    body=$(echo "$response" | head -n -1)
+    body=$(echo "$response" | sed '$d')
 
     status=$(echo "$status_full" | sed "s/HTTP_STATUS://")
     if [ "$status" = "$expected_status" ]; then
-        if [ -z "$check_func" ] || $check_func "$body"; then
-            echo -e "\e[32m✓\e[0m $test_name"
+        if [ -z "$check_func" ] || echo "$body" | eval "$check_func"; then
+            printf "\033[32m✓\033[0m %s\n" "$test_name"
             PASSED=$((PASSED + 1))
             return 0
         fi
     fi
 
-    echo -e "\e[31m✗\e[0m $test_name"
+    printf "\033[31m✗\033[0m %s\n" "$test_name"
     echo "  Status: $status"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
@@ -59,10 +59,10 @@ test_response "Returns 200 OK with correct source" "$response" "200" \
 echo "Test 2: Verify source has all required fields"
 body=$(curl -s "$BASE_URL/sources/$SOURCE_ID")
 if echo "$body" | jq -e '.source_id and .source_type and .url and .name and .enabled_at and .created_at and .updated_at and .polling_interval' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Source has all required fields"
+    printf "\033[32m✓\033[0m %s\n" "Source has all required fields"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Source missing required fields"
+    printf "\033[31m✗\033[0m %s\n" "Source missing required fields"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi
@@ -82,10 +82,10 @@ test_response "Returns 400 for invalid UUID format" "$response" "400"
 echo "Test 5: Verify error response format for 404"
 body=$(curl -s "$BASE_URL/sources/$NON_EXISTENT_ID")
 if echo "$body" | jq -e '.error.code and .error.message' >/dev/null 2>&1; then
-    echo -e "\e[32m✓\e[0m Error response has correct format (code, message)"
+    printf "\033[32m✓\033[0m %s\n" "Error response has correct format (code, message)"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Error response has incorrect format"
+    printf "\033[31m✗\033[0m %s\n" "Error response has incorrect format"
     echo "  Body: $body"
     FAILED=$((FAILED + 1))
 fi

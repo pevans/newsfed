@@ -13,10 +13,10 @@ echo ""
 echo "Test 1: GET /api/v1/meta/sources includes CORS headers"
 headers=$(curl -s -D - "$BASE_URL/sources" -o /dev/null)
 if echo "$headers" | grep -qi "Access-Control-Allow-Origin"; then
-    echo -e "\e[32m✓\e[0m Access-Control-Allow-Origin header present"
+    printf "\033[32m✓\033[0m %s\n" "Access-Control-Allow-Origin header present"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Access-Control-Allow-Origin header missing"
+    printf "\033[31m✗\033[0m %s\n" "Access-Control-Allow-Origin header missing"
     echo "  Headers: $headers"
     FAILED=$((FAILED + 1))
 fi
@@ -31,10 +31,10 @@ headers=$(curl -s -D - -X POST "$BASE_URL/sources" \
         "name": "CORS Test Feed"
     }' -o /dev/null)
 if echo "$headers" | grep -qi "Access-Control-Allow-Origin"; then
-    echo -e "\e[32m✓\e[0m Access-Control-Allow-Origin header present on POST"
+    printf "\033[32m✓\033[0m %s\n" "Access-Control-Allow-Origin header present on POST"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Access-Control-Allow-Origin header missing on POST"
+    printf "\033[31m✗\033[0m %s\n" "Access-Control-Allow-Origin header missing on POST"
     echo "  Headers: $headers"
     FAILED=$((FAILED + 1))
 fi
@@ -43,10 +43,10 @@ fi
 echo "Test 3: OPTIONS /api/v1/meta/sources (preflight request)"
 status=$(curl -s -o /dev/null -w "%{http_code}" -X OPTIONS "$BASE_URL/sources")
 if [ "$status" -eq 200 ] || [ "$status" -eq 204 ]; then
-    echo -e "\e[32m✓\e[0m OPTIONS request returns 200/204 OK"
+    printf "\033[32m✓\033[0m %s\n" "OPTIONS request returns 200/204 OK"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m OPTIONS request failed with status $status"
+    printf "\033[31m✗\033[0m %s\n" "OPTIONS request failed with status $status"
     FAILED=$((FAILED + 1))
 fi
 
@@ -66,10 +66,10 @@ if ! echo "$headers" | grep -qi "Access-Control-Allow-Headers"; then
 fi
 
 if [ ${#missing_headers[@]} -eq 0 ]; then
-    echo -e "\e[32m✓\e[0m All required CORS headers present in OPTIONS response"
+    printf "\033[32m✓\033[0m %s\n" "All required CORS headers present in OPTIONS response"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Missing CORS headers: ${missing_headers[*]}"
+    printf "\033[31m✗\033[0m %s\n" "Missing CORS headers: ${missing_headers[*]}"
     echo "  Headers: $headers"
     FAILED=$((FAILED + 1))
 fi
@@ -83,10 +83,10 @@ if echo "$methods_header" | grep -qi "GET" && \
    echo "$methods_header" | grep -qi "POST" && \
    echo "$methods_header" | grep -qi "PUT" && \
    echo "$methods_header" | grep -qi "DELETE"; then
-    echo -e "\e[32m✓\e[0m All HTTP methods (GET, POST, PUT, DELETE) included in Access-Control-Allow-Methods"
+    printf "\033[32m✓\033[0m %s\n" "All HTTP methods (GET, POST, PUT, DELETE) included in Access-Control-Allow-Methods"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Not all required methods present in Access-Control-Allow-Methods"
+    printf "\033[31m✗\033[0m %s\n" "Not all required methods present in Access-Control-Allow-Methods"
     echo "  Methods header: $methods_header"
     FAILED=$((FAILED + 1))
 fi
@@ -106,10 +106,10 @@ headers=$(curl -s -D - -X PUT "$BASE_URL/sources/$source_id" \
     -H "Content-Type: application/json" \
     -d '{"name": "Updated Name"}' -o /dev/null)
 if echo "$headers" | grep -qi "Access-Control-Allow-Origin"; then
-    echo -e "\e[32m✓\e[0m Access-Control-Allow-Origin header present on PUT"
+    printf "\033[32m✓\033[0m %s\n" "Access-Control-Allow-Origin header present on PUT"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Access-Control-Allow-Origin header missing on PUT"
+    printf "\033[31m✗\033[0m %s\n" "Access-Control-Allow-Origin header missing on PUT"
     echo "  Headers: $headers"
     FAILED=$((FAILED + 1))
 fi
@@ -118,10 +118,10 @@ fi
 echo "Test 7: DELETE /api/v1/meta/sources/{id} includes CORS headers"
 headers=$(curl -s -D - -X DELETE "$BASE_URL/sources/$source_id" -o /dev/null)
 if echo "$headers" | grep -qi "Access-Control-Allow-Origin"; then
-    echo -e "\e[32m✓\e[0m Access-Control-Allow-Origin header present on DELETE"
+    printf "\033[32m✓\033[0m %s\n" "Access-Control-Allow-Origin header present on DELETE"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Access-Control-Allow-Origin header missing on DELETE"
+    printf "\033[31m✗\033[0m %s\n" "Access-Control-Allow-Origin header missing on DELETE"
     echo "  Headers: $headers"
     FAILED=$((FAILED + 1))
 fi
@@ -130,10 +130,10 @@ fi
 echo "Test 8: GET /api/v1/meta/config includes CORS headers"
 headers=$(curl -s -D - "$BASE_URL/config" -o /dev/null)
 if echo "$headers" | grep -qi "Access-Control-Allow-Origin"; then
-    echo -e "\e[32m✓\e[0m Access-Control-Allow-Origin header present on config endpoint"
+    printf "\033[32m✓\033[0m %s\n" "Access-Control-Allow-Origin header present on config endpoint"
     PASSED=$((PASSED + 1))
 else
-    echo -e "\e[31m✗\e[0m Access-Control-Allow-Origin header missing on config endpoint"
+    printf "\033[31m✗\033[0m %s\n" "Access-Control-Allow-Origin header missing on config endpoint"
     echo "  Headers: $headers"
     FAILED=$((FAILED + 1))
 fi
