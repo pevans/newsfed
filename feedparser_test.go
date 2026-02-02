@@ -226,6 +226,18 @@ func TestFeedItemToNewsItem_DiscoveredAtSet(t *testing.T) {
 	assert.True(t, newsItem.DiscoveredAt.Before(after) || newsItem.DiscoveredAt.Equal(after))
 }
 
+// TestFeedItemToNewsItem_PinnedAtNil verifies pinned_at is nil on creation
+func TestFeedItemToNewsItem_PinnedAtNil(t *testing.T) {
+	item := &gofeed.Item{
+		Title: "Test",
+		Link:  "http://example.com",
+	}
+
+	newsItem := FeedItemToNewsItem(item, "Feed")
+
+	assert.Nil(t, newsItem.PinnedAt, "newly created items should not be pinned")
+}
+
 // TestFeedItemToNewsItem_GeneratesUUID verifies UUID is generated
 func TestFeedItemToNewsItem_GeneratesUUID(t *testing.T) {
 	item := &gofeed.Item{
