@@ -1,5 +1,7 @@
-# Justfile for newsfed
+# Run white box (unit) tests
+utest:
+    go test ./...
 
 # Run black box tests
-test:
+btest:
     ./tests/run-all.sh
