@@ -159,20 +159,38 @@ func TestFeedItemToNewsItem_PublishedDate(t *testing.T) {
 	assert.Equal(t, publishedTime, newsItem.PublishedAt)
 }
 
-// TestFeedItemToNewsItem_UpdatedDateFallback verifies fallback to updated
-// date
-func TestFeedItemToNewsItem_UpdatedDateFallback(t *testing.T) {
+// TestFeedItemToNewsItem_UpdatedDatePreferred verifies updated date takes
+// priority
+func TestFeedItemToNewsItem_UpdatedDatePreferred(t *testing.T) {
+	publishedTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
 	updatedTime := time.Date(2024, 1, 16, 12, 0, 0, 0, time.UTC)
 
 	item := &gofeed.Item{
-		Title:         "Test",
-		Link:          "http://example.com",
-		UpdatedParsed: &updatedTime,
+		Title:           "Test",
+		Link:            "http://example.com",
+		PublishedParsed: &publishedTime,
+		UpdatedParsed:   &updatedTime,
 	}
 
 	newsItem := FeedItemToNewsItem(item, "Feed")
 
-	assert.Equal(t, updatedTime, newsItem.PublishedAt, "should use updated date if published is missing")
+	assert.Equal(t, updatedTime, newsItem.PublishedAt, "should prefer updated date over published date")
+}
+
+// TestFeedItemToNewsItem_PublishedDateFallback verifies fallback to published
+// date
+func TestFeedItemToNewsItem_PublishedDateFallback(t *testing.T) {
+	publishedTime := time.Date(2024, 1, 15, 10, 0, 0, 0, time.UTC)
+
+	item := &gofeed.Item{
+		Title:           "Test",
+		Link:            "http://example.com",
+		PublishedParsed: &publishedTime,
+	}
+
+	newsItem := FeedItemToNewsItem(item, "Feed")
+
+	assert.Equal(t, publishedTime, newsItem.PublishedAt, "should use published date if updated is missing")
 }
 
 // TestFeedItemToNewsItem_NoDateFallback verifies current time fallback

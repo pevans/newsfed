@@ -49,17 +49,19 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
 	}
 
 	// Authors: from <author> (RSS/Atom) or <dc:creator> (Dublin Core
-	// extension) Atom feeds may have structured <author><name> elements
+	// extension). Atom feeds may have structured <author><name> elements.
 	authors := make([]string, 0)
 	if item.Author != nil && item.Author.Name != "" {
 		authors = append(authors, item.Author.Name)
 	}
+
 	// Also check for multiple authors in Authors field
 	for _, author := range item.Authors {
 		if author.Name != "" && !contains(authors, author.Name) {
 			authors = append(authors, author.Name)
 		}
 	}
+
 	// Check Dublin Core creator
 	if item.DublinCoreExt != nil {
 		for _, creator := range item.DublinCoreExt.Creator {
@@ -69,14 +71,15 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
 		}
 	}
 
-	// Published_at: from <pubDate> (RSS, RFC 822) or <published>/<updated>
-	// (Atom, ISO 8601) gofeed parses both formats into PublishedParsed and
-	// UpdatedParsed
+	// Published_at: from <updated> (most current) or <published> as fallback.
+	// gofeed parses both RSS <pubDate> and Atom <published>/<updated> into
+	// PublishedParsed and UpdatedParsed.
 	var publishedAt time.Time
-	if item.PublishedParsed != nil {
-		publishedAt = *item.PublishedParsed
-	} else if item.UpdatedParsed != nil {
+	if item.UpdatedParsed != nil {
+		// Prefer updated date as it's more current
 		publishedAt = *item.UpdatedParsed
+	} else if item.PublishedParsed != nil {
+		publishedAt = *item.PublishedParsed
 	} else {
 		// If no date available, use current time
 		publishedAt = time.Now()

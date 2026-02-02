@@ -33,7 +33,10 @@ A single news item consists of at least the following fields:
   publication.
 - `authors`, a list of strings that are authors of the news item. A single
   author is simply a person's name -- no other metadata is recorded.
-- `published_at`, a timestamp of when the news item was initially published.
+- `published_at`, a timestamp representing the most current date for the news
+  item. For items with both published and updated dates, this contains the
+  updated date (most recent). For items with only a published date, this
+  contains the initial publication date.
 - `discovered_at`, a timestamp of when the news item was recorded in a news
   feed.
 - `pinned_at`, a timestamp of when the news item was pinned by the feed user.

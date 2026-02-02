@@ -115,8 +115,9 @@ Atom entries are mapped to NewsItem fields as follows:
 - `publisher` -- From feed-level `<title>` or `<author><name>` element
 - `authors` -- From `<author><name>` element(s); Atom supports multiple author
   elements per entry
-- `published_at` -- From `<published>` element; if not present, use
-  `<updated>` element; parse as ISO 8601 date format
+- `published_at` -- From `<updated>` element (preferred as most current); if
+  not present, use `<published>` element as fallback; parse as ISO 8601 date
+  format
 - `discovered_at` -- Set to current time when ingesting
 - `pinned_at` -- Set to nil (not yet pinned)
 
