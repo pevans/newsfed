@@ -1,4 +1,4 @@
-package main
+package newsfed
 
 import (
 	"encoding/json"
@@ -408,7 +408,7 @@ func (s *APIServer) writeError(w http.ResponseWriter, statusCode int, code, mess
 }
 
 // corsMiddleware adds CORS headers to responses. Implements RFC 4 section 6.
-func (s *APIServer) corsMiddleware(next http.Handler) http.Handler {
+func (s *APIServer) CORSMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Set CORS headers per RFC 4 section 6.1
 		w.Header().Set("Access-Control-Allow-Origin", "*")
@@ -432,17 +432,17 @@ func (s *APIServer) Start(addr string) error {
 	mux := http.NewServeMux()
 
 	// Register routes - need both with and without trailing slash to avoid 301
-	mux.HandleFunc("/api/v1/items", s.routeItems)
-	mux.HandleFunc("/api/v1/items/", s.routeItems)
+	mux.HandleFunc("/api/v1/items", s.RouteItems)
+	mux.HandleFunc("/api/v1/items/", s.RouteItems)
 
 	// Wrap with CORS middleware per RFC 4 section 6
-	handler := s.corsMiddleware(mux)
+	handler := s.CORSMiddleware(mux)
 
 	return http.ListenAndServe(addr, handler)
 }
 
 // routeItems routes /api/v1/items/* requests to appropriate handlers.
-func (s *APIServer) routeItems(w http.ResponseWriter, r *http.Request) {
+func (s *APIServer) RouteItems(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 
 	// GET /api/v1/items - List items
@@ -473,4 +473,23 @@ func (s *APIServer) routeItems(w http.ResponseWriter, r *http.Request) {
 	} else {
 		s.writeError(w, http.StatusNotFound, "not_found", "Not found")
 	}
+}
+// CORSMiddleware is a standalone middleware for adding CORS headers.
+// Can be used by any HTTP handler.
+func CORSMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Set CORS headers
+		w.Header().Set("Access-Control-Allow-Origin", "*")
+		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		// Handle preflight requests
+		if r.Method == http.MethodOptions {
+			w.WriteHeader(http.StatusOK)
+			return
+		}
+
+		// Call the next handler
+		next.ServeHTTP(w, r)
+	})
 }

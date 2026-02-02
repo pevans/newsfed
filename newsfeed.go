@@ -1,4 +1,4 @@
-package main
+package newsfed
 
 import (
 	"encoding/json"

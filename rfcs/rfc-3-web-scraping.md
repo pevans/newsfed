@@ -22,8 +22,8 @@ aggregate content from any web publication.
 
 A web scraper source is identified by:
 
-- `source_id`, a unique identifier for the scraper source (UUID)
-- `source_type`, set to "scraper" to indicate web scraping
+- `source_id`, a unique identifier for the website source (UUID)
+- `source_type`, set to "website" to indicate web scraping ingestion
 - `url`, the base URL of the publication or a specific page to scrape
 - `name`, a human-readable name for the publication
 - `enabled`, a boolean indicating whether the scraper should be actively run

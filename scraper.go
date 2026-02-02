@@ -1,4 +1,4 @@
-package main
+package newsfed
 
 import (
 	"fmt"
@@ -16,7 +16,7 @@ import (
 // RFC 3 section 2.1.
 type ScraperSource struct {
 	SourceID      uuid.UUID      `json:"source_id"`
-	SourceType    string         `json:"source_type"` // Always "scraper"
+	SourceType    string         `json:"source_type"` // Always "website"
 	URL           string         `json:"url"`
 	Name          string         `json:"name"`
 	Enabled       bool           `json:"enabled"`
@@ -53,7 +53,7 @@ type ArticleConfig struct {
 func NewScraperSource(url, name string, config *ScraperConfig) *ScraperSource {
 	return &ScraperSource{
 		SourceID:      uuid.New(),
-		SourceType:    "scraper",
+		SourceType:    "website",
 		URL:           url,
 		Name:          name,
 		Enabled:       true,
