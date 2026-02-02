@@ -63,7 +63,7 @@ func (m *MetadataStore) initSchema() error {
 	CREATE TABLE IF NOT EXISTS sources (
 		source_id TEXT PRIMARY KEY,
 		source_type TEXT NOT NULL,
-		url TEXT NOT NULL,
+		url TEXT NOT NULL UNIQUE,
 		name TEXT NOT NULL,
 		enabled_at TEXT,
 		created_at TEXT NOT NULL,
@@ -81,9 +81,6 @@ func (m *MetadataStore) initSchema() error {
 		key TEXT PRIMARY KEY,
 		value TEXT NOT NULL
 	);
-
-	-- Create index on URL for duplicate detection
-	CREATE INDEX IF NOT EXISTS idx_sources_url ON sources(url);
 	`
 
 	_, err := m.db.Exec(schema)

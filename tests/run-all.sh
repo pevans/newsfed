@@ -4,22 +4,35 @@
 set -e
 
 BASE_URL="http://localhost:8080/api/v1"
-SERVER_PID=""
+NEWSFEED_PID=""
+METADATA_PID=""
 
-# Cleanup function to stop server on exit
+# Cleanup function to stop servers on exit
 cleanup() {
-    if [ -n "$SERVER_PID" ]; then
+    if [ -n "$NEWSFEED_PID" ]; then
         echo ""
-        echo "Stopping API server (PID: $SERVER_PID)..."
-        kill $SERVER_PID 2>/dev/null || true
-        wait $SERVER_PID 2>/dev/null || true
+        echo "Stopping newsfeed-api (PID: $NEWSFEED_PID)..."
+        kill $NEWSFEED_PID 2>/dev/null || true
+        wait $NEWSFEED_PID 2>/dev/null || true
     fi
 
-    # Also kill any server running on port 8080
-    local PORT_PID=$(lsof -ti:8080 2>/dev/null)
-    if [ -n "$PORT_PID" ]; then
-        echo "Stopping API server on port 8080 (PID: $PORT_PID)..."
-        kill $PORT_PID 2>/dev/null || true
+    if [ -n "$METADATA_PID" ]; then
+        echo "Stopping metadata-api (PID: $METADATA_PID)..."
+        kill $METADATA_PID 2>/dev/null || true
+        wait $METADATA_PID 2>/dev/null || true
+    fi
+
+    # Also kill any servers running on ports 8080 and 8081
+    local PORT_8080=$(lsof -ti:8080 2>/dev/null)
+    if [ -n "$PORT_8080" ]; then
+        echo "Stopping server on port 8080 (PID: $PORT_8080)..."
+        kill $PORT_8080 2>/dev/null || true
+    fi
+
+    local PORT_8081=$(lsof -ti:8081 2>/dev/null)
+    if [ -n "$PORT_8081" ]; then
+        echo "Stopping server on port 8081 (PID: $PORT_8081)..."
+        kill $PORT_8081 2>/dev/null || true
     fi
 }
 
@@ -30,24 +43,48 @@ echo "newsfed Test Suite"
 echo "=================="
 echo ""
 
-# Check if server is already running
+# Check if newsfeed-api is already running
 if curl -s -f "$BASE_URL/items" > /dev/null 2>&1; then
-    echo "✓ API server already running at $BASE_URL"
+    echo "✓ newsfeed-api already running at $BASE_URL"
 else
-    # Start the API server
-    echo "Starting API server..."
-    go run . > /dev/null 2>&1 &
-    SERVER_PID=$!
+    # Start the newsfeed-api server
+    echo "Starting newsfeed-api..."
+    go run ./cmd/newsfeed-api > /dev/null 2>&1 &
+    NEWSFEED_PID=$!
 
     # Wait for server to be ready (max 10 seconds)
-    echo "Waiting for server to be ready..."
+    echo "Waiting for newsfeed-api to be ready..."
     for i in {1..20}; do
         if curl -s -f "$BASE_URL/items" > /dev/null 2>&1; then
-            echo "✓ API server started (PID: $SERVER_PID)"
+            echo "✓ newsfeed-api started (PID: $NEWSFEED_PID)"
             break
         fi
         if [ $i -eq 20 ]; then
-            echo "Error: Server failed to start after 10 seconds"
+            echo "Error: newsfeed-api failed to start after 10 seconds"
+            exit 1
+        fi
+        sleep 0.5
+    done
+fi
+
+# Check if metadata-api is already running
+if curl -s -f "http://localhost:8081/api/v1/meta/sources" > /dev/null 2>&1; then
+    echo "✓ metadata-api already running at http://localhost:8081"
+else
+    # Start the metadata-api server
+    echo "Starting metadata-api..."
+    go run ./cmd/metadata-api > /dev/null 2>&1 &
+    METADATA_PID=$!
+
+    # Wait for server to be ready (max 10 seconds)
+    echo "Waiting for metadata-api to be ready..."
+    for i in {1..20}; do
+        if curl -s -f "http://localhost:8081/api/v1/meta/sources" > /dev/null 2>&1; then
+            echo "✓ metadata-api started (PID: $METADATA_PID)"
+            break
+        fi
+        if [ $i -eq 20 ]; then
+            echo "Error: metadata-api failed to start after 10 seconds"
             exit 1
         fi
         sleep 0.5
