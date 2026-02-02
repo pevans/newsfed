@@ -3,6 +3,7 @@ package newsfed
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -41,8 +42,8 @@ type CreateSourceRequest struct {
 	EnabledAt       *time.Time     `json:"enabled_at,omitempty"`
 }
 
-// UpdateSourceRequest represents the request for PUT /api/v1/meta/sources/{id}.
-// Implements RFC 6 section 3.4.
+// UpdateSourceRequest represents the request for PUT
+// /api/v1/meta/sources/{id}. Implements RFC 6 section 3.4.
 type UpdateSourceRequest struct {
 	Name            *string        `json:"name,omitempty"`
 	URL             *string        `json:"url,omitempty"`
@@ -51,7 +52,8 @@ type UpdateSourceRequest struct {
 	ScraperConfig   *ScraperConfig `json:"scraper_config,omitempty"`
 }
 
-// HandleListSources handles GET /api/v1/meta/sources. Implements RFC 6 section 3.1.
+// HandleListSources handles GET /api/v1/meta/sources. Implements RFC 6
+// section 3.1.
 func (s *MetadataAPIServer) HandleListSources(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
@@ -94,7 +96,8 @@ func (s *MetadataAPIServer) HandleListSources(w http.ResponseWriter, r *http.Req
 	writeJSON(w, http.StatusOK, response)
 }
 
-// HandleGetSource handles GET /api/v1/meta/sources/{id}. Implements RFC 6 section 3.2.
+// HandleGetSource handles GET /api/v1/meta/sources/{id}. Implements RFC 6
+// section 3.2.
 func (s *MetadataAPIServer) HandleGetSource(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
@@ -121,15 +124,31 @@ func (s *MetadataAPIServer) HandleGetSource(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, source)
 }
 
-// HandleCreateSource handles POST /api/v1/meta/sources. Implements RFC 6 section 3.3.
+// HandleCreateSource handles POST /api/v1/meta/sources. Implements RFC 6
+// section 3.3.
 func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
 		return
 	}
 
+	// Read body once to check for explicit null values
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Failed to read request body")
+		return
+	}
+
+	// Check if enabled_at was explicitly provided
+	var rawBody map[string]any
+	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+		return
+	}
+
+	// Now unmarshal into typed struct
 	var req CreateSourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
 		return
 	}
@@ -152,11 +171,38 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 		return
 	}
 
+	// Validate polling_interval if provided
+	if req.PollingInterval != nil {
+		if _, err := time.ParseDuration(*req.PollingInterval); err != nil {
+			writeError(w, http.StatusBadRequest, "validation_error", "Invalid polling_interval: must be a valid duration (e.g., 1h, 30m)")
+			return
+		}
+	}
+
+	// Determine enabled_at value
+	var enabledAt *time.Time
+	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
+		// Field was explicitly provided (could be null or a time value) If
+		// it's null, req.EnabledAt will be nil If it's a time value,
+		// req.EnabledAt will be that value We need to pass a special marker
+		// for "explicitly null" Use a zero time as marker for disabled
+		if req.EnabledAt == nil {
+			// Explicitly null - create disabled source
+			enabledAt = nil
+		} else {
+			enabledAt = req.EnabledAt
+		}
+	} else {
+		// Field not provided - default to enabled (now)
+		now := time.Now()
+		enabledAt = &now
+	}
+
 	// Create source
-	source, err := s.store.CreateSource(req.SourceType, req.URL, req.Name, req.ScraperConfig)
+	source, err := s.store.CreateSource(req.SourceType, req.URL, req.Name, req.ScraperConfig, enabledAt)
 	if err != nil {
-		// Check for duplicate URL
-		if err.Error() == "UNIQUE constraint failed: sources.url" {
+		// Check for duplicate URL (SQLite can return various formats)
+		if strings.Contains(err.Error(), "UNIQUE constraint") || strings.Contains(err.Error(), "unique constraint") {
 			writeError(w, http.StatusConflict, "conflict", "Source with this URL already exists")
 			return
 		}
@@ -164,18 +210,9 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Override enabled_at if provided
-	if req.EnabledAt != nil {
-		updates := map[string]interface{}{
-			"enabled_at": req.EnabledAt,
-		}
-		s.store.UpdateSource(source.SourceID, updates)
-		source.EnabledAt = req.EnabledAt
-	}
-
 	// Set polling_interval if provided
 	if req.PollingInterval != nil {
-		updates := map[string]interface{}{
+		updates := map[string]any{
 			"polling_interval": *req.PollingInterval,
 		}
 		s.store.UpdateSource(source.SourceID, updates)
@@ -185,7 +222,8 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusCreated, source)
 }
 
-// HandleUpdateSource handles PUT /api/v1/meta/sources/{id}. Implements RFC 6 section 3.4.
+// HandleUpdateSource handles PUT /api/v1/meta/sources/{id}. Implements RFC 6
+// section 3.4.
 func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
@@ -199,21 +237,46 @@ func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	var req UpdateSourceRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
+	// Read body to check for explicit null values
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Failed to read request body")
+		return
+	}
+
+	// Check which fields were provided
+	var rawBody map[string]any
+	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
 		return
 	}
 
+	// Unmarshal into typed struct
+	var req UpdateSourceRequest
+	if err := json.Unmarshal(bodyBytes, &req); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+		return
+	}
+
+	// Validate polling_interval if provided
+	if req.PollingInterval != nil {
+		if _, err := time.ParseDuration(*req.PollingInterval); err != nil {
+			writeError(w, http.StatusBadRequest, "validation_error", "Invalid polling_interval: must be a valid duration (e.g., 1h, 30m)")
+			return
+		}
+	}
+
 	// Build updates map
-	updates := make(map[string]interface{})
+	updates := make(map[string]any)
 	if req.Name != nil {
 		updates["name"] = *req.Name
 	}
 	if req.URL != nil {
 		updates["url"] = *req.URL
 	}
-	if req.EnabledAt != nil {
+	// Handle enabled_at - check if field was explicitly provided
+	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
+		// Field was provided (could be null or a value)
 		updates["enabled_at"] = req.EnabledAt
 	}
 	if req.PollingInterval != nil {
@@ -244,7 +307,8 @@ func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Re
 	writeJSON(w, http.StatusOK, source)
 }
 
-// HandleDeleteSource handles DELETE /api/v1/meta/sources/{id}. Implements RFC 6 section 3.5.
+// HandleDeleteSource handles DELETE /api/v1/meta/sources/{id}. Implements RFC
+// 6 section 3.5.
 func (s *MetadataAPIServer) HandleDeleteSource(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodDelete {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
@@ -271,7 +335,8 @@ func (s *MetadataAPIServer) HandleDeleteSource(w http.ResponseWriter, r *http.Re
 	w.WriteHeader(http.StatusNoContent)
 }
 
-// HandleGetConfig handles GET /api/v1/meta/config. Implements RFC 6 section 3.6.
+// HandleGetConfig handles GET /api/v1/meta/config. Implements RFC 6 section
+// 3.6.
 func (s *MetadataAPIServer) HandleGetConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
@@ -287,30 +352,66 @@ func (s *MetadataAPIServer) HandleGetConfig(w http.ResponseWriter, r *http.Reque
 	writeJSON(w, http.StatusOK, config)
 }
 
-// HandleUpdateConfig handles PUT /api/v1/meta/config. Implements RFC 6 section 3.7.
+// HandleUpdateConfig handles PUT /api/v1/meta/config. Implements RFC 6
+// section 3.7.
 func (s *MetadataAPIServer) HandleUpdateConfig(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPut {
 		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
 		return
 	}
 
-	var config Config
-	if err := json.NewDecoder(r.Body).Decode(&config); err != nil {
+	// Read body to check what fields are provided
+	bodyBytes, err := io.ReadAll(r.Body)
+	if err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Failed to read request body")
+		return
+	}
+
+	// Parse as map to check which fields are present
+	var rawBody map[string]any
+	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
 		return
 	}
 
-	err := s.store.UpdateConfig(&config)
+	// If no fields provided, return current config unchanged
+	if len(rawBody) == 0 {
+		config, err := s.store.GetConfig()
+		if err != nil {
+			writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve configuration")
+			return
+		}
+		writeJSON(w, http.StatusOK, config)
+		return
+	}
+
+	// Unmarshal into typed struct
+	var updates Config
+	if err := json.Unmarshal(bodyBytes, &updates); err != nil {
+		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+		return
+	}
+
+	// Validate default_polling_interval if provided
+	if pollingInterval, ok := rawBody["default_polling_interval"].(string); ok {
+		if _, err := time.ParseDuration(pollingInterval); err != nil {
+			writeError(w, http.StatusBadRequest, "validation_error", "Invalid default_polling_interval: must be a valid duration (e.g., 1h, 30m)")
+			return
+		}
+	}
+
+	// Update config
+	err = s.store.UpdateConfig(&updates)
 	if err != nil {
 		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to update configuration")
 		return
 	}
 
-	writeJSON(w, http.StatusOK, config)
+	writeJSON(w, http.StatusOK, updates)
 }
 
-// extractSourceID extracts the source ID from the URL path.
-// Path format: /api/v1/meta/sources/{source_id}
+// extractSourceID extracts the source ID from the URL path. Path format:
+// /api/v1/meta/sources/{source_id}
 func extractSourceID(path string) (uuid.UUID, error) {
 	// Split path and get last segment
 	parts := splitPath(path)
@@ -322,7 +423,8 @@ func extractSourceID(path string) (uuid.UUID, error) {
 	return uuid.Parse(sourceIDStr)
 }
 
-// routeSources routes /api/v1/meta/sources/* requests to appropriate handlers.
+// routeSources routes /api/v1/meta/sources/* requests to appropriate
+// handlers.
 func (s *MetadataAPIServer) RouteSources(w http.ResponseWriter, r *http.Request) {
 	path := r.URL.Path
 

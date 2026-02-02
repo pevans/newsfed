@@ -11,28 +11,29 @@ import (
 	_ "github.com/mattn/go-sqlite3"
 )
 
-// MetadataStore manages source configurations and user preferences using SQLite.
-// Implements RFC 5.
+// MetadataStore manages source configurations and user preferences using
+// SQLite. Implements RFC 5.
 type MetadataStore struct {
 	db *sql.DB
 }
 
-// Source represents a news source configuration. Implements RFC 5 section 2.1.
+// Source represents a news source configuration. Implements RFC 5 section
+// 2.1.
 type Source struct {
-	SourceID         uuid.UUID       `json:"source_id"`
-	SourceType       string          `json:"source_type"` // "rss", "atom", "website"
-	URL              string          `json:"url"`
-	Name             string          `json:"name"`
-	EnabledAt        *time.Time      `json:"enabled_at,omitempty"`
-	CreatedAt        time.Time       `json:"created_at"`
-	UpdatedAt        time.Time       `json:"updated_at"`
-	PollingInterval  *string         `json:"polling_interval,omitempty"`
-	LastFetchedAt    *time.Time      `json:"last_fetched_at,omitempty"`
-	LastModified     *string         `json:"last_modified,omitempty"`
-	ETag             *string         `json:"etag,omitempty"`
-	FetchErrorCount  int             `json:"fetch_error_count"`
-	LastError        *string         `json:"last_error,omitempty"`
-	ScraperConfig    *ScraperConfig  `json:"scraper_config,omitempty"`
+	SourceID        uuid.UUID      `json:"source_id"`
+	SourceType      string         `json:"source_type"` // "rss", "atom", "website"
+	URL             string         `json:"url"`
+	Name            string         `json:"name"`
+	EnabledAt       *time.Time     `json:"enabled_at,omitempty"`
+	CreatedAt       time.Time      `json:"created_at"`
+	UpdatedAt       time.Time      `json:"updated_at"`
+	PollingInterval *string        `json:"polling_interval,omitempty"`
+	LastFetchedAt   *time.Time     `json:"last_fetched_at,omitempty"`
+	LastModified    *string        `json:"last_modified,omitempty"`
+	ETag            *string        `json:"etag,omitempty"`
+	FetchErrorCount int            `json:"fetch_error_count"`
+	LastError       *string        `json:"last_error,omitempty"`
+	ScraperConfig   *ScraperConfig `json:"scraper_config,omitempty"`
 }
 
 // Config represents user configuration. Implements RFC 5 section 2.4.
@@ -56,8 +57,8 @@ func NewMetadataStore(dbPath string) (*MetadataStore, error) {
 	return store, nil
 }
 
-// initSchema creates the database tables if they don't exist.
-// Implements RFC 5 section 3.1.1.
+// initSchema creates the database tables if they don't exist. Implements RFC
+// 5 section 3.1.1.
 func (m *MetadataStore) initSchema() error {
 	schema := `
 	CREATE TABLE IF NOT EXISTS sources (
@@ -93,14 +94,19 @@ func (m *MetadataStore) Close() error {
 }
 
 // CreateSource creates a new source. Implements RFC 5 section 4.1.1.
-func (m *MetadataStore) CreateSource(sourceType, url, name string, config *ScraperConfig) (*Source, error) {
+func (m *MetadataStore) CreateSource(
+	sourceType, url, name string,
+	config *ScraperConfig,
+	enabledAt *time.Time,
+) (*Source, error) {
 	now := time.Now()
+
 	source := &Source{
 		SourceID:        uuid.New(),
 		SourceType:      sourceType,
 		URL:             url,
 		Name:            name,
-		EnabledAt:       &now,
+		EnabledAt:       enabledAt, // Use as-is (nil means disabled, &time means enabled at that time)
 		CreatedAt:       now,
 		UpdatedAt:       now,
 		FetchErrorCount: 0,
@@ -135,7 +141,6 @@ func (m *MetadataStore) CreateSource(sourceType, url, name string, config *Scrap
 		formatTime(&source.UpdatedAt),
 		scraperConfigJSON,
 	)
-
 	if err != nil {
 		return nil, fmt.Errorf("failed to insert source: %w", err)
 	}
@@ -154,8 +159,8 @@ func (m *MetadataStore) GetSource(sourceID uuid.UUID) (*Source, error) {
 	`
 
 	var source Source
-	var sourceIDStr, enabledAtStr, createdAtStr, updatedAtStr string
-	var pollingInterval, lastFetchedAtStr, lastModified, etag, lastError, scraperConfigJSON sql.NullString
+	var sourceIDStr, createdAtStr, updatedAtStr string
+	var enabledAtStr, pollingInterval, lastFetchedAtStr, lastModified, etag, lastError, scraperConfigJSON sql.NullString
 
 	err := m.db.QueryRow(query, sourceID.String()).Scan(
 		&sourceIDStr, &source.SourceType, &source.URL, &source.Name,
@@ -175,8 +180,8 @@ func (m *MetadataStore) GetSource(sourceID uuid.UUID) (*Source, error) {
 	source.SourceID = sourceID
 	source.CreatedAt = parseTime(createdAtStr)
 	source.UpdatedAt = parseTime(updatedAtStr)
-	if enabledAtStr != "" {
-		t := parseTime(enabledAtStr)
+	if enabledAtStr.Valid {
+		t := parseTime(enabledAtStr.String)
 		source.EnabledAt = &t
 	}
 	if lastFetchedAtStr.Valid {
@@ -229,8 +234,8 @@ func (m *MetadataStore) ListSources() ([]Source, error) {
 	var sources []Source
 	for rows.Next() {
 		var source Source
-		var sourceIDStr, enabledAtStr, createdAtStr, updatedAtStr string
-		var pollingInterval, lastFetchedAtStr, lastModified, etag, lastError, scraperConfigJSON sql.NullString
+		var sourceIDStr, createdAtStr, updatedAtStr string
+		var enabledAtStr, pollingInterval, lastFetchedAtStr, lastModified, etag, lastError, scraperConfigJSON sql.NullString
 
 		err := rows.Scan(
 			&sourceIDStr, &source.SourceType, &source.URL, &source.Name,
@@ -246,8 +251,8 @@ func (m *MetadataStore) ListSources() ([]Source, error) {
 		source.SourceID, _ = uuid.Parse(sourceIDStr)
 		source.CreatedAt = parseTime(createdAtStr)
 		source.UpdatedAt = parseTime(updatedAtStr)
-		if enabledAtStr != "" {
-			t := parseTime(enabledAtStr)
+		if enabledAtStr.Valid {
+			t := parseTime(enabledAtStr.String)
 			source.EnabledAt = &t
 		}
 		if lastFetchedAtStr.Valid {
