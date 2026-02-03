@@ -177,15 +177,16 @@ Permanent errors (invalid feed format, 404 Not Found) should:
 
 - Increment `fetch_error_count`
 - Record error in `last_error`
-- Continue polling (admin may fix source configuration)
+- Disable the source (set `enabled = false`)
 - Log error for monitoring
+- Admin can re-enable sources via metadata API (RFC 6)
 
 ## 7.3. Error Thresholds
 
-Sources with excessive consecutive failures:
+Sources with excessive consecutive transient failures:
 
-- After 10 consecutive failures, log a warning
-- After 50 consecutive failures, consider automatically disabling source
+- After 10 consecutive failures, automatically disable the source
+- Log error and send notification when source is auto-disabled
 - Admin can re-enable sources via metadata API (RFC 6)
 
 ## 7.4. Validation Errors
@@ -258,7 +259,7 @@ NEWSFED_FEED_DSN             Connection string/DSN for feed storage (required)
 NEWSFED_POLL_INTERVAL        Global polling interval (default: "1h")
 NEWSFED_CONCURRENCY          Max parallel source fetches (default: 5)
 NEWSFED_FETCH_TIMEOUT        Timeout per source fetch (default: "60s")
-NEWSFED_DISABLE_THRESHOLD    Auto-disable after N failures (default: 50)
+NEWSFED_DISABLE_THRESHOLD    Auto-disable after N failures (default: 10)
 ```
 
 ### 9.1.3. Implementation Notes
