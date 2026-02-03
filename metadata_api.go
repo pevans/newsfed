@@ -506,7 +506,7 @@ func writeError(w http.ResponseWriter, status int, code, message string) {
 
 func splitPath(path string) []string {
 	var parts []string
-	for _, part := range strings.Split(path, "/") {
+	for part := range strings.SplitSeq(path, "/") {
 		if part != "" {
 			parts = append(parts, part)
 		}
