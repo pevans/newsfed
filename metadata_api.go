@@ -39,7 +39,7 @@ type CreateSourceRequest struct {
 	Name            string         `json:"name"`
 	PollingInterval *string        `json:"polling_interval,omitempty"`
 	ScraperConfig   *ScraperConfig `json:"scraper_config,omitempty"`
-	EnabledAt       *time.Time     `json:"enabled_at,omitempty"`
+	Enabled         *bool          `json:"enabled,omitempty"` // Default: true
 }
 
 // UpdateSourceRequest represents the request for PUT
@@ -47,7 +47,7 @@ type CreateSourceRequest struct {
 type UpdateSourceRequest struct {
 	Name            *string        `json:"name,omitempty"`
 	URL             *string        `json:"url,omitempty"`
-	EnabledAt       *time.Time     `json:"enabled_at,omitempty"`
+	Enabled         *bool          `json:"enabled,omitempty"`
 	PollingInterval *string        `json:"polling_interval,omitempty"`
 	ScraperConfig   *ScraperConfig `json:"scraper_config,omitempty"`
 }
@@ -179,23 +179,19 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 		}
 	}
 
-	// Determine enabled_at value
+	// Determine enabled_at value from boolean enabled field
 	var enabledAt *time.Time
-	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
-		// Field was explicitly provided (could be null or a time value) If
-		// it's null, req.EnabledAt will be nil If it's a time value,
-		// req.EnabledAt will be that value We need to pass a special marker
-		// for "explicitly null" Use a zero time as marker for disabled
-		if req.EnabledAt == nil {
-			// Explicitly null - create disabled source
-			enabledAt = nil
-		} else {
-			enabledAt = req.EnabledAt
-		}
-	} else {
-		// Field not provided - default to enabled (now)
+	if req.Enabled == nil {
+		// Field not provided - default to enabled
 		now := time.Now()
 		enabledAt = &now
+	} else if *req.Enabled {
+		// Explicitly enabled - set to current time
+		now := time.Now()
+		enabledAt = &now
+	} else {
+		// Explicitly disabled - set to nil
+		enabledAt = nil
 	}
 
 	// Create source
@@ -274,10 +270,17 @@ func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Re
 	if req.URL != nil {
 		updates["url"] = *req.URL
 	}
-	// Handle enabled_at - check if field was explicitly provided
-	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
-		// Field was provided (could be null or a value)
-		updates["enabled_at"] = req.EnabledAt
+	// Handle enabled - convert boolean to enabled_at timestamp
+	if req.Enabled != nil {
+		if *req.Enabled {
+			// Enable - set to current time
+			now := time.Now()
+			updates["enabled_at"] = &now
+		} else {
+			// Disable - set to nil
+			var nilTime *time.Time
+			updates["enabled_at"] = nilTime
+		}
 	}
 	if req.PollingInterval != nil {
 		updates["polling_interval"] = *req.PollingInterval

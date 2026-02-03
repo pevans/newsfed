@@ -181,9 +181,9 @@ Creates a new news source.
   system default.
 - `scraper_config`: Required for website sources, must conform to RFC 3
   section 2.2
-- `enabled_at`: Timestamp when source should be enabled. Defaults to current
-  time (source is enabled by default). Set to null to create a disabled
-  source.
+- `enabled`: Boolean indicating whether source is enabled. Defaults to `true`
+  (source is enabled by default). Set to `false` to create a disabled source.
+  Internally stored as `enabled_at` timestamp.
 
 **Response**: `201 Created`
 
@@ -238,9 +238,10 @@ Updates an existing source. Only provided fields are updated.
 
 **Notes**:
 
-- Setting `enabled_at` to null disables the source
-- Setting `enabled_at` to a timestamp enables the source (typically set to
-  current time)
+- Setting `enabled` to `false` disables the source (sets `enabled_at` to null
+  internally)
+- Setting `enabled` to `true` enables the source (sets `enabled_at` to current
+  time internally)
 - `source_type` cannot be changed after creation
 - `scraper_config` can only be set for website sources
 - Operational metadata (last_fetched_at, etag, etc.) cannot be updated through
@@ -526,11 +527,11 @@ curl -X POST http://localhost:8080/api/v1/meta/sources \
 ## 9.2. Disabling a Source
 
 ```bash
-# Disable by setting enabled_at to null
+# Disable by setting enabled to false
 curl -X PUT http://localhost:8080/api/v1/meta/sources/{source_id} \
   -H "Content-Type: application/json" \
   -d '{
-    "enabled_at": null
+    "enabled": false
   }'
 ```
 

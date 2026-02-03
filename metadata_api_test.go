@@ -282,8 +282,8 @@ func TestHandleCreateSource_Success(t *testing.T) {
 func TestHandleCreateSource_ExplicitlyDisabled(t *testing.T) {
 	server, _ := setupTestServer(t)
 
-	// Use raw JSON to send explicit null
-	bodyJSON := `{"source_type":"rss","url":"http://example.com/feed","name":"Test Feed","enabled_at":null}`
+	// Use enabled: false to create disabled source
+	bodyJSON := `{"source_type":"rss","url":"http://example.com/feed","name":"Test Feed","enabled":false}`
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/meta/sources", strings.NewReader(bodyJSON))
 	w := httptest.NewRecorder()
@@ -441,8 +441,8 @@ func TestHandleUpdateSource_DisableSource(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
 	require.NoError(t, err)
 
-	// Use raw JSON to send explicit null
-	bodyJSON := `{"enabled_at":null}`
+	// Use enabled: false to disable source
+	bodyJSON := `{"enabled":false}`
 
 	req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/meta/sources/%s", source.SourceID), strings.NewReader(bodyJSON))
 	w := httptest.NewRecorder()
