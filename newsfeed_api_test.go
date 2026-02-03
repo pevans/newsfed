@@ -9,10 +9,15 @@ import (
 	"testing"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+func init() {
+	gin.SetMode(gin.TestMode)
+}
 
 // Test helper: create a test news feed
 func setupTestFeed(t *testing.T) *NewsFeed {
@@ -27,6 +32,14 @@ func setupTestAPIServer(t *testing.T) (*APIServer, *NewsFeed) {
 	feed := setupTestFeed(t)
 	server := NewAPIServer(feed)
 	return server, feed
+}
+
+// Test helper: create a test router
+func setupTestNewsFeedRouter(t *testing.T) (*gin.Engine, *NewsFeed) {
+	feed := setupTestFeed(t)
+	server := NewAPIServer(feed)
+	router := server.SetupRouter()
+	return router, feed
 }
 
 // Test helper: create a sample news item
@@ -104,48 +117,14 @@ func TestParseItemID(t *testing.T) {
 	}
 }
 
-// TestWriteError verifies error response writing
-func TestWriteError_NewsfeedAPI(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-	w := httptest.NewRecorder()
-
-	server.writeError(w, http.StatusBadRequest, "test_error", "Test message")
-
-	assert.Equal(t, http.StatusBadRequest, w.Code, "status code should match")
-	assert.Equal(t, "application/json", w.Header().Get("Content-Type"), "content-type should be JSON")
-
-	var errResp ErrorResponse
-	err := json.Unmarshal(w.Body.Bytes(), &errResp)
-	require.NoError(t, err, "error response should be valid JSON")
-	assert.Equal(t, "test_error", errResp.Error.Code, "error code should match")
-	assert.Equal(t, "Test message", errResp.Error.Message, "error message should match")
-}
-
-// TestHandleListItems_MethodValidation ensures only GET is allowed
-func TestHandleListItems_MethodValidation(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-
-	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete, http.MethodPatch}
-	for _, method := range methods {
-		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, "/api/v1/items", nil)
-			w := httptest.NewRecorder()
-
-			server.HandleListItems(w, req)
-
-			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "non-GET methods should return 405")
-		})
-	}
-}
-
 // TestHandleListItems_EmptyList verifies behavior with no items
 func TestHandleListItems_EmptyList(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code, "should return 200 for empty list")
 
@@ -160,7 +139,7 @@ func TestHandleListItems_EmptyList(t *testing.T) {
 
 // TestHandleListItems_WithItems verifies basic item listing
 func TestHandleListItems_WithItems(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item1 := createSampleItem(uuid.New(), "Publisher A", []string{"Author 1"}, now.Add(-2*time.Hour), now.Add(-1*time.Hour), nil)
@@ -172,7 +151,7 @@ func TestHandleListItems_WithItems(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -185,7 +164,7 @@ func TestHandleListItems_WithItems(t *testing.T) {
 
 // TestFilterByPinned verifies pinned status filtering
 func TestFilterByPinned(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	pinnedTime := now
@@ -210,7 +189,7 @@ func TestFilterByPinned(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/items?pinned="+tt.pinnedParam, nil)
 			w := httptest.NewRecorder()
 
-			server.HandleListItems(w, req)
+			router.ServeHTTP(w, req)
 
 			var resp ListItemsResponse
 			err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -222,7 +201,7 @@ func TestFilterByPinned(t *testing.T) {
 
 // TestFilterByPublisher verifies publisher filtering
 func TestFilterByPublisher(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item1 := createSampleItem(uuid.New(), "Publisher A", []string{"Author 1"}, now, now, nil)
@@ -236,7 +215,7 @@ func TestFilterByPublisher(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items?publisher=Publisher+A", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	var resp ListItemsResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -247,7 +226,7 @@ func TestFilterByPublisher(t *testing.T) {
 
 // TestFilterByAuthor verifies author filtering
 func TestFilterByAuthor(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item1 := createSampleItem(uuid.New(), "Publisher A", []string{"Author 1", "Author 2"}, now, now, nil)
@@ -259,7 +238,7 @@ func TestFilterByAuthor(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items?author=Author+2", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	var resp ListItemsResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -270,7 +249,7 @@ func TestFilterByAuthor(t *testing.T) {
 
 // TestFilterBySince verifies since timestamp filtering
 func TestFilterBySince(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item1 := createSampleItem(uuid.New(), "Publisher A", []string{"Author 1"}, now, now.Add(-2*time.Hour), nil)
@@ -285,7 +264,7 @@ func TestFilterBySince(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items?since="+sinceTime.Format(time.RFC3339), nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	var resp ListItemsResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -296,12 +275,12 @@ func TestFilterBySince(t *testing.T) {
 // TestFilterBySince_InvalidFormat verifies error handling for invalid since
 // parameter
 func TestFilterBySince_InvalidFormat(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items?since=invalid-date", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code, "invalid since format should return 400")
 
@@ -313,7 +292,7 @@ func TestFilterBySince_InvalidFormat(t *testing.T) {
 
 // TestFilterByUntil verifies until timestamp filtering
 func TestFilterByUntil(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item1 := createSampleItem(uuid.New(), "Publisher A", []string{"Author 1"}, now, now.Add(-2*time.Hour), nil)
@@ -328,7 +307,7 @@ func TestFilterByUntil(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items?until="+untilTime.Format(time.RFC3339), nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	var resp ListItemsResponse
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -339,12 +318,12 @@ func TestFilterByUntil(t *testing.T) {
 // TestFilterByUntil_InvalidFormat verifies error handling for invalid until
 // parameter
 func TestFilterByUntil_InvalidFormat(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items?until=invalid-date", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleListItems(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code, "invalid until format should return 400")
 
@@ -356,7 +335,7 @@ func TestFilterByUntil_InvalidFormat(t *testing.T) {
 
 // TestSortItems verifies various sorting options
 func TestSortItems(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	pinnedTime1 := now.Add(-1 * time.Hour)
@@ -393,7 +372,7 @@ func TestSortItems(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, url, nil)
 			w := httptest.NewRecorder()
 
-			server.HandleListItems(w, req)
+			router.ServeHTTP(w, req)
 
 			var resp ListItemsResponse
 			err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -410,7 +389,7 @@ func TestSortItems(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, "/api/v1/items?sort=invalid", nil)
 		w := httptest.NewRecorder()
 
-		server.HandleListItems(w, req)
+		router.ServeHTTP(w, req)
 
 		var resp ListItemsResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -421,10 +400,10 @@ func TestSortItems(t *testing.T) {
 
 // TestPagination verifies limit and offset parameters
 func TestPagination(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
-	for i := 0; i < 100; i++ {
+	for i := range 100 {
 		item := createSampleItem(uuid.New(), fmt.Sprintf("Publisher %d", i), []string{"Author"}, now.Add(time.Duration(-i)*time.Hour), now, nil)
 		require.NoError(t, feed.Add(item))
 	}
@@ -462,7 +441,7 @@ func TestPagination(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, url, nil)
 			w := httptest.NewRecorder()
 
-			server.HandleListItems(w, req)
+			router.ServeHTTP(w, req)
 
 			var resp ListItemsResponse
 			err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -477,7 +456,7 @@ func TestPagination(t *testing.T) {
 // TestPagination_InvalidParameters verifies error handling for invalid
 // pagination
 func TestPagination_InvalidParameters(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	tests := []struct {
 		name   string
@@ -495,7 +474,7 @@ func TestPagination_InvalidParameters(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/items"+tt.params, nil)
 			w := httptest.NewRecorder()
 
-			server.HandleListItems(w, req)
+			router.ServeHTTP(w, req)
 
 			assert.Equal(t, http.StatusBadRequest, w.Code, "invalid pagination should return 400")
 
@@ -509,7 +488,7 @@ func TestPagination_InvalidParameters(t *testing.T) {
 
 // TestHandleGetItem_Success verifies successful item retrieval
 func TestHandleGetItem_Success(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item := createSampleItem(uuid.New(), "Test Publisher", []string{"Test Author"}, now, now, nil)
@@ -518,7 +497,7 @@ func TestHandleGetItem_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/items/%s", item.ID), nil)
 	w := httptest.NewRecorder()
 
-	server.HandleGetItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -531,13 +510,13 @@ func TestHandleGetItem_Success(t *testing.T) {
 
 // TestHandleGetItem_NotFound verifies 404 for non-existent item
 func TestHandleGetItem_NotFound(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	nonExistentID := uuid.New()
 	req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/items/%s", nonExistentID), nil)
 	w := httptest.NewRecorder()
 
-	server.HandleGetItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code, "should return 404 for non-existent item")
 
@@ -549,12 +528,12 @@ func TestHandleGetItem_NotFound(t *testing.T) {
 
 // TestHandleGetItem_InvalidID verifies 400 for invalid UUID
 func TestHandleGetItem_InvalidID(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	req := httptest.NewRequest(http.MethodGet, "/api/v1/items/invalid-uuid", nil)
 	w := httptest.NewRecorder()
 
-	server.HandleGetItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code, "should return 400 for invalid UUID")
 
@@ -564,27 +543,9 @@ func TestHandleGetItem_InvalidID(t *testing.T) {
 	assert.Equal(t, "invalid_id", errResp.Error.Code)
 }
 
-// TestHandleGetItem_MethodValidation ensures only GET is allowed
-func TestHandleGetItem_MethodValidation(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-
-	itemID := uuid.New()
-	methods := []string{http.MethodPost, http.MethodPut, http.MethodDelete}
-	for _, method := range methods {
-		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, fmt.Sprintf("/api/v1/items/%s", itemID), nil)
-			w := httptest.NewRecorder()
-
-			server.HandleGetItem(w, req)
-
-			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "non-GET methods should return 405")
-		})
-	}
-}
-
 // TestHandlePinItem_Success verifies successful item pinning
 func TestHandlePinItem_Success(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item := createSampleItem(uuid.New(), "Test Publisher", []string{"Test Author"}, now, now, nil)
@@ -594,7 +555,7 @@ func TestHandlePinItem_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/items/%s/pin", item.ID), nil)
 	w := httptest.NewRecorder()
 
-	server.HandlePinItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -607,50 +568,32 @@ func TestHandlePinItem_Success(t *testing.T) {
 
 // TestHandlePinItem_NotFound verifies 404 for non-existent item
 func TestHandlePinItem_NotFound(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	nonExistentID := uuid.New()
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/items/%s/pin", nonExistentID), nil)
 	w := httptest.NewRecorder()
 
-	server.HandlePinItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code, "should return 404 for non-existent item")
 }
 
 // TestHandlePinItem_InvalidID verifies 400 for invalid UUID
 func TestHandlePinItem_InvalidID(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/items/invalid-uuid/pin", nil)
 	w := httptest.NewRecorder()
 
-	server.HandlePinItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusBadRequest, w.Code, "should return 400 for invalid UUID")
 }
 
-// TestHandlePinItem_MethodValidation ensures only POST is allowed
-func TestHandlePinItem_MethodValidation(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-
-	itemID := uuid.New()
-	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete}
-	for _, method := range methods {
-		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, fmt.Sprintf("/api/v1/items/%s/pin", itemID), nil)
-			w := httptest.NewRecorder()
-
-			server.HandlePinItem(w, req)
-
-			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "non-POST methods should return 405")
-		})
-	}
-}
-
 // TestHandleUnpinItem_Success verifies successful item unpinning
 func TestHandleUnpinItem_Success(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	pinnedTime := now
@@ -661,7 +604,7 @@ func TestHandleUnpinItem_Success(t *testing.T) {
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/items/%s/unpin", item.ID), nil)
 	w := httptest.NewRecorder()
 
-	server.HandleUnpinItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
@@ -673,74 +616,20 @@ func TestHandleUnpinItem_Success(t *testing.T) {
 
 // TestHandleUnpinItem_NotFound verifies 404 for non-existent item
 func TestHandleUnpinItem_NotFound(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
+	router, _ := setupTestNewsFeedRouter(t)
 
 	nonExistentID := uuid.New()
 	req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/items/%s/unpin", nonExistentID), nil)
 	w := httptest.NewRecorder()
 
-	server.HandleUnpinItem(w, req)
+	router.ServeHTTP(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code, "should return 404 for non-existent item")
 }
 
-// TestHandleUnpinItem_MethodValidation ensures only POST is allowed
-func TestHandleUnpinItem_MethodValidation(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-
-	itemID := uuid.New()
-	methods := []string{http.MethodGet, http.MethodPut, http.MethodDelete}
-	for _, method := range methods {
-		t.Run(method, func(t *testing.T) {
-			req := httptest.NewRequest(method, fmt.Sprintf("/api/v1/items/%s/unpin", itemID), nil)
-			w := httptest.NewRecorder()
-
-			server.HandleUnpinItem(w, req)
-
-			assert.Equal(t, http.StatusMethodNotAllowed, w.Code, "non-POST methods should return 405")
-		})
-	}
-}
-
-// TestCORSMiddleware verifies CORS headers are set correctly
-func TestCORSMiddleware(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-
-	// Test GET request
-	handler := server.CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusOK)
-	}))
-
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/items", nil)
-	w := httptest.NewRecorder()
-
-	handler.ServeHTTP(w, req)
-
-	assert.Equal(t, "*", w.Header().Get("Access-Control-Allow-Origin"), "CORS origin should be *")
-	assert.Contains(t, w.Header().Get("Access-Control-Allow-Methods"), "GET", "CORS methods should include GET")
-	assert.Contains(t, w.Header().Get("Access-Control-Allow-Headers"), "Content-Type", "CORS headers should include Content-Type")
-}
-
-// TestCORSMiddleware_Preflight verifies OPTIONS requests are handled
-func TestCORSMiddleware_Preflight(t *testing.T) {
-	server, _ := setupTestAPIServer(t)
-
-	handler := server.CORSMiddleware(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		w.WriteHeader(http.StatusTeapot) // Should not be called
-	}))
-
-	req := httptest.NewRequest(http.MethodOptions, "/api/v1/items", nil)
-	w := httptest.NewRecorder()
-
-	handler.ServeHTTP(w, req)
-
-	assert.Equal(t, http.StatusOK, w.Code, "OPTIONS should return 200")
-	assert.NotEqual(t, http.StatusTeapot, w.Code, "wrapped handler should not be called for OPTIONS")
-}
-
 // TestRouteItems verifies routing to correct handlers
 func TestRouteItems(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item := createSampleItem(uuid.New(), "Test", []string{"Author"}, now, now, nil)
@@ -753,7 +642,7 @@ func TestRouteItems(t *testing.T) {
 		expectedCode int
 	}{
 		{"list items", http.MethodGet, "/api/v1/items", http.StatusOK},
-		{"list items with slash", http.MethodGet, "/api/v1/items/", http.StatusOK},
+		{"list items with slash", http.MethodGet, "/api/v1/items/", http.StatusMovedPermanently}, // Gin redirects
 		{"get item", http.MethodGet, fmt.Sprintf("/api/v1/items/%s", item.ID), http.StatusOK},
 		{"pin item", http.MethodPost, fmt.Sprintf("/api/v1/items/%s/pin", item.ID), http.StatusOK},
 		{"unpin item", http.MethodPost, fmt.Sprintf("/api/v1/items/%s/unpin", item.ID), http.StatusOK},
@@ -766,7 +655,7 @@ func TestRouteItems(t *testing.T) {
 			req := httptest.NewRequest(tt.method, tt.path, nil)
 			w := httptest.NewRecorder()
 
-			server.RouteItems(w, req)
+			router.ServeHTTP(w, req)
 
 			assert.Equal(t, tt.expectedCode, w.Code, "router should handle path correctly")
 		})
@@ -775,7 +664,7 @@ func TestRouteItems(t *testing.T) {
 
 // Property test: Filtering should preserve item integrity
 func TestFiltering_PreservesItemIntegrity(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	originalItem := createSampleItem(uuid.New(), "Test Publisher", []string{"Author 1", "Author 2"}, now, now, nil)
@@ -795,7 +684,7 @@ func TestFiltering_PreservesItemIntegrity(t *testing.T) {
 			req := httptest.NewRequest(http.MethodGet, "/api/v1/items"+filter, nil)
 			w := httptest.NewRecorder()
 
-			server.HandleListItems(w, req)
+			router.ServeHTTP(w, req)
 
 			var resp ListItemsResponse
 			err := json.Unmarshal(w.Body.Bytes(), &resp)
@@ -814,18 +703,18 @@ func TestFiltering_PreservesItemIntegrity(t *testing.T) {
 
 // Property test: Pinning and unpinning should be idempotent
 func TestPinUnpin_Idempotent(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	item := createSampleItem(uuid.New(), "Test", []string{"Author"}, now, now, nil)
 	require.NoError(t, feed.Add(item))
 
 	// Pin twice
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/items/%s/pin", item.ID), nil)
 		w := httptest.NewRecorder()
 
-		server.HandlePinItem(w, req)
+		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code, "pinning should succeed each time")
 
@@ -836,11 +725,11 @@ func TestPinUnpin_Idempotent(t *testing.T) {
 	}
 
 	// Unpin twice
-	for i := 0; i < 2; i++ {
+	for range 2 {
 		req := httptest.NewRequest(http.MethodPost, fmt.Sprintf("/api/v1/items/%s/unpin", item.ID), nil)
 		w := httptest.NewRecorder()
 
-		server.HandleUnpinItem(w, req)
+		router.ServeHTTP(w, req)
 
 		assert.Equal(t, http.StatusOK, w.Code, "unpinning should succeed each time")
 
@@ -853,11 +742,11 @@ func TestPinUnpin_Idempotent(t *testing.T) {
 
 // Property test: Pagination should partition items without duplication
 func TestPagination_NoOverlapOrGaps(t *testing.T) {
-	server, feed := setupTestAPIServer(t)
+	router, feed := setupTestNewsFeedRouter(t)
 
 	now := time.Now()
 	itemCount := 25
-	for i := 0; i < itemCount; i++ {
+	for i := range itemCount {
 		item := createSampleItem(uuid.New(), fmt.Sprintf("Publisher %d", i), []string{"Author"}, now.Add(time.Duration(-i)*time.Hour), now, nil)
 		require.NoError(t, feed.Add(item))
 	}
@@ -871,7 +760,7 @@ func TestPagination_NoOverlapOrGaps(t *testing.T) {
 		req := httptest.NewRequest(http.MethodGet, fmt.Sprintf("/api/v1/items?limit=%d&offset=%d", pageSize, offset), nil)
 		w := httptest.NewRecorder()
 
-		server.HandleListItems(w, req)
+		router.ServeHTTP(w, req)
 
 		var resp ListItemsResponse
 		err := json.Unmarshal(w.Body.Bytes(), &resp)

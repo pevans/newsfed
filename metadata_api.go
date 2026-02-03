@@ -1,13 +1,11 @@
 package newsfed
 
 import (
-	"encoding/json"
-	"fmt"
-	"io"
 	"net/http"
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -24,6 +22,38 @@ func NewMetadataAPIServer(store *MetadataStore) *MetadataAPIServer {
 	}
 }
 
+// SetupRouter configures the Gin router with all metadata API routes
+func (s *MetadataAPIServer) SetupRouter() *gin.Engine {
+	router := gin.Default()
+
+	// Add CORS middleware
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
+
+		c.Next()
+	})
+
+	api := router.Group("/api/v1/meta")
+	{
+		api.GET("/sources", s.HandleListSources)
+		api.GET("/sources/:id", s.HandleGetSource)
+		api.POST("/sources", s.HandleCreateSource)
+		api.PUT("/sources/:id", s.HandleUpdateSource)
+		api.DELETE("/sources/:id", s.HandleDeleteSource)
+		api.GET("/config", s.HandleGetConfig)
+		api.PUT("/config", s.HandleUpdateConfig)
+	}
+
+	return router
+}
+
 // ListSourcesResponse represents the response for GET /api/v1/meta/sources.
 // Implements RFC 6 section 3.1.
 type ListSourcesResponse struct {
@@ -34,9 +64,9 @@ type ListSourcesResponse struct {
 // CreateSourceRequest represents the request for POST /api/v1/meta/sources.
 // Implements RFC 6 section 3.3.
 type CreateSourceRequest struct {
-	SourceType      string         `json:"source_type"`
-	URL             string         `json:"url"`
-	Name            string         `json:"name"`
+	SourceType      string         `json:"source_type" binding:"required"`
+	URL             string         `json:"url" binding:"required"`
+	Name            string         `json:"name" binding:"required"`
 	PollingInterval *string        `json:"polling_interval,omitempty"`
 	ScraperConfig   *ScraperConfig `json:"scraper_config,omitempty"`
 	Enabled         *bool          `json:"enabled,omitempty"` // Default: true
@@ -54,21 +84,21 @@ type UpdateSourceRequest struct {
 
 // HandleListSources handles GET /api/v1/meta/sources. Implements RFC 6
 // section 3.1.
-func (s *MetadataAPIServer) HandleListSources(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
+func (s *MetadataAPIServer) HandleListSources(c *gin.Context) {
 	sources, err := s.store.ListSources()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to list sources")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to list sources",
+			},
+		})
 		return
 	}
 
 	// Apply filters
-	typeFilter := r.URL.Query().Get("type")
-	enabledFilter := r.URL.Query().Get("enabled")
+	typeFilter := c.Query("type")
+	enabledFilter := c.Query("enabled")
 
 	var filtered []Source
 	for _, source := range sources {
@@ -88,99 +118,96 @@ func (s *MetadataAPIServer) HandleListSources(w http.ResponseWriter, r *http.Req
 		filtered = append(filtered, source)
 	}
 
-	response := ListSourcesResponse{
+	c.JSON(http.StatusOK, ListSourcesResponse{
 		Sources: filtered,
 		Total:   len(filtered),
-	}
-
-	writeJSON(w, http.StatusOK, response)
+	})
 }
 
 // HandleGetSource handles GET /api/v1/meta/sources/{id}. Implements RFC 6
 // section 3.2.
-func (s *MetadataAPIServer) HandleGetSource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
-	// Extract source_id from path
-	sourceID, err := extractSourceID(r.URL.Path)
+func (s *MetadataAPIServer) HandleGetSource(c *gin.Context) {
+	sourceID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid source ID")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "bad_request",
+				"message": "Invalid source ID",
+			},
+		})
 		return
 	}
 
 	source, err := s.store.GetSource(sourceID)
 	if err != nil {
 		if err.Error() == "source not found" {
-			writeError(w, http.StatusNotFound, "not_found", fmt.Sprintf("Source with ID %s not found", sourceID))
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"code":    "not_found",
+					"message": "Source with ID " + sourceID.String() + " not found",
+				},
+			})
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve source")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to retrieve source",
+			},
+		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, source)
+	c.JSON(http.StatusOK, source)
 }
 
 // HandleCreateSource handles POST /api/v1/meta/sources. Implements RFC 6
 // section 3.3.
-func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
-	// Read body once to check for explicit null values
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Failed to read request body")
-		return
-	}
-
-	// Check for invalid fields
-	var rawBody map[string]any
-	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
-		return
-	}
-
-	// Reject requests that use enabled_at instead of enabled
-	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
-		writeError(w, http.StatusBadRequest, "validation_error", "Use 'enabled' (boolean) instead of 'enabled_at' to enable/disable sources")
-		return
-	}
-
-	// Now unmarshal into typed struct
+func (s *MetadataAPIServer) HandleCreateSource(c *gin.Context) {
 	var req CreateSourceRequest
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
-		return
-	}
 
-	// Validate required fields
-	if req.SourceType == "" || req.URL == "" || req.Name == "" {
-		writeError(w, http.StatusBadRequest, "validation_error", "Missing required fields: source_type, url, name")
+	// Bind JSON - Gin validates required fields automatically
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "validation_error",
+				"message": err.Error(),
+			},
+		})
 		return
 	}
 
 	// Validate source_type
 	if req.SourceType != "rss" && req.SourceType != "atom" && req.SourceType != "website" {
-		writeError(w, http.StatusBadRequest, "validation_error", "source_type must be one of: rss, atom, website")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "validation_error",
+				"message": "source_type must be one of: rss, atom, website",
+			},
+		})
 		return
 	}
 
 	// Validate scraper_config for website sources
 	if req.SourceType == "website" && req.ScraperConfig == nil {
-		writeError(w, http.StatusBadRequest, "validation_error", "scraper_config is required for website sources")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "validation_error",
+				"message": "scraper_config is required for website sources",
+			},
+		})
 		return
 	}
 
 	// Validate polling_interval if provided
 	if req.PollingInterval != nil {
 		if _, err := time.ParseDuration(*req.PollingInterval); err != nil {
-			writeError(w, http.StatusBadRequest, "validation_error", "Invalid polling_interval: must be a valid duration (e.g., 1h, 30m)")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":    "validation_error",
+					"message": "Invalid polling_interval: must be a valid duration (e.g., 1h, 30m)",
+				},
+			})
 			return
 		}
 	}
@@ -203,12 +230,22 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 	// Create source
 	source, err := s.store.CreateSource(req.SourceType, req.URL, req.Name, req.ScraperConfig, enabledAt)
 	if err != nil {
-		// Check for duplicate URL (SQLite can return various formats)
+		// Check for duplicate URL
 		if strings.Contains(err.Error(), "UNIQUE constraint") || strings.Contains(err.Error(), "unique constraint") {
-			writeError(w, http.StatusConflict, "conflict", "Source with this URL already exists")
+			c.JSON(http.StatusConflict, gin.H{
+				"error": gin.H{
+					"code":    "conflict",
+					"message": "Source with this URL already exists",
+				},
+			})
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to create source")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to create source",
+			},
+		})
 		return
 	}
 
@@ -221,55 +258,43 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 		source.PollingInterval = req.PollingInterval
 	}
 
-	writeJSON(w, http.StatusCreated, source)
+	c.JSON(http.StatusCreated, source)
 }
 
 // HandleUpdateSource handles PUT /api/v1/meta/sources/{id}. Implements RFC 6
 // section 3.4.
-func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
-	// Extract source_id from path
-	sourceID, err := extractSourceID(r.URL.Path)
+func (s *MetadataAPIServer) HandleUpdateSource(c *gin.Context) {
+	sourceID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid source ID")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "bad_request",
+				"message": "Invalid source ID",
+			},
+		})
 		return
 	}
 
-	// Read body to check for explicit null values
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Failed to read request body")
-		return
-	}
-
-	// Check which fields were provided
-	var rawBody map[string]any
-	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
-		return
-	}
-
-	// Reject requests that use enabled_at instead of enabled
-	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
-		writeError(w, http.StatusBadRequest, "validation_error", "Use 'enabled' (boolean) instead of 'enabled_at' to enable/disable sources")
-		return
-	}
-
-	// Unmarshal into typed struct
 	var req UpdateSourceRequest
-	if err := json.Unmarshal(bodyBytes, &req); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+	if err := c.ShouldBindJSON(&req); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "bad_request",
+				"message": err.Error(),
+			},
+		})
 		return
 	}
 
 	// Validate polling_interval if provided
 	if req.PollingInterval != nil {
 		if _, err := time.ParseDuration(*req.PollingInterval); err != nil {
-			writeError(w, http.StatusBadRequest, "validation_error", "Invalid polling_interval: must be a valid duration (e.g., 1h, 30m)")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":    "validation_error",
+					"message": "Invalid polling_interval: must be a valid duration (e.g., 1h, 30m)",
+				},
+			})
 			return
 		}
 	}
@@ -305,211 +330,143 @@ func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Re
 	err = s.store.UpdateSource(sourceID, updates)
 	if err != nil {
 		if err.Error() == "source not found" {
-			writeError(w, http.StatusNotFound, "not_found", fmt.Sprintf("Source with ID %s not found", sourceID))
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"code":    "not_found",
+					"message": "Source with ID " + sourceID.String() + " not found",
+				},
+			})
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to update source")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to update source",
+			},
+		})
 		return
 	}
 
 	// Return updated source
 	source, err := s.store.GetSource(sourceID)
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve updated source")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to retrieve updated source",
+			},
+		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, source)
+	c.JSON(http.StatusOK, source)
 }
 
 // HandleDeleteSource handles DELETE /api/v1/meta/sources/{id}. Implements RFC
 // 6 section 3.5.
-func (s *MetadataAPIServer) HandleDeleteSource(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodDelete {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
-	// Extract source_id from path
-	sourceID, err := extractSourceID(r.URL.Path)
+func (s *MetadataAPIServer) HandleDeleteSource(c *gin.Context) {
+	sourceID, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid source ID")
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "bad_request",
+				"message": "Invalid source ID",
+			},
+		})
 		return
 	}
 
 	err = s.store.DeleteSource(sourceID)
 	if err != nil {
 		if err.Error() == "source not found" {
-			writeError(w, http.StatusNotFound, "not_found", fmt.Sprintf("Source with ID %s not found", sourceID))
+			c.JSON(http.StatusNotFound, gin.H{
+				"error": gin.H{
+					"code":    "not_found",
+					"message": "Source with ID " + sourceID.String() + " not found",
+				},
+			})
 			return
 		}
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to delete source")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to delete source",
+			},
+		})
 		return
 	}
 
-	w.WriteHeader(http.StatusNoContent)
+	c.Status(http.StatusNoContent)
 }
 
 // HandleGetConfig handles GET /api/v1/meta/config. Implements RFC 6 section
 // 3.6.
-func (s *MetadataAPIServer) HandleGetConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
+func (s *MetadataAPIServer) HandleGetConfig(c *gin.Context) {
 	config, err := s.store.GetConfig()
 	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve configuration")
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to retrieve configuration",
+			},
+		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, config)
+	c.JSON(http.StatusOK, config)
 }
 
 // HandleUpdateConfig handles PUT /api/v1/meta/config. Implements RFC 6
 // section 3.7.
-func (s *MetadataAPIServer) HandleUpdateConfig(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPut {
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
+func (s *MetadataAPIServer) HandleUpdateConfig(c *gin.Context) {
+	var updates Config
+	if err := c.ShouldBindJSON(&updates); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "bad_request",
+				"message": err.Error(),
+			},
+		})
 		return
 	}
 
-	// Read body to check what fields are provided
-	bodyBytes, err := io.ReadAll(r.Body)
-	if err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Failed to read request body")
-		return
-	}
-
-	// Parse as map to check which fields are present
-	var rawBody map[string]any
-	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
-		return
-	}
-
-	// If no fields provided, return current config unchanged
-	if len(rawBody) == 0 {
+	// If no fields provided (empty body), return current config
+	if updates.DefaultPollingInterval == "" {
 		config, err := s.store.GetConfig()
 		if err != nil {
-			writeError(w, http.StatusInternalServerError, "internal_error", "Failed to retrieve configuration")
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error": gin.H{
+					"code":    "internal_error",
+					"message": "Failed to retrieve configuration",
+				},
+			})
 			return
 		}
-		writeJSON(w, http.StatusOK, config)
+		c.JSON(http.StatusOK, config)
 		return
 	}
 
-	// Unmarshal into typed struct
-	var updates Config
-	if err := json.Unmarshal(bodyBytes, &updates); err != nil {
-		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+	// Validate default_polling_interval
+	if _, err := time.ParseDuration(updates.DefaultPollingInterval); err != nil {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "validation_error",
+				"message": "Invalid default_polling_interval: must be a valid duration (e.g., 1h, 30m)",
+			},
+		})
 		return
-	}
-
-	// Validate default_polling_interval if provided
-	if pollingInterval, ok := rawBody["default_polling_interval"].(string); ok {
-		if _, err := time.ParseDuration(pollingInterval); err != nil {
-			writeError(w, http.StatusBadRequest, "validation_error", "Invalid default_polling_interval: must be a valid duration (e.g., 1h, 30m)")
-			return
-		}
 	}
 
 	// Update config
-	err = s.store.UpdateConfig(&updates)
-	if err != nil {
-		writeError(w, http.StatusInternalServerError, "internal_error", "Failed to update configuration")
+	if err := s.store.UpdateConfig(&updates); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to update configuration",
+			},
+		})
 		return
 	}
 
-	writeJSON(w, http.StatusOK, updates)
-}
-
-// extractSourceID extracts the source ID from the URL path. Path format:
-// /api/v1/meta/sources/{source_id}
-func extractSourceID(path string) (uuid.UUID, error) {
-	// Split path and get last segment
-	parts := splitPath(path)
-	if len(parts) < 5 {
-		return uuid.UUID{}, fmt.Errorf("invalid path")
-	}
-
-	sourceIDStr := parts[len(parts)-1]
-	return uuid.Parse(sourceIDStr)
-}
-
-// routeSources routes /api/v1/meta/sources/* requests to appropriate
-// handlers.
-func (s *MetadataAPIServer) RouteSources(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-
-	// Handle /api/v1/meta/sources (no ID)
-	if path == "/api/v1/meta/sources" || path == "/api/v1/meta/sources/" {
-		switch r.Method {
-		case http.MethodGet:
-			s.HandleListSources(w, r)
-		case http.MethodPost:
-			s.HandleCreateSource(w, r)
-		case http.MethodOptions:
-			w.WriteHeader(http.StatusOK)
-		default:
-			writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		}
-		return
-	}
-
-	// Handle /api/v1/meta/sources/{id} (with ID)
-	switch r.Method {
-	case http.MethodGet:
-		s.HandleGetSource(w, r)
-	case http.MethodPut:
-		s.HandleUpdateSource(w, r)
-	case http.MethodDelete:
-		s.HandleDeleteSource(w, r)
-	case http.MethodOptions:
-		w.WriteHeader(http.StatusOK)
-	default:
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-	}
-}
-
-// routeConfig routes /api/v1/meta/config requests to appropriate handlers.
-func (s *MetadataAPIServer) RouteConfig(w http.ResponseWriter, r *http.Request) {
-	switch r.Method {
-	case http.MethodGet:
-		s.HandleGetConfig(w, r)
-	case http.MethodPut:
-		s.HandleUpdateConfig(w, r)
-	case http.MethodOptions:
-		w.WriteHeader(http.StatusOK)
-	default:
-		writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-	}
-}
-
-// Helper functions
-func writeJSON(w http.ResponseWriter, status int, data any) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(data)
-}
-
-func writeError(w http.ResponseWriter, status int, code, message string) {
-	response := ErrorResponse{
-		Error: ErrorDetail{
-			Code:    code,
-			Message: message,
-		},
-	}
-	writeJSON(w, status, response)
-}
-
-func splitPath(path string) []string {
-	var parts []string
-	for part := range strings.SplitSeq(path, "/") {
-		if part != "" {
-			parts = append(parts, part)
-		}
-	}
-	return parts
+	c.JSON(http.StatusOK, updates)
 }

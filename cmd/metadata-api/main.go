@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/pevans/newsfed"
 )
@@ -18,23 +17,14 @@ func main() {
 	// Create API server (RFC 6)
 	server := newsfed.NewMetadataAPIServer(store)
 
-	// Create HTTP multiplexer and register routes
-	mux := http.NewServeMux()
-
-	// Metadata Management API routes - /api/v1/meta/*
-	mux.HandleFunc("/api/v1/meta/sources", server.RouteSources)
-	mux.HandleFunc("/api/v1/meta/sources/", server.RouteSources)
-	mux.HandleFunc("/api/v1/meta/config", server.RouteConfig)
-	mux.HandleFunc("/api/v1/meta/config/", server.RouteConfig)
-
-	// Apply CORS middleware (RFC 6 section 6)
-	handler := newsfed.CORSMiddleware(mux)
+	// Setup Gin router with all routes
+	router := server.SetupRouter()
 
 	// Start server
 	addr := "localhost:8081"
 	log.Printf("Starting Metadata API server on http://%s/api/v1/meta", addr)
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := router.Run(addr); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }

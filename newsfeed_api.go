@@ -1,7 +1,6 @@
 package newsfed
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/http"
 	"slices"
@@ -10,6 +9,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 )
 
@@ -23,6 +23,33 @@ func NewAPIServer(feed *NewsFeed) *APIServer {
 	return &APIServer{
 		feed: feed,
 	}
+}
+
+// SetupRouter configures the Gin router with all newsfeed API routes
+func (s *APIServer) SetupRouter() *gin.Engine {
+	router := gin.Default()
+
+	// Add CORS middleware
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(http.StatusOK)
+			return
+		}
+
+		c.Next()
+	})
+
+	api := router.Group("/api/v1/items")
+	api.GET("", s.HandleListItems)
+	api.GET("/:id", s.HandleGetItem)
+	api.POST("/:id/pin", s.HandlePinItem)
+	api.POST("/:id/unpin", s.HandleUnpinItem)
+
+	return router
 }
 
 // ListItemsResponse represents the response for GET /api/v1/items. Implements
@@ -46,60 +73,66 @@ type ErrorDetail struct {
 }
 
 // HandleListItems handles GET /api/v1/items. Implements RFC 4 section 3.1.
-func (s *APIServer) HandleListItems(w http.ResponseWriter, r *http.Request) {
-	// Only allow GET method
-	if r.Method != http.MethodGet {
-		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
+func (s *APIServer) HandleListItems(c *gin.Context) {
 	// Get all items from feed
 	allItems, err := s.feed.List()
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "Failed to list items: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to list items: " + err.Error(),
+			},
+		})
 		return
 	}
 
-	// Parse query parameters
-	query := r.URL.Query()
-
 	// Filter by pinned status (optional)
-	if pinnedParam := query.Get("pinned"); pinnedParam != "" {
+	if pinnedParam := c.Query("pinned"); pinnedParam != "" {
 		allItems = s.filterByPinned(allItems, pinnedParam)
 	}
 
 	// Filter by publisher (optional)
-	if publisher := query.Get("publisher"); publisher != "" {
+	if publisher := c.Query("publisher"); publisher != "" {
 		allItems = s.filterByPublisher(allItems, publisher)
 	}
 
 	// Filter by author (optional)
-	if author := query.Get("author"); author != "" {
+	if author := c.Query("author"); author != "" {
 		allItems = s.filterByAuthor(allItems, author)
 	}
 
 	// Filter by since (optional)
-	if since := query.Get("since"); since != "" {
+	if since := c.Query("since"); since != "" {
 		sinceTime, err := time.Parse(time.RFC3339, since)
 		if err != nil {
-			s.writeError(w, http.StatusBadRequest, "invalid_parameter", "Invalid since parameter: must be ISO 8601 format")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":    "invalid_parameter",
+					"message": "Invalid since parameter: must be ISO 8601 format",
+				},
+			})
 			return
 		}
 		allItems = s.filterBySince(allItems, sinceTime)
 	}
 
 	// Filter by until (optional)
-	if until := query.Get("until"); until != "" {
+	if until := c.Query("until"); until != "" {
 		untilTime, err := time.Parse(time.RFC3339, until)
 		if err != nil {
-			s.writeError(w, http.StatusBadRequest, "invalid_parameter", "Invalid until parameter: must be ISO 8601 format")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":    "invalid_parameter",
+					"message": "Invalid until parameter: must be ISO 8601 format",
+				},
+			})
 			return
 		}
 		allItems = s.filterByUntil(allItems, untilTime)
 	}
 
 	// Sort items (default: published_desc)
-	sortParam := query.Get("sort")
+	sortParam := c.Query("sort")
 	if sortParam == "" {
 		sortParam = "published_desc"
 	}
@@ -110,10 +143,15 @@ func (s *APIServer) HandleListItems(w http.ResponseWriter, r *http.Request) {
 
 	// Parse pagination parameters
 	limit := 50 // default
-	if limitParam := query.Get("limit"); limitParam != "" {
+	if limitParam := c.Query("limit"); limitParam != "" {
 		parsedLimit, err := strconv.Atoi(limitParam)
 		if err != nil || parsedLimit < 1 {
-			s.writeError(w, http.StatusBadRequest, "invalid_parameter", "Invalid limit parameter")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":    "invalid_parameter",
+					"message": "Invalid limit parameter",
+				},
+			})
 			return
 		}
 		if parsedLimit > 1000 {
@@ -123,10 +161,15 @@ func (s *APIServer) HandleListItems(w http.ResponseWriter, r *http.Request) {
 	}
 
 	offset := 0 // default
-	if offsetParam := query.Get("offset"); offsetParam != "" {
+	if offsetParam := c.Query("offset"); offsetParam != "" {
 		parsedOffset, err := strconv.Atoi(offsetParam)
 		if err != nil || parsedOffset < 0 {
-			s.writeError(w, http.StatusBadRequest, "invalid_parameter", "Invalid offset parameter")
+			c.JSON(http.StatusBadRequest, gin.H{
+				"error": gin.H{
+					"code":    "invalid_parameter",
+					"message": "Invalid offset parameter",
+				},
+			})
 			return
 		}
 		offset = parsedOffset
@@ -143,9 +186,7 @@ func (s *APIServer) HandleListItems(w http.ResponseWriter, r *http.Request) {
 		Offset: offset,
 	}
 
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(response)
+	c.JSON(http.StatusOK, response)
 }
 
 // filterByPinned filters items by pinned status.
@@ -259,61 +300,76 @@ func (s *APIServer) paginate(items []NewsItem, offset, limit int) []NewsItem {
 }
 
 // HandleGetItem handles GET /api/v1/items/{id}. Implements RFC 4 section 3.2.
-func (s *APIServer) HandleGetItem(w http.ResponseWriter, r *http.Request) {
-	// Only allow GET method
-	if r.Method != http.MethodGet {
-		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
+func (s *APIServer) HandleGetItem(c *gin.Context) {
 	// Parse UUID from path
-	id, err := s.parseItemID(r.URL.Path, "/api/v1/items/")
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_id", "Invalid item ID: "+err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "invalid_id",
+				"message": "Invalid item ID: " + err.Error(),
+			},
+		})
 		return
 	}
 
 	// Get item from feed
 	item, err := s.feed.Get(id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "Failed to get item: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to get item: " + err.Error(),
+			},
+		})
 		return
 	}
 	if item == nil {
-		s.writeError(w, http.StatusNotFound, "not_found", "News item with ID "+id.String()+" not found")
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": gin.H{
+				"code":    "not_found",
+				"message": "News item with ID " + id.String() + " not found",
+			},
+		})
 		return
 	}
 
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(item)
+	c.JSON(http.StatusOK, item)
 }
 
 // HandlePinItem handles POST /api/v1/items/{id}/pin. Implements RFC 4 section
 // 3.3.
-func (s *APIServer) HandlePinItem(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST method
-	if r.Method != http.MethodPost {
-		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
+func (s *APIServer) HandlePinItem(c *gin.Context) {
 	// Parse UUID from path
-	id, err := s.parseItemID(r.URL.Path, "/api/v1/items/")
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_id", "Invalid item ID: "+err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "invalid_id",
+				"message": "Invalid item ID: " + err.Error(),
+			},
+		})
 		return
 	}
 
 	// Get item from feed
 	item, err := s.feed.Get(id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "Failed to get item: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to get item: " + err.Error(),
+			},
+		})
 		return
 	}
 	if item == nil {
-		s.writeError(w, http.StatusNotFound, "not_found", "News item with ID "+id.String()+" not found")
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": gin.H{
+				"code":    "not_found",
+				"message": "News item with ID " + id.String() + " not found",
+			},
+		})
 		return
 	}
 
@@ -323,40 +379,51 @@ func (s *APIServer) HandlePinItem(w http.ResponseWriter, r *http.Request) {
 
 	// Update item in feed
 	if err := s.feed.Update(*item); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "Failed to update item: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to update item: " + err.Error(),
+			},
+		})
 		return
 	}
 
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(item)
+	c.JSON(http.StatusOK, item)
 }
 
 // HandleUnpinItem handles POST /api/v1/items/{id}/unpin. Implements RFC 4
 // section 3.4.
-func (s *APIServer) HandleUnpinItem(w http.ResponseWriter, r *http.Request) {
-	// Only allow POST method
-	if r.Method != http.MethodPost {
-		s.writeError(w, http.StatusMethodNotAllowed, "method_not_allowed", "Method not allowed")
-		return
-	}
-
+func (s *APIServer) HandleUnpinItem(c *gin.Context) {
 	// Parse UUID from path
-	id, err := s.parseItemID(r.URL.Path, "/api/v1/items/")
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		s.writeError(w, http.StatusBadRequest, "invalid_id", "Invalid item ID: "+err.Error())
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": gin.H{
+				"code":    "invalid_id",
+				"message": "Invalid item ID: " + err.Error(),
+			},
+		})
 		return
 	}
 
 	// Get item from feed
 	item, err := s.feed.Get(id)
 	if err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "Failed to get item: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to get item: " + err.Error(),
+			},
+		})
 		return
 	}
 	if item == nil {
-		s.writeError(w, http.StatusNotFound, "not_found", "News item with ID "+id.String()+" not found")
+		c.JSON(http.StatusNotFound, gin.H{
+			"error": gin.H{
+				"code":    "not_found",
+				"message": "News item with ID " + id.String() + " not found",
+			},
+		})
 		return
 	}
 
@@ -365,14 +432,16 @@ func (s *APIServer) HandleUnpinItem(w http.ResponseWriter, r *http.Request) {
 
 	// Update item in feed
 	if err := s.feed.Update(*item); err != nil {
-		s.writeError(w, http.StatusInternalServerError, "internal_error", "Failed to update item: "+err.Error())
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": gin.H{
+				"code":    "internal_error",
+				"message": "Failed to update item: " + err.Error(),
+			},
+		})
 		return
 	}
 
-	// Write response
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(http.StatusOK)
-	json.NewEncoder(w).Encode(item)
+	c.JSON(http.StatusOK, item)
 }
 
 // parseItemID extracts a UUID from the URL path.
@@ -393,103 +462,4 @@ func (s *APIServer) parseItemID(path, prefix string) (uuid.UUID, error) {
 	}
 
 	return id, nil
-}
-
-// writeError writes an error response. Implements RFC 4 section 4.1.
-func (s *APIServer) writeError(w http.ResponseWriter, statusCode int, code, message string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(statusCode)
-	json.NewEncoder(w).Encode(ErrorResponse{
-		Error: ErrorDetail{
-			Code:    code,
-			Message: message,
-		},
-	})
-}
-
-// corsMiddleware adds CORS headers to responses. Implements RFC 4 section 6.
-func (s *APIServer) CORSMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers per RFC 4 section 6.1
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		// Handle preflight requests per RFC 4 section 6.2
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
-}
-
-// Start starts the HTTP server on the given address. Implements RFC 4 section
-// 2.
-func (s *APIServer) Start(addr string) error {
-	mux := http.NewServeMux()
-
-	// Register routes - need both with and without trailing slash to avoid 301
-	mux.HandleFunc("/api/v1/items", s.RouteItems)
-	mux.HandleFunc("/api/v1/items/", s.RouteItems)
-
-	// Wrap with CORS middleware per RFC 4 section 6
-	handler := s.CORSMiddleware(mux)
-
-	return http.ListenAndServe(addr, handler)
-}
-
-// routeItems routes /api/v1/items/* requests to appropriate handlers.
-func (s *APIServer) RouteItems(w http.ResponseWriter, r *http.Request) {
-	path := r.URL.Path
-
-	// GET /api/v1/items - List items
-	if path == "/api/v1/items" || path == "/api/v1/items/" {
-		s.HandleListItems(w, r)
-		return
-	}
-
-	// Check if path has an ID
-	if !strings.HasPrefix(path, "/api/v1/items/") {
-		s.writeError(w, http.StatusNotFound, "not_found", "Not found")
-		return
-	}
-
-	// Parse the path after /api/v1/items/
-	suffix := strings.TrimPrefix(path, "/api/v1/items/")
-	parts := strings.Split(suffix, "/")
-
-	if len(parts) == 1 {
-		// GET /api/v1/items/{id} - Get single item
-		s.HandleGetItem(w, r)
-	} else if len(parts) == 2 && parts[1] == "pin" {
-		// POST /api/v1/items/{id}/pin - Pin item
-		s.HandlePinItem(w, r)
-	} else if len(parts) == 2 && parts[1] == "unpin" {
-		// POST /api/v1/items/{id}/unpin - Unpin item
-		s.HandleUnpinItem(w, r)
-	} else {
-		s.writeError(w, http.StatusNotFound, "not_found", "Not found")
-	}
-}
-// CORSMiddleware is a standalone middleware for adding CORS headers.
-// Can be used by any HTTP handler.
-func CORSMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Set CORS headers
-		w.Header().Set("Access-Control-Allow-Origin", "*")
-		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
-		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-
-		// Handle preflight requests
-		if r.Method == http.MethodOptions {
-			w.WriteHeader(http.StatusOK)
-			return
-		}
-
-		// Call the next handler
-		next.ServeHTTP(w, r)
-	})
 }

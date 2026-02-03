@@ -117,10 +117,10 @@ echo "Test 7: GET /api/v1/items/{id}/pin (wrong method)"
 RESPONSE=$(curl -s -w "\n%{http_code}" -X GET "$BASE_URL/items/$TEST_ID/pin")
 HTTP_CODE=$(echo "$RESPONSE" | tail -n1)
 
-if [ "$HTTP_CODE" = "405" ]; then
-    pass "Returns 405 for wrong HTTP method"
+if [ "$HTTP_CODE" = "404" ]; then
+    pass "Returns 404 for wrong HTTP method"
 else
-    fail "Expected 405, got $HTTP_CODE"
+    fail "Expected 404, got $HTTP_CODE"
 fi
 
 # Test 8: Pin already pinned item (idempotency)

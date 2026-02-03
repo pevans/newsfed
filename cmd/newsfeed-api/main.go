@@ -2,7 +2,6 @@ package main
 
 import (
 	"log"
-	"net/http"
 
 	"github.com/pevans/newsfed"
 )
@@ -17,21 +16,14 @@ func main() {
 	// Create API server (RFC 4)
 	server := newsfed.NewAPIServer(feed)
 
-	// Create HTTP multiplexer and register routes
-	mux := http.NewServeMux()
-
-	// News Feed API routes - /api/v1/items
-	mux.HandleFunc("/api/v1/items", server.RouteItems)
-	mux.HandleFunc("/api/v1/items/", server.RouteItems)
-
-	// Apply CORS middleware (RFC 4 section 6)
-	handler := server.CORSMiddleware(mux)
+	// Setup Gin router with all routes
+	router := server.SetupRouter()
 
 	// Start server
 	addr := "localhost:8080"
 	log.Printf("Starting News Feed API server on http://%s/api/v1/items", addr)
 
-	if err := http.ListenAndServe(addr, handler); err != nil {
+	if err := router.Run(addr); err != nil {
 		log.Fatalf("Server failed: %v", err)
 	}
 }
