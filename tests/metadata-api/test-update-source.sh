@@ -109,22 +109,22 @@ test_response "Updates polling_interval successfully" "$response" "200" \
     'jq -e ".polling_interval == \"30m\"" >/dev/null'
 
 # Test 5: PUT /api/v1/meta/sources/{id} (disable source)
-echo "Test 5: PUT /api/v1/meta/sources/{id} (disable source by setting enabled_at to null)"
+echo "Test 5: PUT /api/v1/meta/sources/{id} (disable source with enabled: false)"
 response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X PUT "$BASE_URL/sources/$SOURCE1_ID" \
     -H "Content-Type: application/json" \
     -d '{
-        "enabled_at": null
+        "enabled": false
     }')
 test_response "Disables source successfully" "$response" "200" \
     'jq -e ".enabled_at == null" >/dev/null'
 
 # Test 6: PUT /api/v1/meta/sources/{id} (enable source)
-echo "Test 6: PUT /api/v1/meta/sources/{id} (enable source by setting enabled_at)"
+echo "Test 6: PUT /api/v1/meta/sources/{id} (enable source with enabled: true)"
 response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X PUT "$BASE_URL/sources/$SOURCE1_ID" \
     -H "Content-Type: application/json" \
-    -d "{
-        \"enabled_at\": \"$(date -u +%Y-%m-%dT%H:%M:%SZ)\"
-    }")
+    -d '{
+        "enabled": true
+    }')
 test_response "Enables source successfully" "$response" "200" \
     'jq -e ".enabled_at != null" >/dev/null'
 

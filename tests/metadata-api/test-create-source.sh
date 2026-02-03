@@ -99,14 +99,14 @@ else
 fi
 
 # Test 5: POST /api/v1/meta/sources (disabled source)
-echo "Test 5: POST /api/v1/meta/sources (disabled source with enabled_at: null)"
+echo "Test 5: POST /api/v1/meta/sources (disabled source with enabled: false)"
 response=$(curl -s -w "\nHTTP_STATUS:%{http_code}" -X POST "$BASE_URL/sources" \
     -H "Content-Type: application/json" \
     -d '{
         "source_type": "rss",
         "url": "https://example.com/create-test-disabled.xml",
         "name": "Disabled Feed",
-        "enabled_at": null
+        "enabled": false
     }')
 test_response "Creates disabled source correctly" "$response" "201" \
     'jq -e ".enabled_at == null" >/dev/null'

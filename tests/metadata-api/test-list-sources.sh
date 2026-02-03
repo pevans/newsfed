@@ -89,7 +89,7 @@ DISABLED_RESPONSE=$(curl -s -X POST "$BASE_URL/sources" \
         "source_type": "rss",
         "url": "https://example.com/disabled-feed.xml",
         "name": "Disabled Feed",
-        "enabled_at": null
+        "enabled": false
     }')
 DISABLED_ID=$(echo "$DISABLED_RESPONSE" | jq -r '.source_id')
 
