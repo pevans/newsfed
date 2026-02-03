@@ -290,10 +290,10 @@ func (m *MetadataStore) ListSources() ([]Source, error) {
 }
 
 // UpdateSource updates a source. Implements RFC 5 section 4.1.3.
-func (m *MetadataStore) UpdateSource(sourceID uuid.UUID, updates map[string]interface{}) error {
+func (m *MetadataStore) UpdateSource(sourceID uuid.UUID, updates map[string]any) error {
 	// Build dynamic UPDATE query based on provided fields
 	setClauses := []string{"updated_at = ?"}
-	args := []interface{}{formatTime(&time.Time{})}
+	args := []any{formatTime(&time.Time{})}
 
 	if name, ok := updates["name"].(string); ok {
 		setClauses = append(setClauses, "name = ?")
@@ -392,7 +392,7 @@ func (m *MetadataStore) UpdateConfig(config *Config) error {
 }
 
 // Helper functions for time formatting
-func formatTime(t *time.Time) interface{} {
+func formatTime(t *time.Time) any {
 	if t == nil {
 		return nil
 	}

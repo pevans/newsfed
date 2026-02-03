@@ -208,7 +208,7 @@ func TestGetSource_PreservesAllFields(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update with additional fields
-	err = store.UpdateSource(created.SourceID, map[string]interface{}{
+	err = store.UpdateSource(created.SourceID, map[string]any{
 		"polling_interval": pollingInterval,
 	})
 	require.NoError(t, err)
@@ -285,7 +285,7 @@ func TestUpdateSource_Name(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com", "Original", nil, &now)
 	require.NoError(t, err)
 
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"name": "Updated Name",
 	})
 	require.NoError(t, err)
@@ -303,7 +303,7 @@ func TestUpdateSource_URL(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com/old", "Test", nil, &now)
 	require.NoError(t, err)
 
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"url": "http://example.com/new",
 	})
 	require.NoError(t, err)
@@ -324,7 +324,7 @@ func TestUpdateSource_EnabledAt(t *testing.T) {
 
 	// Disable the source
 	var nilTime *time.Time
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"enabled_at": nilTime,
 	})
 	require.NoError(t, err)
@@ -335,7 +335,7 @@ func TestUpdateSource_EnabledAt(t *testing.T) {
 
 	// Re-enable the source
 	newTime := time.Now()
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"enabled_at": &newTime,
 	})
 	require.NoError(t, err)
@@ -353,7 +353,7 @@ func TestUpdateSource_PollingInterval(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com", "Test", nil, &now)
 	require.NoError(t, err)
 
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"polling_interval": "2h",
 	})
 	require.NoError(t, err)
@@ -385,7 +385,7 @@ func TestUpdateSource_ScraperConfig(t *testing.T) {
 		},
 	}
 
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"scraper_config": newConfig,
 	})
 	require.NoError(t, err)
@@ -407,7 +407,7 @@ func TestUpdateSource_MultipleFields(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com", "Original", nil, &now)
 	require.NoError(t, err)
 
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"name":             "Updated",
 		"url":              "http://new.example.com",
 		"polling_interval": "30m",
@@ -436,7 +436,7 @@ func TestUpdateSource_UpdatesTimestamp(t *testing.T) {
 	// precision)
 	time.Sleep(1100 * time.Millisecond)
 
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{
+	err = store.UpdateSource(source.SourceID, map[string]any{
 		"name": "Changed",
 	})
 	require.NoError(t, err)
@@ -451,7 +451,7 @@ func TestUpdateSource_NotFound(t *testing.T) {
 	store := createTestMetadataStore(t)
 
 	nonExistentID := uuid.New()
-	err := store.UpdateSource(nonExistentID, map[string]interface{}{
+	err := store.UpdateSource(nonExistentID, map[string]any{
 		"name": "Test",
 	})
 
@@ -468,7 +468,7 @@ func TestUpdateSource_EmptyUpdates(t *testing.T) {
 	require.NoError(t, err)
 
 	// Update with empty map (only updated_at should change)
-	err = store.UpdateSource(source.SourceID, map[string]interface{}{})
+	err = store.UpdateSource(source.SourceID, map[string]any{})
 	require.NoError(t, err)
 
 	retrieved, err := store.GetSource(source.SourceID)
@@ -677,7 +677,7 @@ func TestMetadataUpdateGet_ConsistentState(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com", "Original", nil, &now)
 	require.NoError(t, err)
 
-	updates := []map[string]interface{}{
+	updates := []map[string]any{
 		{"name": "Updated 1"},
 		{"name": "Updated 2", "url": "http://new.example.com"},
 		{"polling_interval": "45m"},
