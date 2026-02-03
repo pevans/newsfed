@@ -332,6 +332,11 @@ func TestHandleCreateSource_ValidationErrors(t *testing.T) {
 			body:         `{invalid json}`,
 			expectedCode: "bad_request",
 		},
+		{
+			name:         "enabled_at instead of enabled",
+			body:         `{"source_type":"rss","url":"http://example.com","name":"Test","enabled_at":null}`,
+			expectedCode: "validation_error",
+		},
 	}
 
 	for _, tt := range tests {
@@ -474,6 +479,49 @@ func TestHandleUpdateSource_NotFound(t *testing.T) {
 	server.HandleUpdateSource(w, req)
 
 	assert.Equal(t, http.StatusNotFound, w.Code)
+}
+
+// TestHandleUpdateSource_ValidationErrors tests validation error cases
+func TestHandleUpdateSource_ValidationErrors(t *testing.T) {
+	server, store := setupTestServer(t)
+
+	// Create a test source
+	now := time.Now()
+	source, err := store.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
+	require.NoError(t, err)
+
+	tests := []struct {
+		name         string
+		body         string
+		expectedCode string
+	}{
+		{
+			name:         "enabled_at instead of enabled",
+			body:         `{"enabled_at":null}`,
+			expectedCode: "validation_error",
+		},
+		{
+			name:         "invalid polling interval",
+			body:         `{"polling_interval":"invalid"}`,
+			expectedCode: "validation_error",
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := httptest.NewRequest(http.MethodPut, fmt.Sprintf("/api/v1/meta/sources/%s", source.SourceID), strings.NewReader(tt.body))
+			w := httptest.NewRecorder()
+
+			server.HandleUpdateSource(w, req)
+
+			assert.True(t, w.Code >= 400, "validation error should return 4xx status")
+
+			var errResp ErrorResponse
+			err := json.Unmarshal(w.Body.Bytes(), &errResp)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expectedCode, errResp.Error.Code, "error code should match expected")
+		})
+	}
 }
 
 // TestHandleDeleteSource_Success verifies successful source deletion

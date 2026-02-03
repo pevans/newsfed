@@ -139,10 +139,16 @@ func (s *MetadataAPIServer) HandleCreateSource(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	// Check if enabled_at was explicitly provided
+	// Check for invalid fields
 	var rawBody map[string]any
 	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+		return
+	}
+
+	// Reject requests that use enabled_at instead of enabled
+	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
+		writeError(w, http.StatusBadRequest, "validation_error", "Use 'enabled' (boolean) instead of 'enabled_at' to enable/disable sources")
 		return
 	}
 
@@ -244,6 +250,12 @@ func (s *MetadataAPIServer) HandleUpdateSource(w http.ResponseWriter, r *http.Re
 	var rawBody map[string]any
 	if err := json.Unmarshal(bodyBytes, &rawBody); err != nil {
 		writeError(w, http.StatusBadRequest, "bad_request", "Invalid JSON body")
+		return
+	}
+
+	// Reject requests that use enabled_at instead of enabled
+	if _, hasEnabledAt := rawBody["enabled_at"]; hasEnabledAt {
+		writeError(w, http.StatusBadRequest, "validation_error", "Use 'enabled' (boolean) instead of 'enabled_at' to enable/disable sources")
 		return
 	}
 
