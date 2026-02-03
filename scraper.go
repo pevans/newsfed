@@ -152,8 +152,8 @@ func ParseAuthors(authorText string) []string {
 
 	// Try splitting by ", " first
 	if strings.Contains(authorText, ", ") {
-		parts := strings.Split(authorText, ", ")
-		for _, part := range parts {
+		parts := strings.SplitSeq(authorText, ", ")
+		for part := range parts {
 			part = strings.TrimSpace(part)
 			if part != "" {
 				authors = append(authors, part)
@@ -164,8 +164,8 @@ func ParseAuthors(authorText string) []string {
 
 	// Try splitting by " and "
 	if strings.Contains(authorText, " and ") {
-		parts := strings.Split(authorText, " and ")
-		for _, part := range parts {
+		parts := strings.SplitSeq(authorText, " and ")
+		for part := range parts {
 			part = strings.TrimSpace(part)
 			if part != "" {
 				authors = append(authors, part)
