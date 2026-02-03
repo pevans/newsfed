@@ -6,20 +6,50 @@ import (
 	"log"
 	"os"
 	"os/signal"
+	"strconv"
 	"syscall"
 	"time"
 
 	"github.com/pevans/newsfed"
 )
 
+// getEnv returns the value of an environment variable or a default value.
+func getEnv(key, defaultValue string) string {
+	if value := os.Getenv(key); value != "" {
+		return value
+	}
+	return defaultValue
+}
+
+// getEnvDuration parses a duration from environment variable or returns default.
+func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
+	if value := os.Getenv(key); value != "" {
+		if duration, err := time.ParseDuration(value); err == nil {
+			return duration
+		}
+	}
+	return defaultValue
+}
+
+// getEnvInt parses an int from environment variable or returns default.
+func getEnvInt(key string, defaultValue int) int {
+	if value := os.Getenv(key); value != "" {
+		if intVal, err := strconv.Atoi(value); err == nil {
+			return intVal
+		}
+	}
+	return defaultValue
+}
+
 func main() {
-	// Parse command line flags
-	metadataPath := flag.String("metadata", "metadata.db", "Path to metadata database")
-	feedDir := flag.String("feed", ".news", "Path to news feed storage directory")
-	pollInterval := flag.Duration("poll-interval", 1*time.Hour, "Default polling interval for sources")
-	concurrency := flag.Int("concurrency", 5, "Maximum number of parallel source fetches")
-	fetchTimeout := flag.Duration("fetch-timeout", 60*time.Second, "Timeout per source fetch")
-	disableThreshold := flag.Int("disable-threshold", 10, "Auto-disable source after N consecutive failures")
+	// Parse command line flags with environment variable defaults per RFC 7
+	// section 9.1
+	metadataPath := flag.String("metadata", getEnv("NEWSFED_METADATA_DSN", "metadata.db"), "Path to metadata database (NEWSFED_METADATA_DSN)")
+	feedDir := flag.String("feed", getEnv("NEWSFED_FEED_DSN", ".news"), "Path to news feed storage directory (NEWSFED_FEED_DSN)")
+	pollInterval := flag.Duration("poll-interval", getEnvDuration("NEWSFED_POLL_INTERVAL", 1*time.Hour), "Default polling interval for sources (NEWSFED_POLL_INTERVAL)")
+	concurrency := flag.Int("concurrency", getEnvInt("NEWSFED_CONCURRENCY", 5), "Maximum number of parallel source fetches (NEWSFED_CONCURRENCY)")
+	fetchTimeout := flag.Duration("fetch-timeout", getEnvDuration("NEWSFED_FETCH_TIMEOUT", 60*time.Second), "Timeout per source fetch (NEWSFED_FETCH_TIMEOUT)")
+	disableThreshold := flag.Int("disable-threshold", getEnvInt("NEWSFED_DISABLE_THRESHOLD", 10), "Auto-disable source after N consecutive failures (NEWSFED_DISABLE_THRESHOLD)")
 
 	flag.Parse()
 

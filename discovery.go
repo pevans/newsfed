@@ -2,12 +2,16 @@ package newsfed
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"log"
 	"net/http"
+	"net/url"
+	"strings"
 	"sync"
 	"time"
 
+	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
 )
 
@@ -21,6 +25,97 @@ type DiscoveryService struct {
 	stopChan        chan struct{}
 	wg              sync.WaitGroup
 	sourceSemaphore chan struct{}
+	rateLimiter     *domainRateLimiter
+	metrics         *DiscoveryMetrics
+}
+
+// DiscoveryMetrics tracks service metrics per RFC 7 section 10.2.
+type DiscoveryMetrics struct {
+	mu                   sync.Mutex
+	SourcesTotal         int             // Total enabled sources
+	SourcesFetchedTotal  int             // Counter of successful fetches
+	SourcesFailedTotal   int             // Counter of failed fetches
+	ItemsDiscoveredTotal int             // Counter of new items added
+	FetchDurations       []time.Duration // Recent fetch durations for histogram
+	maxDurations         int             // Max durations to keep
+}
+
+func newDiscoveryMetrics() *DiscoveryMetrics {
+	return &DiscoveryMetrics{
+		FetchDurations: make([]time.Duration, 0),
+		maxDurations:   1000, // Keep last 1000 durations
+	}
+}
+
+func (m *DiscoveryMetrics) recordFetchSuccess(duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SourcesFetchedTotal++
+	m.recordDuration(duration)
+}
+
+func (m *DiscoveryMetrics) recordFetchFailure(duration time.Duration) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SourcesFailedTotal++
+	m.recordDuration(duration)
+}
+
+func (m *DiscoveryMetrics) recordItemsDiscovered(count int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.ItemsDiscoveredTotal += count
+}
+
+func (m *DiscoveryMetrics) updateSourcesTotal(count int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	m.SourcesTotal = count
+}
+
+func (m *DiscoveryMetrics) recordDuration(duration time.Duration) {
+	m.FetchDurations = append(m.FetchDurations, duration)
+	// Keep only the most recent durations
+	if len(m.FetchDurations) > m.maxDurations {
+		m.FetchDurations = m.FetchDurations[len(m.FetchDurations)-m.maxDurations:]
+	}
+}
+
+// GetMetrics returns a copy of current metrics (thread-safe).
+func (m *DiscoveryMetrics) GetMetrics() (sourcesTotal, sourcesFetched, sourcesFailed, itemsDiscovered int) {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	return m.SourcesTotal, m.SourcesFetchedTotal, m.SourcesFailedTotal, m.ItemsDiscoveredTotal
+}
+
+// domainRateLimiter implements per-domain rate limiting per RFC 7 section
+// 8.2.
+type domainRateLimiter struct {
+	mu              sync.Mutex
+	lastRequestTime map[string]time.Time
+	minInterval     time.Duration
+}
+
+func newDomainRateLimiter(minInterval time.Duration) *domainRateLimiter {
+	return &domainRateLimiter{
+		lastRequestTime: make(map[string]time.Time),
+		minInterval:     minInterval,
+	}
+}
+
+// wait blocks until it's safe to make a request to the given domain.
+func (rl *domainRateLimiter) wait(domain string) {
+	rl.mu.Lock()
+	defer rl.mu.Unlock()
+
+	if lastTime, ok := rl.lastRequestTime[domain]; ok {
+		elapsed := time.Since(lastTime)
+		if elapsed < rl.minInterval {
+			time.Sleep(rl.minInterval - elapsed)
+		}
+	}
+
+	rl.lastRequestTime[domain] = time.Now()
 }
 
 // DiscoveryConfig holds configuration for the discovery service.
@@ -65,13 +160,20 @@ func NewDiscoveryService(
 		},
 		stopChan:        make(chan struct{}),
 		sourceSemaphore: make(chan struct{}, config.Concurrency),
+		rateLimiter:     newDomainRateLimiter(1 * time.Second), // 1 req/sec per domain (RFC 7 section 8.2)
+		metrics:         newDiscoveryMetrics(),
 	}
+}
+
+// GetMetrics returns the current metrics for monitoring.
+func (ds *DiscoveryService) GetMetrics() *DiscoveryMetrics {
+	return ds.metrics
 }
 
 // Run starts the discovery service loop. It runs until Stop() is called or
 // the context is cancelled.
 func (ds *DiscoveryService) Run(ctx context.Context) error {
-	log.Println("Discovery service starting")
+	log.Println("INFO: Discovery service starting")
 
 	// Fetch sources immediately on startup per RFC 7 section 3.3
 	if err := ds.fetchSources(ctx); err != nil {
@@ -82,22 +184,37 @@ func (ds *DiscoveryService) Run(ctx context.Context) error {
 	ticker := time.NewTicker(5 * time.Minute) // Check for due sources every 5 minutes
 	defer ticker.Stop()
 
+	// Start metrics logging
+	metricsTicker := time.NewTicker(15 * time.Minute) // Log metrics every 15 minutes
+	defer metricsTicker.Stop()
+
 	for {
 		select {
 		case <-ctx.Done():
-			log.Println("Discovery service stopping (context cancelled)")
+			log.Println("INFO: Discovery service stopping (context cancelled)")
+			ds.logMetrics()
 			ds.wg.Wait() // Wait for in-progress fetches to complete
 			return ctx.Err()
 		case <-ds.stopChan:
-			log.Println("Discovery service stopping")
+			log.Println("INFO: Discovery service stopping")
+			ds.logMetrics()
 			ds.wg.Wait() // Wait for in-progress fetches to complete
 			return nil
 		case <-ticker.C:
 			if err := ds.fetchSources(ctx); err != nil {
 				log.Printf("ERROR: Source fetch failed: %v", err)
 			}
+		case <-metricsTicker.C:
+			ds.logMetrics()
 		}
 	}
+}
+
+// logMetrics logs current metrics per RFC 7 section 10.2.
+func (ds *DiscoveryService) logMetrics() {
+	sourcesTotal, sourcesFetched, sourcesFailed, itemsDiscovered := ds.metrics.GetMetrics()
+	log.Printf("INFO: Metrics - Sources: %d enabled, Fetches: %d success / %d failed, Items discovered: %d",
+		sourcesTotal, sourcesFetched, sourcesFailed, itemsDiscovered)
 }
 
 // Stop signals the discovery service to stop gracefully.
@@ -113,13 +230,22 @@ func (ds *DiscoveryService) fetchSources(ctx context.Context) error {
 		return fmt.Errorf("failed to list sources: %w", err)
 	}
 
+	// Update metrics with total enabled sources
+	enabledCount := 0
+	for _, s := range sources {
+		if s.EnabledAt != nil {
+			enabledCount++
+		}
+	}
+	ds.metrics.updateSourcesTotal(enabledCount)
+
 	// Filter for enabled sources that are due
 	dueSources := ds.filterDueSources(sources)
 	if len(dueSources) == 0 {
 		return nil
 	}
 
-	log.Printf("INFO: Fetching %d due sources", len(dueSources))
+	log.Printf("INFO: Fetching %d due sources (of %d enabled)", len(dueSources), enabledCount)
 
 	// Fetch sources in parallel with concurrency limit
 	for _, source := range dueSources {
@@ -221,8 +347,7 @@ func (ds *DiscoveryService) fetchSource(ctx context.Context, source Source) erro
 	case "rss", "atom":
 		newItemCount, err = ds.fetchRSSFeed(fetchCtx, source)
 	case "website":
-		// Web scraping will be implemented in later sections
-		return fmt.Errorf("website scraping not yet implemented")
+		newItemCount, err = ds.fetchWebsite(fetchCtx, source)
 	default:
 		return fmt.Errorf("unsupported source type: %s", source.SourceType)
 	}
@@ -232,13 +357,16 @@ func (ds *DiscoveryService) fetchSource(ctx context.Context, source Source) erro
 	// Update source metadata
 	if err != nil {
 		ds.handleFetchError(source, err)
+		ds.metrics.recordFetchFailure(duration)
 		return err
 	}
 
-	// Success -- update metadata
+	// Success -- update metadata and metrics
 	ds.handleFetchSuccess(source)
+	ds.metrics.recordFetchSuccess(duration)
+	ds.metrics.recordItemsDiscovered(newItemCount)
 
-	// Log success
+	// Log success per RFC 7 section 10.1
 	if duration > 30*time.Second {
 		log.Printf("WARN: Slow fetch for %s (%s): %d new items in %v", source.Name, source.URL, newItemCount, duration)
 	} else {
@@ -287,6 +415,233 @@ func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source Source) (int,
 	return newItemCount, nil
 }
 
+// fetchWebsite fetches and processes a website source. Implements RFC 7
+// section 5.
+func (ds *DiscoveryService) fetchWebsite(_ context.Context, source Source) (int, error) {
+	if source.ScraperConfig == nil {
+		return 0, fmt.Errorf("scraper config is required for website sources")
+	}
+
+	config := source.ScraperConfig
+
+	// Get domain for rate limiting
+	domain, err := ds.extractDomain(source.URL)
+	if err != nil {
+		return 0, fmt.Errorf("invalid source URL: %w", err)
+	}
+
+	switch config.DiscoveryMode {
+	case "direct":
+		return ds.fetchDirectMode(source, config, domain)
+	case "list":
+		return ds.fetchListMode(source, config, domain)
+	default:
+		return 0, fmt.Errorf("unsupported discovery mode: %s", config.DiscoveryMode)
+	}
+}
+
+// fetchDirectMode fetches a single article page directly. Implements RFC 7
+// section 5.1.1.
+func (ds *DiscoveryService) fetchDirectMode(source Source, config *ScraperConfig, domain string) (int, error) {
+	// Rate limit before fetching
+	ds.rateLimiter.wait(domain)
+
+	// Scrape the article
+	article, err := ScrapeArticle(source.URL, config.ArticleConfig)
+	if err != nil {
+		return 0, fmt.Errorf("failed to scrape article: %w", err)
+	}
+
+	// Validate the article
+	if err := ValidateScrapedArticle(article, source.URL); err != nil {
+		// Validation errors don't count as fetch failures per RFC 7 section
+		// 7.4
+		log.Printf("WARN: Validation failed for %s: %v", source.URL, err)
+		return 0, nil
+	}
+
+	// Check for duplicates
+	exists, err := URLExists(ds.newsFeed, article.URL)
+	if err != nil {
+		return 0, fmt.Errorf("failed to check URL existence: %w", err)
+	}
+
+	if exists {
+		// Already have this article
+		return 0, nil
+	}
+
+	// Convert to NewsItem
+	newsItem := ScrapedArticleToNewsItem(article, source.Name)
+
+	// Add to feed
+	if err := ds.newsFeed.Add(newsItem); err != nil {
+		return 0, fmt.Errorf("failed to add item: %w", err)
+	}
+
+	return 1, nil
+}
+
+// fetchListMode fetches articles from a list/index page. Implements RFC 7
+// section 5.1.2.
+func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, domain string) (int, error) {
+	if config.ListConfig == nil {
+		return 0, fmt.Errorf("list_config is required for list mode")
+	}
+
+	listConfig := config.ListConfig
+	newItemCount := 0
+	currentURL := source.URL
+	pagesProcessed := 0
+
+	for {
+		// Enforce max pages limit
+		if pagesProcessed >= listConfig.MaxPages {
+			break
+		}
+
+		// Rate limit before fetching
+		ds.rateLimiter.wait(domain)
+
+		// Fetch the list page
+		doc, err := FetchHTML(currentURL)
+		if err != nil {
+			return newItemCount, fmt.Errorf("failed to fetch list page: %w", err)
+		}
+
+		// Extract article URLs
+		articleURLs := ds.extractArticleURLs(doc, listConfig.ArticleSelector, currentURL)
+		if len(articleURLs) == 0 {
+			log.Printf("WARN: No articles found on list page %s", currentURL)
+			break
+		}
+
+		// Process each article URL
+		for _, articleURL := range articleURLs {
+			// Check if URL already exists (deduplication)
+			exists, err := URLExists(ds.newsFeed, articleURL)
+			if err != nil {
+				log.Printf("WARN: Failed to check URL existence for %s: %v", articleURL, err)
+				continue
+			}
+
+			if exists {
+				// Skip duplicate
+				continue
+			}
+
+			// Rate limit before fetching article
+			ds.rateLimiter.wait(domain)
+
+			// Scrape the article
+			article, err := ScrapeArticle(articleURL, config.ArticleConfig)
+			if err != nil {
+				log.Printf("WARN: Failed to scrape article %s: %v", articleURL, err)
+				continue
+			}
+
+			// Validate the article
+			if err := ValidateScrapedArticle(article, source.URL); err != nil {
+				log.Printf("WARN: Validation failed for %s: %v", articleURL, err)
+				continue
+			}
+
+			// Convert to NewsItem
+			newsItem := ScrapedArticleToNewsItem(article, source.Name)
+
+			// Add to feed
+			if err := ds.newsFeed.Add(newsItem); err != nil {
+				log.Printf("WARN: Failed to add item %s: %v", articleURL, err)
+				continue
+			}
+
+			newItemCount++
+		}
+
+		pagesProcessed++
+
+		// Check for pagination
+		if listConfig.PaginationSelector == "" {
+			break
+		}
+
+		// Extract next page URL
+		nextURL := ds.extractNextPageURL(doc, listConfig.PaginationSelector, currentURL)
+		if nextURL == "" {
+			// No more pages
+			break
+		}
+
+		currentURL = nextURL
+	}
+
+	return newItemCount, nil
+}
+
+// extractArticleURLs extracts article URLs from a list page.
+func (ds *DiscoveryService) extractArticleURLs(doc *goquery.Document, selector string, baseURL string) []string {
+	var urls []string
+
+	doc.Find(selector).Each(func(_ int, s *goquery.Selection) {
+		href, exists := s.Attr("href")
+		if !exists {
+			return
+		}
+
+		// Resolve relative URLs
+		absoluteURL, err := ds.resolveURL(baseURL, href)
+		if err != nil {
+			log.Printf("WARN: Failed to resolve URL %s: %v", href, err)
+			return
+		}
+
+		urls = append(urls, absoluteURL)
+	})
+
+	return urls
+}
+
+// extractNextPageURL extracts the next page URL from pagination.
+func (ds *DiscoveryService) extractNextPageURL(doc *goquery.Document, selector string, baseURL string) string {
+	nextHref, exists := doc.Find(selector).First().Attr("href")
+	if !exists {
+		return ""
+	}
+
+	// Resolve relative URLs
+	absoluteURL, err := ds.resolveURL(baseURL, nextHref)
+	if err != nil {
+		log.Printf("WARN: Failed to resolve pagination URL %s: %v", nextHref, err)
+		return ""
+	}
+
+	return absoluteURL
+}
+
+// resolveURL resolves a potentially relative URL against a base URL.
+func (ds *DiscoveryService) resolveURL(baseURL, href string) (string, error) {
+	base, err := url.Parse(baseURL)
+	if err != nil {
+		return "", err
+	}
+
+	ref, err := url.Parse(href)
+	if err != nil {
+		return "", err
+	}
+
+	return base.ResolveReference(ref).String(), nil
+}
+
+// extractDomain extracts the domain from a URL for rate limiting.
+func (ds *DiscoveryService) extractDomain(urlStr string) (string, error) {
+	parsed, err := url.Parse(urlStr)
+	if err != nil {
+		return "", err
+	}
+	return parsed.Host, nil
+}
+
 // handleFetchSuccess updates source metadata after a successful fetch.
 // Implements RFC 7 section 4.3.
 func (ds *DiscoveryService) handleFetchSuccess(source Source) {
@@ -322,7 +677,8 @@ func (ds *DiscoveryService) handleFetchError(source Source, fetchErr error) {
 		updates["enabled_at"] = (*time.Time)(nil)
 		updates["fetch_error_count"] = source.FetchErrorCount + 1
 	} else {
-		// Transient errors -- increment counter and check threshold (RFC 7 section 7.1 and 7.3)
+		// Transient errors -- increment counter and check threshold (RFC 7
+		// section 7.1 and 7.3)
 		newErrorCount := source.FetchErrorCount + 1
 		updates["fetch_error_count"] = newErrorCount
 
