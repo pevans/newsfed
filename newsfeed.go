@@ -14,8 +14,8 @@ type NewsFeed struct {
 	storageDir string
 }
 
-// New creates a new news feed with the specified storage directory
-func New(storageDir string) (*NewsFeed, error) {
+// NewNewsFeed creates a new news feed with the specified storage directory
+func NewNewsFeed(storageDir string) (*NewsFeed, error) {
 	// Create the storage directory if it doesn't exist
 	if err := os.MkdirAll(storageDir, 0o755); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)

@@ -209,7 +209,7 @@ func TestParseAuthors_PreferCommaOverAnd(t *testing.T) {
 // TestURLExists_NotFound verifies URL doesn't exist
 func TestURLExists_NotFound(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := New(tempDir)
+	feed, err := NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	exists, err := URLExists(feed, "http://example.com/nonexistent")
@@ -220,7 +220,7 @@ func TestURLExists_NotFound(t *testing.T) {
 // TestURLExists_Found verifies URL exists
 func TestURLExists_Found(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := New(tempDir)
+	feed, err := NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Add an item
@@ -246,7 +246,7 @@ func TestURLExists_Found(t *testing.T) {
 // TestURLExists_EmptyFeed verifies empty feed handling
 func TestURLExists_EmptyFeed(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := New(tempDir)
+	feed, err := NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	exists, err := URLExists(feed, "http://example.com/anything")

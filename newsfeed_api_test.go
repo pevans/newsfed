@@ -22,7 +22,7 @@ func init() {
 // Test helper: create a test news feed
 func setupTestFeed(t *testing.T) *NewsFeed {
 	tempDir := t.TempDir()
-	feed, err := New(tempDir)
+	feed, err := NewNewsFeed(tempDir)
 	require.NoError(t, err)
 	return feed
 }

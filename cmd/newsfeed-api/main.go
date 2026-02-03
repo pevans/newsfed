@@ -8,7 +8,7 @@ import (
 
 func main() {
 	// Create news feed with .news directory storage (RFC 1)
-	feed, err := newsfed.New(".news")
+	feed, err := newsfed.NewNewsFeed(".news")
 	if err != nil {
 		log.Fatalf("Failed to create news feed: %v", err)
 	}
