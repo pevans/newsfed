@@ -319,6 +319,26 @@ func (m *MetadataStore) UpdateSource(sourceID uuid.UUID, updates map[string]any)
 		setClauses = append(setClauses, "scraper_config = ?")
 		args = append(args, string(data))
 	}
+	if lastFetchedAt, ok := updates["last_fetched_at"].(*time.Time); ok {
+		setClauses = append(setClauses, "last_fetched_at = ?")
+		args = append(args, formatTime(lastFetchedAt))
+	}
+	if lastModified, ok := updates["last_modified"].(*string); ok {
+		setClauses = append(setClauses, "last_modified = ?")
+		args = append(args, lastModified)
+	}
+	if etag, ok := updates["etag"].(*string); ok {
+		setClauses = append(setClauses, "etag = ?")
+		args = append(args, etag)
+	}
+	if fetchErrorCount, ok := updates["fetch_error_count"].(int); ok {
+		setClauses = append(setClauses, "fetch_error_count = ?")
+		args = append(args, fetchErrorCount)
+	}
+	if lastError, ok := updates["last_error"].(*string); ok {
+		setClauses = append(setClauses, "last_error = ?")
+		args = append(args, lastError)
+	}
 
 	// Set updated_at to now
 	now := time.Now()
