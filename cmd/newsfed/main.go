@@ -26,7 +26,6 @@ func main() {
 
 	// Parse global flags
 	metadataPath := getEnv("NEWSFED_METADATA_DSN", "metadata.db")
-	feedDir := getEnv("NEWSFED_FEED_DSN", ".news")
 
 	// Get subcommand
 	subcommand := os.Args[1]
@@ -38,7 +37,7 @@ func main() {
 			os.Exit(1)
 		}
 		action := os.Args[2]
-		handleSourcesCommand(action, metadataPath, feedDir, os.Args[3:])
+		handleSourcesCommand(action, metadataPath, os.Args[3:])
 	case "help", "--help", "-h":
 		printUsage()
 	default:
@@ -48,7 +47,7 @@ func main() {
 	}
 }
 
-func handleSourcesCommand(action, metadataPath, feedDir string, args []string) {
+func handleSourcesCommand(action, metadataPath string, args []string) {
 	// Initialize metadata store
 	metadataStore, err := newsfed.NewMetadataStore(metadataPath)
 	if err != nil {
