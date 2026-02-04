@@ -4,6 +4,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"sort"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +20,39 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
+// parseDuration extends time.ParseDuration to support 'd' (days) and 'w'
+// (weeks)
+func parseDuration(s string) (time.Duration, error) {
+	// Try standard parsing first
+	d, err := time.ParseDuration(s)
+	if err == nil {
+		return d, nil
+	}
+
+	// Handle days (d) and weeks (w)
+	if strings.HasSuffix(s, "d") {
+		days := s[:len(s)-1]
+		var n int
+		_, err := fmt.Sscanf(days, "%d", &n)
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration: %s", s)
+		}
+		return time.Duration(n) * 24 * time.Hour, nil
+	}
+
+	if strings.HasSuffix(s, "w") {
+		weeks := s[:len(s)-1]
+		var n int
+		_, err := fmt.Sscanf(weeks, "%d", &n)
+		if err != nil {
+			return 0, fmt.Errorf("invalid duration: %s", s)
+		}
+		return time.Duration(n) * 7 * 24 * time.Hour, nil
+	}
+
+	return 0, fmt.Errorf("invalid duration: %s", s)
+}
+
 func main() {
 	if len(os.Args) < 2 {
 		printUsage()
@@ -26,11 +61,14 @@ func main() {
 
 	// Parse global flags
 	metadataPath := getEnv("NEWSFED_METADATA_DSN", "metadata.db")
+	feedDir := getEnv("NEWSFED_FEED_DSN", ".news")
 
 	// Get subcommand
 	subcommand := os.Args[1]
 
 	switch subcommand {
+	case "list":
+		handleList(feedDir, os.Args[2:])
 	case "sources":
 		if len(os.Args) < 3 {
 			printSourcesUsage()
@@ -79,6 +117,7 @@ func printUsage() {
 	fmt.Println("  newsfed <command> [arguments]")
 	fmt.Println()
 	fmt.Println("Commands:")
+	fmt.Println("  list       List news items")
 	fmt.Println("  sources    Manage news sources")
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
@@ -98,6 +137,152 @@ func printSourcesUsage() {
 	fmt.Println("  add        Add a new source")
 	fmt.Println("  delete     Delete a source")
 	fmt.Println("  help       Show this help message")
+}
+
+func handleList(feedDir string, args []string) {
+	// Parse flags for list command
+	fs := flag.NewFlagSet("list", flag.ExitOnError)
+	pinned := fs.Bool("pinned", false, "Show only pinned items")
+	unpinned := fs.Bool("unpinned", false, "Show only unpinned items")
+	publisher := fs.String("publisher", "", "Filter by publisher")
+	since := fs.String("since", "", "Show items discovered since duration (e.g., 24h, 7d)")
+	sortBy := fs.String("sort", "published", "Sort by: published, discovered, pinned")
+	limit := fs.Int("limit", 20, "Maximum number of items to display")
+	offset := fs.Int("offset", 0, "Number of items to skip")
+	fs.Parse(args)
+
+	// Initialize news feed
+	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get all items
+	items, err := newsFeed.List()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to list news items: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Apply filters
+	var filtered []newsfed.NewsItem
+	for _, item := range items {
+		// Filter by pinned status
+		if *pinned && item.PinnedAt == nil {
+			continue
+		}
+		if *unpinned && item.PinnedAt != nil {
+			continue
+		}
+
+		// Filter by publisher
+		if *publisher != "" {
+			if item.Publisher == nil || !strings.Contains(strings.ToLower(*item.Publisher), strings.ToLower(*publisher)) {
+				continue
+			}
+		}
+
+		// Filter by discovered time
+		if *since != "" {
+			duration, err := parseDuration(*since)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: invalid duration format: %v\n", err)
+				os.Exit(1)
+			}
+			cutoff := time.Now().Add(-duration)
+			if item.DiscoveredAt.Before(cutoff) {
+				continue
+			}
+		}
+
+		filtered = append(filtered, item)
+	}
+
+	// Sort items
+	switch *sortBy {
+	case "published":
+		sort.Slice(filtered, func(i, j int) bool {
+			return filtered[i].PublishedAt.After(filtered[j].PublishedAt)
+		})
+	case "discovered":
+		sort.Slice(filtered, func(i, j int) bool {
+			return filtered[i].DiscoveredAt.After(filtered[j].DiscoveredAt)
+		})
+	case "pinned":
+		sort.Slice(filtered, func(i, j int) bool {
+			// Items with PinnedAt come first, sorted by pinned time (most
+			// recent first)
+			if filtered[i].PinnedAt == nil && filtered[j].PinnedAt == nil {
+				return false
+			}
+			if filtered[i].PinnedAt == nil {
+				return false
+			}
+			if filtered[j].PinnedAt == nil {
+				return true
+			}
+			return filtered[i].PinnedAt.After(*filtered[j].PinnedAt)
+		})
+	default:
+		fmt.Fprintf(os.Stderr, "Error: invalid sort option: %s (must be published, discovered, or pinned)\n", *sortBy)
+		os.Exit(1)
+	}
+
+	// Apply pagination
+	total := len(filtered)
+	if *offset >= total {
+		fmt.Println("No items to display.")
+		return
+	}
+
+	end := min(*offset+*limit, total)
+	paged := filtered[*offset:end]
+
+	// Display results
+	if len(paged) == 0 {
+		fmt.Println("No items found.")
+		return
+	}
+
+	// Print header
+	fmt.Printf("Showing %d-%d of %d items\n\n", *offset+1, *offset+len(paged), total)
+
+	// Print each item
+	for _, item := range paged {
+		pinnedMarker := " "
+		if item.PinnedAt != nil {
+			pinnedMarker = "📌"
+		}
+
+		publisher := "Unknown"
+		if item.Publisher != nil {
+			publisher = *item.Publisher
+		}
+
+		// Truncate title and summary for display
+		title := item.Title
+		if len(title) > 70 {
+			title = title[:67] + "..."
+		}
+
+		summary := item.Summary
+		if len(summary) > 150 {
+			summary = summary[:147] + "..."
+		}
+
+		fmt.Printf("%s %s\n", pinnedMarker, title)
+		fmt.Printf("   %s | Published: %s\n",
+			publisher,
+			item.PublishedAt.Format("2006-01-02 15:04"),
+		)
+		if summary != "" {
+			fmt.Printf("   %s\n", summary)
+		}
+		fmt.Printf("   URL: %s\n", item.URL)
+		fmt.Printf("   ID: %s\n", item.ID.String())
+		fmt.Println()
+	}
 }
 
 func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
