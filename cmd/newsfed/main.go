@@ -1,6 +1,7 @@
 package main
 
 import (
+	"encoding/json"
 	"flag"
 	"fmt"
 	"os"
@@ -107,6 +108,8 @@ func handleSourcesCommand(action, metadataPath string, args []string) {
 		handleSourcesShow(metadataStore, args)
 	case "add":
 		handleSourcesAdd(metadataStore, args)
+	case "update":
+		handleSourcesUpdate(metadataStore, args)
 	case "delete":
 		handleSourcesDelete(metadataStore, args)
 	case "enable":
@@ -151,6 +154,7 @@ func printSourcesUsage() {
 	fmt.Println("  list       List all sources")
 	fmt.Println("  show       Show detailed source information")
 	fmt.Println("  add        Add a new source")
+	fmt.Println("  update     Update source configuration")
 	fmt.Println("  delete     Delete a source")
 	fmt.Println("  enable     Enable a source")
 	fmt.Println("  disable    Disable a source")
@@ -690,9 +694,10 @@ func handleSourcesShow(metadataStore *newsfed.MetadataStore, args []string) {
 func handleSourcesAdd(metadataStore *newsfed.MetadataStore, args []string) {
 	// Parse flags for add command
 	fs := flag.NewFlagSet("sources add", flag.ExitOnError)
-	sourceType := fs.String("type", "", "Source type (rss or atom)")
+	sourceType := fs.String("type", "", "Source type (rss, atom, or website)")
 	url := fs.String("url", "", "Source URL")
 	name := fs.String("name", "", "Source name")
+	configFile := fs.String("config", "", "Scraper config file (for website sources)")
 	fs.Parse(args)
 
 	// Validate required flags
@@ -713,14 +718,36 @@ func handleSourcesAdd(metadataStore *newsfed.MetadataStore, args []string) {
 	}
 
 	// Validate source type
-	if *sourceType != "rss" && *sourceType != "atom" {
-		fmt.Fprintf(os.Stderr, "Error: --type must be 'rss' or 'atom'\n")
+	if *sourceType != "rss" && *sourceType != "atom" && *sourceType != "website" {
+		fmt.Fprintf(os.Stderr, "Error: --type must be 'rss', 'atom', or 'website'\n")
 		os.Exit(1)
+	}
+
+	// For website sources, config is required
+	var scraperConfig *newsfed.ScraperConfig
+	if *sourceType == "website" {
+		if *configFile == "" {
+			fmt.Fprintf(os.Stderr, "Error: --config is required for website sources\n")
+			os.Exit(1)
+		}
+
+		// Read and parse config file
+		data, err := os.ReadFile(*configFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to read config file: %v\n", err)
+			os.Exit(1)
+		}
+
+		scraperConfig = &newsfed.ScraperConfig{}
+		if err := json.Unmarshal(data, scraperConfig); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
+			os.Exit(1)
+		}
 	}
 
 	// Create the source (enabled by default)
 	now := time.Now()
-	source, err := metadataStore.CreateSource(*sourceType, *url, *name, nil, &now)
+	source, err := metadataStore.CreateSource(*sourceType, *url, *name, scraperConfig, &now)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create source: %v\n", err)
 		os.Exit(1)
@@ -730,6 +757,90 @@ func handleSourcesAdd(metadataStore *newsfed.MetadataStore, args []string) {
 	fmt.Printf("  Type: %s\n", source.SourceType)
 	fmt.Printf("  Name: %s\n", source.Name)
 	fmt.Printf("  URL: %s\n", source.URL)
+	if scraperConfig != nil {
+		fmt.Println("  Scraper: Configured")
+	}
+}
+
+func handleSourcesUpdate(metadataStore *newsfed.MetadataStore, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed sources update <source-id> [flags]\n")
+		os.Exit(1)
+	}
+
+	sourceID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(sourceID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid source ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Parse flags for update command
+	fs := flag.NewFlagSet("sources update", flag.ExitOnError)
+	name := fs.String("name", "", "Update source name")
+	interval := fs.String("interval", "", "Update polling interval (e.g., 30m, 1h)")
+	configFile := fs.String("config", "", "Update scraper config file (for website sources)")
+	fs.Parse(args[1:])
+
+	// Check if any updates were provided
+	if *name == "" && *interval == "" && *configFile == "" {
+		fmt.Fprintf(os.Stderr, "Error: at least one update flag is required (--name, --interval, or --config)\n")
+		os.Exit(1)
+	}
+
+	// Build updates map
+	updates := make(map[string]any)
+
+	if *name != "" {
+		updates["name"] = *name
+	}
+
+	if *interval != "" {
+		// Validate interval format by parsing it
+		_, err := parseDuration(*interval)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: invalid interval format: %v\n", err)
+			os.Exit(1)
+		}
+		updates["polling_interval"] = *interval
+	}
+
+	if *configFile != "" {
+		// Read and parse config file
+		data, err := os.ReadFile(*configFile)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to read config file: %v\n", err)
+			os.Exit(1)
+		}
+
+		scraperConfig := &newsfed.ScraperConfig{}
+		if err := json.Unmarshal(data, scraperConfig); err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
+			os.Exit(1)
+		}
+		updates["scraper_config"] = scraperConfig
+	}
+
+	// Apply updates
+	err = metadataStore.UpdateSource(id, updates)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to update source: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Updated source: %s\n", sourceID)
+	if *name != "" {
+		fmt.Printf("  Name: %s\n", *name)
+	}
+	if *interval != "" {
+		fmt.Printf("  Interval: %s\n", *interval)
+	}
+	if *configFile != "" {
+		fmt.Println("  Scraper: Updated")
+	}
 }
 
 func handleSourcesDelete(metadataStore *newsfed.MetadataStore, args []string) {
