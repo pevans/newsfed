@@ -118,13 +118,25 @@ The client should allow users to list news items with various filters:
 - Sort by published date, discovered date, or pinned date
 - Paginate through large result sets
 
+**Default Behavior:**
+
+By default (when no filters are specified), the list command shows:
+- Items discovered in the past 3 days, OR
+- Items that are pinned (regardless of discovery date)
+
+This keeps the default view focused on recent and important items. To see all
+items regardless of age, use `--all`.
+
 **Example CLI commands:**
 
 ```bash
-# List recent items
+# List recent items (past 3 days) and pinned items
 newsfed list
 
-# List pinned items
+# List all items regardless of age
+newsfed list --all
+
+# List pinned items only
 newsfed list --pinned
 
 # List items from a specific publisher

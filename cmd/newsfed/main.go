@@ -151,6 +151,7 @@ func printSourcesUsage() {
 func handleList(feedDir string, args []string) {
 	// Parse flags for list command
 	fs := flag.NewFlagSet("list", flag.ExitOnError)
+	all := fs.Bool("all", false, "Show all items regardless of age")
 	pinned := fs.Bool("pinned", false, "Show only pinned items")
 	unpinned := fs.Bool("unpinned", false, "Show only unpinned items")
 	publisher := fs.String("publisher", "", "Filter by publisher")
@@ -177,6 +178,16 @@ func handleList(feedDir string, args []string) {
 	// Apply filters
 	var filtered []newsfed.NewsItem
 	for _, item := range items {
+		// Default filter: show items from past 3 days OR pinned items (unless --all is set)
+		if !*all && *since == "" && !*pinned && !*unpinned {
+			threeDaysAgo := time.Now().Add(-3 * 24 * time.Hour)
+			isRecent := item.DiscoveredAt.After(threeDaysAgo)
+			isPinned := item.PinnedAt != nil
+			if !isRecent && !isPinned {
+				continue
+			}
+		}
+
 		// Filter by pinned status
 		if *pinned && item.PinnedAt == nil {
 			continue
@@ -192,7 +203,7 @@ func handleList(feedDir string, args []string) {
 			}
 		}
 
-		// Filter by discovered time
+		// Filter by discovered time (explicit --since overrides default)
 		if *since != "" {
 			duration, err := parseDuration(*since)
 			if err != nil {
