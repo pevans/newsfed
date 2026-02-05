@@ -73,11 +73,29 @@ The scraping process follows these steps:
 1. **Fetch** -- Retrieve the HTML content from the source URL
 2. **Discover** -- Identify article URLs (if in "list" mode) or proceed
 directly to extraction (if in "direct" mode)
-3. **Extract** -- For each article URL, fetch the page and extract metadata
+3. **Limit** -- Select up to 20 articles to process (see 3.1.1)
+4. **Extract** -- For each article URL, fetch the page and extract metadata
 using configured selectors
-4. **Transform** -- Convert extracted data to NewsItem structure
-5. **Deduplicate** -- Check if the item already exists (by URL)
-6. **Store** -- Add new items to the local news feed
+5. **Transform** -- Convert extracted data to NewsItem structure
+6. **Deduplicate** -- Check if the item already exists (by URL)
+7. **Store** -- Add new items to the local news feed
+
+### 3.1.1. Article Limiting
+
+To prevent excessive scraping and storage growth, the system should limit the
+number of articles processed per scrape operation:
+
+- Process a maximum of 20 articles per source per scrape
+- In "list" mode, extract up to 20 article URLs from the discovered links
+- In "direct" mode, this limit is naturally 1 (single article URL)
+- When pagination is used, stop after collecting 20 article URLs total across
+  all pages, even if `max_pages` has not been reached
+- Articles already in the local feed (detected during deduplication) do not
+  count against this limit for the purpose of processing, but the initial
+  selection of 20 articles happens before deduplication
+
+The 20-article cap ensures that scraping a website doesn't result in ingesting
+hundreds of historical articles, while still capturing recent content updates.
 
 ## 3.2. HTML Fetching
 

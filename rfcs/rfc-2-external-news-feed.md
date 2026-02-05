@@ -63,6 +63,23 @@ polling frequency should be configurable per feed source, with a reasonable
 default (e.g., every 15 minutes to 1 hour). Feeds that update infrequently can
 be polled less often.
 
+### 2.2.3. Item Limiting
+
+To prevent excessive storage growth and focus on recent content, the system
+should limit the number of items processed from each feed fetch:
+
+- Process a maximum of 20 items per feed fetch
+- Select the 20 most recent items based on their `published_at` timestamp
+- If a feed contains more than 20 items, older items beyond the 20 most recent
+  are ignored
+- This limit applies after parsing but before deduplication and storage
+- Items already in the local feed (detected during deduplication) do not count
+  against this limit for the purpose of processing, but the initial selection
+  of 20 items happens before deduplication
+
+The 20-item cap ensures that polling a feed doesn't result in ingesting
+hundreds of historical items, while still capturing recent content updates.
+
 ## 2.3. RSS Feed Support
 
 RSS (Really Simple Syndication) is a widely-used XML format for syndicating

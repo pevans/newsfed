@@ -2,6 +2,7 @@ package newsfed
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 
@@ -104,13 +105,28 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
 	}
 }
 
-// FeedToNewsItems converts all items in an RSS or Atom feed to NewsItems
+// FeedToNewsItems converts all items in an RSS or Atom feed to NewsItems.
+// Implements RFC 2 section 2.2.3: limits to 20 most recent items based on
+// published_at timestamp.
 func FeedToNewsItems(feed *gofeed.Feed) []NewsItem {
+	// Convert all items to NewsItems
 	items := make([]NewsItem, 0, len(feed.Items))
 	for _, item := range feed.Items {
 		newsItem := FeedItemToNewsItem(item, feed.Title)
 		items = append(items, newsItem)
 	}
+
+	// Sort by published_at (most recent first)
+	sort.Slice(items, func(i, j int) bool {
+		return items[i].PublishedAt.After(items[j].PublishedAt)
+	})
+
+	// Limit to 20 most recent items per RFC 2 section 2.2.3
+	const maxItems = 20
+	if len(items) > maxItems {
+		items = items[:maxItems]
+	}
+
 	return items
 }
 

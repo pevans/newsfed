@@ -483,7 +483,7 @@ func (ds *DiscoveryService) fetchDirectMode(source Source, config *ScraperConfig
 }
 
 // fetchListMode fetches articles from a list/index page. Implements RFC 7
-// section 5.1.2.
+// section 5.1.2 with 20-article cap per RFC 3 section 3.1.1.
 func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, domain string) (int, error) {
 	if config.ListConfig == nil {
 		return 0, fmt.Errorf("list_config is required for list mode")
@@ -493,10 +493,17 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 	newItemCount := 0
 	currentURL := source.URL
 	pagesProcessed := 0
+	articlesCollected := 0 // Track total articles collected across all pages
+	const maxArticles = 20 // RFC 3 section 3.1.1
 
 	for {
 		// Enforce max pages limit
 		if pagesProcessed >= listConfig.MaxPages {
+			break
+		}
+
+		// Enforce max articles limit per RFC 3 section 3.1.1
+		if articlesCollected >= maxArticles {
 			break
 		}
 
@@ -516,8 +523,16 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 			break
 		}
 
+		// Limit article URLs to not exceed max (RFC 3 section 3.1.1)
+		remainingSlots := maxArticles - articlesCollected
+		if len(articleURLs) > remainingSlots {
+			articleURLs = articleURLs[:remainingSlots]
+		}
+
 		// Process each article URL
 		for _, articleURL := range articleURLs {
+			articlesCollected++
+
 			// Check if URL already exists (deduplication)
 			exists, err := URLExists(ds.newsFeed, articleURL)
 			if err != nil {
@@ -559,6 +574,11 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 		}
 
 		pagesProcessed++
+
+		// Stop if we've reached the article limit
+		if articlesCollected >= maxArticles {
+			break
+		}
 
 		// Check for pagination
 		if listConfig.PaginationSelector == "" {

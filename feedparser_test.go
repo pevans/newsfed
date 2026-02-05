@@ -1,6 +1,7 @@
 package newsfed
 
 import (
+	"fmt"
 	"testing"
 	"time"
 
@@ -284,40 +285,53 @@ func TestFeedToNewsItems_SingleItem(t *testing.T) {
 
 // TestFeedToNewsItems_MultipleItems verifies multiple item conversion
 func TestFeedToNewsItems_MultipleItems(t *testing.T) {
+	// Create items with different published dates
+	pub1 := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	pub2 := time.Date(2024, 1, 2, 0, 0, 0, 0, time.UTC)
+	pub3 := time.Date(2024, 1, 3, 0, 0, 0, 0, time.UTC)
+
 	feed := &gofeed.Feed{
 		Title: "Test Feed",
 		Items: []*gofeed.Item{
-			{Title: "Article 1", Link: "http://example.com/1"},
-			{Title: "Article 2", Link: "http://example.com/2"},
-			{Title: "Article 3", Link: "http://example.com/3"},
+			{Title: "Article 1", Link: "http://example.com/1", PublishedParsed: &pub1},
+			{Title: "Article 2", Link: "http://example.com/2", PublishedParsed: &pub2},
+			{Title: "Article 3", Link: "http://example.com/3", PublishedParsed: &pub3},
 		},
 	}
 
 	items := FeedToNewsItems(feed)
 
 	require.Len(t, items, 3)
-	assert.Equal(t, "Article 1", items[0].Title)
+	// Items should be sorted by published_at (most recent first) per RFC 2
+	// section 2.2.3
+	assert.Equal(t, "Article 3", items[0].Title)
 	assert.Equal(t, "Article 2", items[1].Title)
-	assert.Equal(t, "Article 3", items[2].Title)
+	assert.Equal(t, "Article 1", items[2].Title)
 }
 
-// TestFeedToNewsItems_PreservesOrder verifies item order is preserved
-func TestFeedToNewsItems_PreservesOrder(t *testing.T) {
+// TestFeedToNewsItems_SortsByPublishedDate verifies items are sorted by
+// published_at (most recent first) per RFC 2 section 2.2.3
+func TestFeedToNewsItems_SortsByPublishedDate(t *testing.T) {
+	// Create items with dates in non-chronological order
+	pubOld := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	pubMid := time.Date(2024, 1, 15, 0, 0, 0, 0, time.UTC)
+	pubNew := time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC)
+
 	feed := &gofeed.Feed{
 		Title: "Test Feed",
 		Items: []*gofeed.Item{
-			{Title: "First", Link: "http://example.com/1"},
-			{Title: "Second", Link: "http://example.com/2"},
-			{Title: "Third", Link: "http://example.com/3"},
+			{Title: "Middle", Link: "http://example.com/2", PublishedParsed: &pubMid},
+			{Title: "Newest", Link: "http://example.com/3", PublishedParsed: &pubNew},
+			{Title: "Oldest", Link: "http://example.com/1", PublishedParsed: &pubOld},
 		},
 	}
 
 	items := FeedToNewsItems(feed)
 
 	require.Len(t, items, 3)
-	assert.Equal(t, "First", items[0].Title, "order should be preserved")
-	assert.Equal(t, "Second", items[1].Title)
-	assert.Equal(t, "Third", items[2].Title)
+	assert.Equal(t, "Newest", items[0].Title, "most recent should be first")
+	assert.Equal(t, "Middle", items[1].Title)
+	assert.Equal(t, "Oldest", items[2].Title, "oldest should be last")
 }
 
 // TestContains_Found verifies string is found
@@ -406,18 +420,29 @@ func TestFeedItemToNewsItem_AlwaysValid(t *testing.T) {
 	}
 }
 
-// Property test: FeedToNewsItems length matches input
-func TestFeedToNewsItems_LengthMatches(t *testing.T) {
-	counts := []int{0, 1, 5, 10, 100}
+// Property test: FeedToNewsItems caps at 20 items per RFC 2 section 2.2.3
+func TestFeedToNewsItems_CapsAt20Items(t *testing.T) {
+	testCases := []struct {
+		inputCount    int
+		expectedCount int
+	}{
+		{0, 0},
+		{1, 1},
+		{5, 5},
+		{10, 10},
+		{20, 20},
+		{25, 20},  // Capped at 20
+		{100, 20}, // Capped at 20
+	}
 
-	for _, count := range counts {
-		t.Run(string(rune('0'+count)), func(t *testing.T) {
+	for _, tc := range testCases {
+		t.Run(fmt.Sprintf("input_%d", tc.inputCount), func(t *testing.T) {
 			feed := &gofeed.Feed{
 				Title: "Test",
-				Items: make([]*gofeed.Item, count),
+				Items: make([]*gofeed.Item, tc.inputCount),
 			}
 
-			for i := range count {
+			for i := range tc.inputCount {
 				feed.Items[i] = &gofeed.Item{
 					Title: "Article",
 					Link:  "http://example.com",
@@ -426,8 +451,49 @@ func TestFeedToNewsItems_LengthMatches(t *testing.T) {
 
 			items := FeedToNewsItems(feed)
 
-			assert.Len(t, items, count, "output length should match input length")
+			assert.Len(t, items, tc.expectedCount,
+				"output length should be min(input, 20)")
 		})
+	}
+}
+
+// TestFeedToNewsItems_SelectsMostRecent20 verifies that when a feed has more
+// than 20 items, the 20 most recent (by published_at) are selected per RFC 2
+// section 2.2.3
+func TestFeedToNewsItems_SelectsMostRecent20(t *testing.T) {
+	// Create 30 items with ascending dates
+	feed := &gofeed.Feed{
+		Title: "Test Feed",
+		Items: make([]*gofeed.Item, 30),
+	}
+
+	baseDate := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
+	for i := range 30 {
+		pubDate := baseDate.Add(time.Duration(i) * 24 * time.Hour)
+		feed.Items[i] = &gofeed.Item{
+			Title:           fmt.Sprintf("Article %d", i),
+			Link:            fmt.Sprintf("http://example.com/%d", i),
+			PublishedParsed: &pubDate,
+		}
+	}
+
+	items := FeedToNewsItems(feed)
+
+	// Should return exactly 20 items
+	require.Len(t, items, 20)
+
+	// Should return the 20 most recent (items 10-29) First item should be the
+	// newest (item 29)
+	assert.Equal(t, "Article 29", items[0].Title,
+		"first item should be the newest")
+	// Last item should be the 20th newest (item 10)
+	assert.Equal(t, "Article 10", items[19].Title,
+		"last item should be the 20th newest")
+
+	// Verify all items are in descending order
+	for i := 0; i < len(items)-1; i++ {
+		assert.True(t, items[i].PublishedAt.After(items[i+1].PublishedAt),
+			"items should be in descending order by published_at")
 	}
 }
 

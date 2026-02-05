@@ -50,6 +50,13 @@ else
     TOTAL_FAILED=$((TOTAL_FAILED + $?))
 fi
 
+# Test 20-Item Cap (RFC 2 Section 2.2.3, RFC 3 Section 3.1.1)
+if ./test-20-item-cap.sh; then
+    echo ""
+else
+    TOTAL_FAILED=$((TOTAL_FAILED + $?))
+fi
+
 # Cleanup test data and binary
 echo "Cleaning up test environment..."
 
