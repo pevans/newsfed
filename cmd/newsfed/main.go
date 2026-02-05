@@ -69,6 +69,8 @@ func main() {
 	switch subcommand {
 	case "list":
 		handleList(feedDir, os.Args[2:])
+	case "show":
+		handleShow(feedDir, os.Args[2:])
 	case "sources":
 		if len(os.Args) < 3 {
 			printSourcesUsage()
@@ -118,6 +120,7 @@ func printUsage() {
 	fmt.Println()
 	fmt.Println("Commands:")
 	fmt.Println("  list       List news items")
+	fmt.Println("  show       Show detailed view of a news item")
 	fmt.Println("  sources    Manage news sources")
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
@@ -283,6 +286,119 @@ func handleList(feedDir string, args []string) {
 		fmt.Printf("   ID: %s\n", item.ID.String())
 		fmt.Println()
 	}
+}
+
+func handleShow(feedDir string, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: item ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed show <item-id>\n")
+		os.Exit(1)
+	}
+
+	itemID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(itemID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid item ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize news feed
+	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the item
+	item, err := newsFeed.Get(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get news item: %v\n", err)
+		os.Exit(1)
+	}
+
+	if item == nil {
+		fmt.Fprintf(os.Stderr, "Error: news item not found: %s\n", itemID)
+		os.Exit(1)
+	}
+
+	// Display the item
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println(item.Title)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+
+	// Publisher
+	if item.Publisher != nil {
+		fmt.Printf("Publisher:   %s\n", *item.Publisher)
+	} else {
+		fmt.Println("Publisher:   Unknown")
+	}
+
+	// Authors
+	if len(item.Authors) > 0 {
+		fmt.Printf("Authors:     %s\n", strings.Join(item.Authors, ", "))
+	}
+
+	fmt.Println()
+
+	// Dates
+	fmt.Printf("Published:   %s\n", item.PublishedAt.Format("2006-01-02 15:04:05"))
+	fmt.Printf("Discovered:  %s\n", item.DiscoveredAt.Format("2006-01-02 15:04:05"))
+
+	// Pinned status
+	if item.PinnedAt != nil {
+		fmt.Printf("Pinned:      📌 %s\n", item.PinnedAt.Format("2006-01-02 15:04:05"))
+	} else {
+		fmt.Println("Pinned:      No")
+	}
+
+	fmt.Println()
+
+	// URL
+	fmt.Printf("URL:         %s\n", item.URL)
+	fmt.Println()
+
+	// Summary
+	if item.Summary != "" {
+		fmt.Println("Summary:")
+		fmt.Println(wrapText(item.Summary, 80))
+		fmt.Println()
+	}
+
+	// ID
+	fmt.Printf("ID:          %s\n", item.ID.String())
+}
+
+// wrapText wraps text to a maximum line width
+func wrapText(text string, width int) string {
+	words := strings.Fields(text)
+	if len(words) == 0 {
+		return text
+	}
+
+	var lines []string
+	var currentLine strings.Builder
+
+	for _, word := range words {
+		if currentLine.Len() == 0 {
+			currentLine.WriteString(word)
+		} else if currentLine.Len()+1+len(word) <= width {
+			currentLine.WriteString(" ")
+			currentLine.WriteString(word)
+		} else {
+			lines = append(lines, currentLine.String())
+			currentLine.Reset()
+			currentLine.WriteString(word)
+		}
+	}
+
+	if currentLine.Len() > 0 {
+		lines = append(lines, currentLine.String())
+	}
+
+	return strings.Join(lines, "\n")
 }
 
 func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
