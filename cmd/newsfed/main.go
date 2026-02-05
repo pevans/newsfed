@@ -103,10 +103,16 @@ func handleSourcesCommand(action, metadataPath string, args []string) {
 	switch action {
 	case "list":
 		handleSourcesList(metadataStore, args)
+	case "show":
+		handleSourcesShow(metadataStore, args)
 	case "add":
 		handleSourcesAdd(metadataStore, args)
 	case "delete":
 		handleSourcesDelete(metadataStore, args)
+	case "enable":
+		handleSourcesEnable(metadataStore, args)
+	case "disable":
+		handleSourcesDisable(metadataStore, args)
 	case "help", "--help", "-h":
 		printSourcesUsage()
 	default:
@@ -143,8 +149,11 @@ func printSourcesUsage() {
 	fmt.Println()
 	fmt.Println("Actions:")
 	fmt.Println("  list       List all sources")
+	fmt.Println("  show       Show detailed source information")
 	fmt.Println("  add        Add a new source")
 	fmt.Println("  delete     Delete a source")
+	fmt.Println("  enable     Enable a source")
+	fmt.Println("  disable    Disable a source")
 	fmt.Println("  help       Show this help message")
 }
 
@@ -178,7 +187,8 @@ func handleList(feedDir string, args []string) {
 	// Apply filters
 	var filtered []newsfed.NewsItem
 	for _, item := range items {
-		// Default filter: show items from past 3 days OR pinned items (unless --all is set)
+		// Default filter: show items from past 3 days OR pinned items (unless
+		// --all is set)
 		if !*all && *since == "" && !*pinned && !*unpinned {
 			threeDaysAgo := time.Now().Add(-3 * 24 * time.Hour)
 			isRecent := item.DiscoveredAt.After(threeDaysAgo)
@@ -567,6 +577,116 @@ func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
 	}
 }
 
+func handleSourcesShow(metadataStore *newsfed.MetadataStore, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed sources show <source-id>\n")
+		os.Exit(1)
+	}
+
+	sourceID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(sourceID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid source ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the source
+	source, err := metadataStore.GetSource(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get source: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display the source
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println(source.Name)
+	fmt.Println("━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━")
+	fmt.Println()
+
+	// Basic info
+	fmt.Printf("Type:        %s\n", source.SourceType)
+	fmt.Printf("URL:         %s\n", source.URL)
+	fmt.Println()
+
+	// Status
+	if source.EnabledAt != nil {
+		fmt.Printf("Status:      ✓ Enabled (since %s)\n", source.EnabledAt.Format("2006-01-02 15:04:05"))
+	} else {
+		fmt.Println("Status:      ✗ Disabled")
+	}
+	fmt.Println()
+
+	// Operational metadata
+	fmt.Println("Operational Info:")
+	if source.LastFetchedAt != nil {
+		fmt.Printf("  Last Fetched:    %s\n", source.LastFetchedAt.Format("2006-01-02 15:04:05"))
+	} else {
+		fmt.Println("  Last Fetched:    Never")
+	}
+
+	if source.PollingInterval != nil {
+		fmt.Printf("  Poll Interval:   %s\n", *source.PollingInterval)
+	} else {
+		fmt.Println("  Poll Interval:   Default")
+	}
+	fmt.Println()
+
+	// Health status
+	fmt.Println("Health:")
+	fmt.Printf("  Error Count:     %d\n", source.FetchErrorCount)
+	if source.LastError != nil {
+		fmt.Printf("  Last Error:      %s\n", *source.LastError)
+	} else {
+		fmt.Println("  Last Error:      None")
+	}
+	fmt.Println()
+
+	// HTTP cache headers
+	if source.LastModified != nil || source.ETag != nil {
+		fmt.Println("HTTP Cache:")
+		if source.LastModified != nil {
+			fmt.Printf("  Last-Modified:   %s\n", *source.LastModified)
+		}
+		if source.ETag != nil {
+			fmt.Printf("  ETag:            %s\n", *source.ETag)
+		}
+		fmt.Println()
+	}
+
+	// Scraper config (for website sources)
+	if source.ScraperConfig != nil {
+		fmt.Println("Scraper Configuration:")
+		fmt.Printf("  Discovery Mode:     %s\n", source.ScraperConfig.DiscoveryMode)
+		if source.ScraperConfig.ListConfig != nil {
+			fmt.Printf("  Article Selector:   %s\n", source.ScraperConfig.ListConfig.ArticleSelector)
+			if source.ScraperConfig.ListConfig.PaginationSelector != "" {
+				fmt.Printf("  Pagination:         %s\n", source.ScraperConfig.ListConfig.PaginationSelector)
+			}
+			fmt.Printf("  Max Pages:          %d\n", source.ScraperConfig.ListConfig.MaxPages)
+		}
+		fmt.Printf("  Title Selector:     %s\n", source.ScraperConfig.ArticleConfig.TitleSelector)
+		fmt.Printf("  Content Selector:   %s\n", source.ScraperConfig.ArticleConfig.ContentSelector)
+		if source.ScraperConfig.ArticleConfig.AuthorSelector != "" {
+			fmt.Printf("  Author Selector:    %s\n", source.ScraperConfig.ArticleConfig.AuthorSelector)
+		}
+		if source.ScraperConfig.ArticleConfig.DateSelector != "" {
+			fmt.Printf("  Date Selector:      %s\n", source.ScraperConfig.ArticleConfig.DateSelector)
+		}
+		fmt.Println()
+	}
+
+	// Dates
+	fmt.Printf("Created:     %s\n", source.CreatedAt.Format("2006-01-02 15:04:05"))
+	fmt.Printf("Updated:     %s\n", source.UpdatedAt.Format("2006-01-02 15:04:05"))
+	fmt.Println()
+
+	// ID
+	fmt.Printf("ID:          %s\n", source.SourceID.String())
+}
+
 func handleSourcesAdd(metadataStore *newsfed.MetadataStore, args []string) {
 	// Parse flags for add command
 	fs := flag.NewFlagSet("sources add", flag.ExitOnError)
@@ -636,4 +756,92 @@ func handleSourcesDelete(metadataStore *newsfed.MetadataStore, args []string) {
 	}
 
 	fmt.Printf("✓ Deleted source: %s\n", sourceID)
+}
+
+func handleSourcesEnable(metadataStore *newsfed.MetadataStore, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed sources enable <source-id>\n")
+		os.Exit(1)
+	}
+
+	sourceID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(sourceID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid source ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the source
+	source, err := metadataStore.GetSource(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get source: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check if already enabled
+	if source.EnabledAt != nil {
+		fmt.Printf("Source is already enabled (enabled at: %s)\n", source.EnabledAt.Format("2006-01-02 15:04:05"))
+		return
+	}
+
+	// Enable the source
+	now := time.Now()
+	updates := map[string]any{
+		"enabled_at": &now,
+	}
+
+	err = metadataStore.UpdateSource(id, updates)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to enable source: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Enabled source: %s\n", source.Name)
+}
+
+func handleSourcesDisable(metadataStore *newsfed.MetadataStore, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed sources disable <source-id>\n")
+		os.Exit(1)
+	}
+
+	sourceID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(sourceID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid source ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the source
+	source, err := metadataStore.GetSource(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get source: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Check if already disabled
+	if source.EnabledAt == nil {
+		fmt.Println("Source is already disabled")
+		return
+	}
+
+	// Disable the source
+	var nilTime *time.Time
+	updates := map[string]any{
+		"enabled_at": nilTime,
+	}
+
+	err = metadataStore.UpdateSource(id, updates)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to disable source: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Disabled source: %s\n", source.Name)
 }
