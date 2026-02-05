@@ -259,7 +259,7 @@ func TestFeedToNewsItems_EmptyFeed(t *testing.T) {
 		Items: []*gofeed.Item{},
 	}
 
-	items := FeedToNewsItems(feed)
+	items := FeedToNewsItems(feed, false)
 
 	assert.Empty(t, items, "should return empty slice for empty feed")
 }
@@ -276,7 +276,7 @@ func TestFeedToNewsItems_SingleItem(t *testing.T) {
 		},
 	}
 
-	items := FeedToNewsItems(feed)
+	items := FeedToNewsItems(feed, false)
 
 	require.Len(t, items, 1)
 	assert.Equal(t, "Article 1", items[0].Title)
@@ -299,11 +299,10 @@ func TestFeedToNewsItems_MultipleItems(t *testing.T) {
 		},
 	}
 
-	items := FeedToNewsItems(feed)
+	items := FeedToNewsItems(feed, false)
 
 	require.Len(t, items, 3)
-	// Items should be sorted by published_at (most recent first) per RFC 2
-	// section 2.2.3
+	// Items should be sorted by published_at (most recent first)
 	assert.Equal(t, "Article 3", items[0].Title)
 	assert.Equal(t, "Article 2", items[1].Title)
 	assert.Equal(t, "Article 1", items[2].Title)
@@ -326,7 +325,7 @@ func TestFeedToNewsItems_SortsByPublishedDate(t *testing.T) {
 		},
 	}
 
-	items := FeedToNewsItems(feed)
+	items := FeedToNewsItems(feed, false)
 
 	require.Len(t, items, 3)
 	assert.Equal(t, "Newest", items[0].Title, "most recent should be first")
@@ -449,10 +448,15 @@ func TestFeedToNewsItems_CapsAt20Items(t *testing.T) {
 				}
 			}
 
-			items := FeedToNewsItems(feed)
+			// Test with limit applied (first-time sync scenario)
+			itemsWithLimit := FeedToNewsItems(feed, true)
+			assert.Len(t, itemsWithLimit, tc.expectedCount,
+				"output length should be min(input, 20) when limit applied")
 
-			assert.Len(t, items, tc.expectedCount,
-				"output length should be min(input, 20)")
+			// Test without limit (regular polling scenario)
+			itemsNoLimit := FeedToNewsItems(feed, false)
+			assert.Len(t, itemsNoLimit, tc.inputCount,
+				"output length should match input when no limit applied")
 		})
 	}
 }
@@ -477,9 +481,10 @@ func TestFeedToNewsItems_SelectsMostRecent20(t *testing.T) {
 		}
 	}
 
-	items := FeedToNewsItems(feed)
+	// Test with limit applied (first-time sync or stale source scenario)
+	items := FeedToNewsItems(feed, true)
 
-	// Should return exactly 20 items
+	// Should return exactly 20 items when limit is applied
 	require.Len(t, items, 20)
 
 	// Should return the 20 most recent (items 10-29) First item should be the

@@ -1,6 +1,12 @@
 #!/bin/bash
 # Black box tests for RFC 2 section 2.2.3 and RFC 3 section 3.1.1
-# Tests the 20-item cap on feed ingestion and web scraping
+# Tests the conditional 20-item cap on feed ingestion and web scraping
+#
+# The 20-item cap applies when:
+# - First-time sync: source has never been fetched (last_fetched_at is null)
+# - Stale source: source has not been synced for more than 15 days
+#
+# The cap does NOT apply for regular polling (source fetched within 15 days)
 
 METADATA_DB="test-metadata.db"
 FEED_DIR="test-feed"
@@ -22,12 +28,12 @@ fail() {
     ((FAILED++))
 }
 
-echo "Testing RFC 2 Section 2.2.3 and RFC 3 Section 3.1.1 - 20 Item Cap"
-echo "================================================================"
+echo "Testing RFC 2 Section 2.2.3 and RFC 3 Section 3.1.1 - Conditional 20 Item Cap"
+echo "=============================================================================="
 echo ""
 
-# Test 1: RSS feed with more than 20 items
-echo "Test 1: RSS feed with >20 items -- only 20 most recent are ingested"
+# Test 1: First-time sync with more than 20 items
+echo "Test 1: First-time sync with >20 items -- only 20 most recent are ingested"
 
 # Create a test RSS feed with 30 items
 cat > test-large-feed.xml <<'EOF'

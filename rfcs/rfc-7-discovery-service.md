@@ -85,8 +85,14 @@ For sources with `source_type` of "rss" or "atom":
 
 ## 4.2. Feed Item Processing
 
-The feed parser should limit processing to the 20 most recent items from each
-feed (RFC 2, section 2.2.3). For each item in this limited set:
+The feed parser should conditionally limit processing to the 20 most recent
+items from each feed (RFC 2, section 2.2.3). The limit applies only when:
+- The source has never been fetched (`last_fetched_at` is null), OR
+- The source has not been synced for more than 15 days
+
+For regular polling (source fetched within 15 days), all items are processed.
+
+For each item in the (potentially limited) set:
 
 1. Check if item URL already exists using `URLExists(feed, url)` (RFC 3)
 2. If URL exists, skip the item (already in feed)
@@ -125,15 +131,17 @@ In "list" mode, the source URL contains a list of article links:
 
 1. Fetch HTML from source URL
 2. Extract article URLs using `list_config.article_selector`
-3. Limit to 20 articles maximum (RFC 3, section 3.1.1)
-4. For each article URL (up to 20):
+3. Conditionally limit to 20 articles maximum (RFC 3, section 3.1.1)
+   - Limit applies if source has never been fetched OR not synced for >15 days
+   - No limit for regular polling (fetched within 15 days)
+4. For each article URL (up to limit if applicable):
    - Check if URL already exists (deduplication)
    - Fetch and extract article (as in direct mode)
    - Add to feed if valid and new
 5. Handle pagination if `list_config.pagination_selector` is set:
    - Extract next page URL
    - Fetch next page and repeat
-   - Stop after collecting 20 total article URLs, after `list_config.max_pages`,
+   - Stop after collecting limit (if applicable), after `list_config.max_pages`,
      or when no next page found (whichever comes first)
 
 ## 5.2. Scraping Metadata Updates
@@ -346,43 +354,66 @@ The service should handle signals gracefully:
 
 # 12. Example Workflow
 
-## 12.1. RSS Feed Example
+## 12.1. RSS Feed Example (First-Time Sync)
 
 1. Service reads metadata, finds RSS source with
 `url="http://example.com/feed"`
-2. Checks `last_fetched_at + polling_interval`, determines fetch is due
+2. Checks `last_fetched_at` -- it's null (never fetched before)
 3. Calls `FetchFeed("http://example.com/feed")`
 4. Receives feed with 50 items
-5. Limits to 20 most recent items based on published_at (RFC 2)
+5. Since `last_fetched_at` is null, limits to 20 most recent items based on
+   published_at (RFC 2 section 2.2.3)
 6. Converts 20 items with `FeedToNewsItems(feed)` → 20 NewsItems
 7. For each NewsItem:
    - Calls `URLExists(feed, item.URL)`
    - If false, calls `feed.Add(item)`
    - If true, skips item
-8. Discovers 3 new items (17 were duplicates)
+8. Discovers 20 new items (all items are new for first sync)
+9. Updates source metadata:
+   - `last_fetched_at = now()`
+   - `fetch_error_count = 0`
+   - `last_error = null`
+10. Logs: "Fetched http://example.com/feed: 20 new items"
+
+## 12.1a. RSS Feed Example (Regular Polling)
+
+1. Service reads metadata, finds RSS source last fetched 2 days ago
+2. Checks `last_fetched_at + polling_interval`, determines fetch is due
+3. Calls `FetchFeed("http://example.com/feed")`
+4. Receives feed with 50 items
+5. Since source was fetched within 15 days, NO limit is applied -- processes
+   all 50 items (RFC 2 section 2.2.3)
+6. Converts all items with `FeedToNewsItems(feed)` → 50 NewsItems
+7. For each NewsItem:
+   - Calls `URLExists(feed, item.URL)`
+   - If false, calls `feed.Add(item)`
+   - If true, skips item
+8. Discovers 3 new items (47 were duplicates already in feed)
 9. Updates source metadata:
    - `last_fetched_at = now()`
    - `fetch_error_count = 0`
    - `last_error = null`
 10. Logs: "Fetched http://example.com/feed: 3 new items"
 
-## 12.2. Website Scraping Example (List Mode)
+## 12.2. Website Scraping Example (List Mode, Stale Source)
 
 1. Service reads metadata, finds website source with `discovery_mode="list"`
-2. Calls `FetchHTML("http://blog.example.com")`
-3. Extracts article links using `list_config.article_selector`
-4. Finds 25 article URLs
-5. Limits to first 20 article URLs (RFC 3)
-6. For each article URL (up to 20):
+2. Checks `last_fetched_at` -- source was last fetched 20 days ago (stale)
+3. Calls `FetchHTML("http://blog.example.com")`
+4. Extracts article links using `list_config.article_selector`
+5. Finds 25 article URLs
+6. Since source is stale (>15 days), limits to first 20 article URLs (RFC 3
+   section 3.1.1)
+7. For each article URL (up to 20):
    - Calls `URLExists(feed, articleURL)`
    - If already exists, skip
    - Otherwise, calls `ScrapeArticle(articleURL, article_config)`
    - Validates with `ValidateScrapedArticle`
    - Converts with `ScrapedArticleToNewsItem`
    - Adds to feed with `feed.Add(item)`
-7. Discovers 5 new articles (15 were duplicates or invalid)
-8. Updates source metadata
-9. Logs: "Scraped http://blog.example.com: 5 new items"
+8. Discovers 5 new articles (15 were duplicates or invalid)
+9. Updates source metadata
+10. Logs: "Scraped http://blog.example.com: 5 new items"
 
 # 13. Future Considerations
 

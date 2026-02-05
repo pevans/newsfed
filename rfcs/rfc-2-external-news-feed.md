@@ -65,10 +65,19 @@ be polled less often.
 
 ### 2.2.3. Item Limiting
 
-To prevent excessive storage growth and focus on recent content, the system
-should limit the number of items processed from each feed fetch:
+To prevent excessive storage growth when first discovering a source or
+re-syncing a stale source, the system should conditionally limit the number of
+items processed from each feed fetch:
 
-- Process a maximum of 20 items per feed fetch
+**When the limit applies:**
+- First-time sync: source has never been fetched (`last_fetched_at` is null)
+- Stale source: source has not been synced for more than 15 days
+
+**When the limit does NOT apply:**
+- Regular polling: source was fetched within the last 15 days
+
+**Limit behavior:**
+- Process a maximum of 20 items per feed fetch (when limit applies)
 - Select the 20 most recent items based on their `published_at` timestamp
 - If a feed contains more than 20 items, older items beyond the 20 most recent
   are ignored
@@ -77,8 +86,10 @@ should limit the number of items processed from each feed fetch:
   against this limit for the purpose of processing, but the initial selection
   of 20 items happens before deduplication
 
-The 20-item cap ensures that polling a feed doesn't result in ingesting
-hundreds of historical items, while still capturing recent content updates.
+The conditional 20-item cap ensures that initial syncs and stale source
+re-syncs don't result in ingesting hundreds of historical items, while
+allowing regular polling to capture all new items published since the last
+fetch.
 
 ## 2.3. RSS Feed Support
 

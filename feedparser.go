@@ -106,9 +106,14 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
 }
 
 // FeedToNewsItems converts all items in an RSS or Atom feed to NewsItems.
-// Implements RFC 2 section 2.2.3: limits to 20 most recent items based on
-// published_at timestamp.
-func FeedToNewsItems(feed *gofeed.Feed) []NewsItem {
+// Implements RFC 2 section 2.2.3: conditionally limits to 20 most recent
+// items based on published_at timestamp.
+//
+// The applyLimit parameter determines whether to apply the 20-item cap:
+// - true: limit to 20 most recent items (for first-time sync or stale
+//   sources)
+// - false: process all items (for regular polling)
+func FeedToNewsItems(feed *gofeed.Feed, applyLimit bool) []NewsItem {
 	// Convert all items to NewsItems
 	items := make([]NewsItem, 0, len(feed.Items))
 	for _, item := range feed.Items {
@@ -121,10 +126,13 @@ func FeedToNewsItems(feed *gofeed.Feed) []NewsItem {
 		return items[i].PublishedAt.After(items[j].PublishedAt)
 	})
 
-	// Limit to 20 most recent items per RFC 2 section 2.2.3
-	const maxItems = 20
-	if len(items) > maxItems {
-		items = items[:maxItems]
+	// Conditionally limit to 20 most recent items per RFC 2 section 2.2.3
+	// Apply limit only for first-time syncs or stale sources (>15 days)
+	if applyLimit {
+		const maxItems = 20
+		if len(items) > maxItems {
+			items = items[:maxItems]
+		}
 	}
 
 	return items

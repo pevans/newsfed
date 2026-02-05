@@ -82,10 +82,19 @@ using configured selectors
 
 ### 3.1.1. Article Limiting
 
-To prevent excessive scraping and storage growth, the system should limit the
+To prevent excessive scraping and storage growth when first discovering a
+source or re-syncing a stale source, the system should conditionally limit the
 number of articles processed per scrape operation:
 
-- Process a maximum of 20 articles per source per scrape
+**When the limit applies:**
+- First-time sync: source has never been fetched (`last_fetched_at` is null)
+- Stale source: source has not been synced for more than 15 days
+
+**When the limit does NOT apply:**
+- Regular polling: source was fetched within the last 15 days
+
+**Limit behavior:**
+- Process a maximum of 20 articles per source per scrape (when limit applies)
 - In "list" mode, extract up to 20 article URLs from the discovered links
 - In "direct" mode, this limit is naturally 1 (single article URL)
 - When pagination is used, stop after collecting 20 article URLs total across
@@ -94,8 +103,9 @@ number of articles processed per scrape operation:
   count against this limit for the purpose of processing, but the initial
   selection of 20 articles happens before deduplication
 
-The 20-article cap ensures that scraping a website doesn't result in ingesting
-hundreds of historical articles, while still capturing recent content updates.
+The conditional 20-article cap ensures that initial scrapes and stale source
+re-scrapes don't result in ingesting hundreds of historical articles, while
+allowing regular polling to capture all new articles since the last fetch.
 
 ## 3.2. HTML Fetching
 

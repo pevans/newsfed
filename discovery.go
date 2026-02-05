@@ -376,8 +376,30 @@ func (ds *DiscoveryService) fetchSource(ctx context.Context, source Source) erro
 	return nil
 }
 
+// shouldApplyItemLimit determines whether to apply the 20-item limit based on
+// source staleness. Per RFC 2 section 2.2.3 and RFC 3 section 3.1.1, the
+// limit applies when:
+// - First-time sync: source has never been fetched (last_fetched_at is nil)
+// - Stale source: source has not been synced for more than 15 days
+func (ds *DiscoveryService) shouldApplyItemLimit(source Source) bool {
+	// First-time sync -- never fetched before
+	if source.LastFetchedAt == nil {
+		return true
+	}
+
+	// Stale source -- not synced for more than 15 days
+	staleDuration := 15 * 24 * time.Hour
+	timeSinceLastFetch := time.Since(*source.LastFetchedAt)
+	if timeSinceLastFetch > staleDuration {
+		return true
+	}
+
+	// Regular polling -- don't apply limit
+	return false
+}
+
 // fetchRSSFeed fetches and processes an RSS or Atom feed. Implements RFC 7
-// section 4.
+// section 4 with conditional 20-item limit per RFC 2 section 2.2.3.
 func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source Source) (int, error) {
 	// Fetch the feed (FetchFeed from RFC 2)
 	feed, err := FetchFeed(source.URL)
@@ -385,8 +407,14 @@ func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source Source) (int,
 		return 0, fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
+	// Determine if we should apply the 20-item limit (RFC 2 section 2.2.3)
+	// Limit applies for:
+	// 1. First-time sync (last_fetched_at is nil)
+	// 2. Stale sources (not synced for >15 days)
+	applyLimit := ds.shouldApplyItemLimit(source)
+
 	// Convert feed items to NewsItems (FeedToNewsItems from RFC 2)
-	newsItems := FeedToNewsItems(feed)
+	newsItems := FeedToNewsItems(feed, applyLimit)
 
 	// Process each item with deduplication
 	newItemCount := 0
@@ -483,7 +511,7 @@ func (ds *DiscoveryService) fetchDirectMode(source Source, config *ScraperConfig
 }
 
 // fetchListMode fetches articles from a list/index page. Implements RFC 7
-// section 5.1.2 with 20-article cap per RFC 3 section 3.1.1.
+// section 5.1.2 with conditional 20-article cap per RFC 3 section 3.1.1.
 func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, domain string) (int, error) {
 	if config.ListConfig == nil {
 		return 0, fmt.Errorf("list_config is required for list mode")
@@ -494,6 +522,10 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 	currentURL := source.URL
 	pagesProcessed := 0
 	articlesCollected := 0 // Track total articles collected across all pages
+
+	// Determine if we should apply the 20-article limit (RFC 3 section 3.1.1)
+	// Limit applies for first-time sync or stale sources (>15 days)
+	applyLimit := ds.shouldApplyItemLimit(source)
 	const maxArticles = 20 // RFC 3 section 3.1.1
 
 	for {
@@ -502,8 +534,9 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 			break
 		}
 
-		// Enforce max articles limit per RFC 3 section 3.1.1
-		if articlesCollected >= maxArticles {
+		// Conditionally enforce max articles limit per RFC 3 section 3.1.1
+		// Only apply for first-time syncs or stale sources
+		if applyLimit && articlesCollected >= maxArticles {
 			break
 		}
 
@@ -523,15 +556,21 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 			break
 		}
 
-		// Limit article URLs to not exceed max (RFC 3 section 3.1.1)
-		remainingSlots := maxArticles - articlesCollected
-		if len(articleURLs) > remainingSlots {
-			articleURLs = articleURLs[:remainingSlots]
+		// Conditionally limit article URLs to not exceed max (RFC 3 section
+		// 3.1.1) Only apply limit for first-time syncs or stale sources
+		if applyLimit {
+			remainingSlots := maxArticles - articlesCollected
+			if len(articleURLs) > remainingSlots {
+				articleURLs = articleURLs[:remainingSlots]
+			}
 		}
 
 		// Process each article URL
 		for _, articleURL := range articleURLs {
-			articlesCollected++
+			// Only increment counter if limit is being applied
+			if applyLimit {
+				articlesCollected++
+			}
 
 			// Check if URL already exists (deduplication)
 			exists, err := URLExists(ds.newsFeed, articleURL)
@@ -575,8 +614,9 @@ func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, 
 
 		pagesProcessed++
 
-		// Stop if we've reached the article limit
-		if articlesCollected >= maxArticles {
+		// Stop if we've reached the article limit (only if limit is being
+		// applied)
+		if applyLimit && articlesCollected >= maxArticles {
 			break
 		}
 

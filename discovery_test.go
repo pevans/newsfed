@@ -925,6 +925,75 @@ func TestDiscoveryService_GetMetrics(t *testing.T) {
 	assert.Equal(t, 0, discovered)
 }
 
+// TestDiscoveryService_shouldApplyItemLimit verifies the conditional 20-item
+// limit logic per RFC 2 section 2.2.3 and RFC 3 section 3.1.1.
+func TestDiscoveryService_shouldApplyItemLimit(t *testing.T) {
+	// Create temporary storage
+	tempDir := t.TempDir()
+	metadataPath := tempDir + "/metadata.db"
+	feedDir := tempDir + "/.news"
+
+	metadataStore, err := NewMetadataStore(metadataPath)
+	require.NoError(t, err)
+	defer metadataStore.Close()
+
+	newsFeed, err := NewNewsFeed(feedDir)
+	require.NoError(t, err)
+
+	config := DefaultDiscoveryConfig()
+	service := NewDiscoveryService(metadataStore, newsFeed, config)
+
+	now := time.Now()
+
+	testCases := []struct {
+		name             string
+		lastFetchedAt    *time.Time
+		expectedApplyLimit bool
+	}{
+		{
+			name:             "first-time sync (never fetched)",
+			lastFetchedAt:    nil,
+			expectedApplyLimit: true,
+		},
+		{
+			name:             "stale source (20 days old)",
+			lastFetchedAt:    timePtr(now.Add(-20 * 24 * time.Hour)),
+			expectedApplyLimit: true,
+		},
+		{
+			name:             "stale source (exactly 16 days old)",
+			lastFetchedAt:    timePtr(now.Add(-16 * 24 * time.Hour)),
+			expectedApplyLimit: true,
+		},
+		{
+			name:             "regular polling (14 days old)",
+			lastFetchedAt:    timePtr(now.Add(-14 * 24 * time.Hour)),
+			expectedApplyLimit: false,
+		},
+		{
+			name:             "regular polling (1 day old)",
+			lastFetchedAt:    timePtr(now.Add(-24 * time.Hour)),
+			expectedApplyLimit: false,
+		},
+		{
+			name:             "regular polling (1 hour old)",
+			lastFetchedAt:    timePtr(now.Add(-1 * time.Hour)),
+			expectedApplyLimit: false,
+		},
+	}
+
+	for _, tc := range testCases {
+		t.Run(tc.name, func(t *testing.T) {
+			source := Source{
+				LastFetchedAt: tc.lastFetchedAt,
+			}
+
+			result := service.shouldApplyItemLimit(source)
+			assert.Equal(t, tc.expectedApplyLimit, result)
+		})
+	}
+}
+
 // Helper functions
 func strPtr(s string) *string {
 	return &s
