@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -76,6 +77,8 @@ func main() {
 		handlePin(feedDir, os.Args[2:])
 	case "unpin":
 		handleUnpin(feedDir, os.Args[2:])
+	case "sync":
+		handleSync(metadataPath, feedDir, os.Args[2:])
 	case "sources":
 		if len(os.Args) < 3 {
 			printSourcesUsage()
@@ -136,6 +139,7 @@ func printUsage() {
 	fmt.Println("  show       Show detailed view of a news item")
 	fmt.Println("  pin        Pin a news item for later reference")
 	fmt.Println("  unpin      Unpin a news item")
+	fmt.Println("  sync       Manually sync sources to fetch new items")
 	fmt.Println("  sources    Manage news sources")
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
@@ -306,9 +310,10 @@ func handleList(feedDir string, args []string) {
 		}
 
 		fmt.Printf("%s %s\n", pinnedMarker, title)
-		fmt.Printf("   %s | Published: %s\n",
+		fmt.Printf("   %s | Published: %s | Discovered: %s\n",
 			publisher,
 			item.PublishedAt.Format("2006-01-02 15:04"),
+			item.DiscoveredAt.Format("2006-01-02 15:04"),
 		)
 		if summary != "" {
 			fmt.Printf("   %s\n", summary)
@@ -537,6 +542,85 @@ func handleUnpin(feedDir string, args []string) {
 	}
 
 	fmt.Printf("✓ Unpinned item: %s\n", item.Title)
+}
+
+func handleSync(metadataPath, feedDir string, args []string) {
+	// Parse flags for sync command
+	fs := flag.NewFlagSet("sync", flag.ExitOnError)
+	verbose := fs.Bool("verbose", false, "Show verbose output")
+	fs.Parse(args)
+
+	// Check if a specific source ID was provided
+	var sourceID *uuid.UUID
+	if len(fs.Args()) > 0 {
+		id, err := uuid.Parse(fs.Args()[0])
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: invalid source ID: %v\n", err)
+			os.Exit(1)
+		}
+		sourceID = &id
+	}
+
+	// Initialize metadata store
+	metadataStore, err := newsfed.NewMetadataStore(metadataPath)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open metadata store: %v\n", err)
+		os.Exit(1)
+	}
+	defer metadataStore.Close()
+
+	// Initialize news feed
+	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Create discovery service
+	config := &newsfed.DiscoveryConfig{
+		FetchTimeout: 60 * time.Second,
+	}
+	service := newsfed.NewDiscoveryService(metadataStore, newsFeed, config)
+
+	// Perform sync
+	if sourceID != nil {
+		source, err := metadataStore.GetSource(*sourceID)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: failed to get source: %v\n", err)
+			os.Exit(1)
+		}
+		fmt.Printf("Syncing source: %s\n", source.Name)
+	} else {
+		fmt.Println("Syncing all enabled sources...")
+	}
+
+	ctx := context.Background()
+	result, err := service.SyncSources(ctx, sourceID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: sync failed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Display results
+	fmt.Println()
+	fmt.Println("Sync completed:")
+	fmt.Printf("  Sources synced: %d\n", result.SourcesSynced)
+	fmt.Printf("  Sources failed: %d\n", result.SourcesFailed)
+	fmt.Printf("  Items discovered: %d\n", result.ItemsDiscovered)
+
+	// Show errors if any
+	if len(result.Errors) > 0 && *verbose {
+		fmt.Println()
+		fmt.Println("Errors:")
+		for _, syncErr := range result.Errors {
+			fmt.Printf("  - %s: %v\n", syncErr.Source.Name, syncErr.Error)
+		}
+	}
+
+	// Exit with error code if any sources failed
+	if result.SourcesFailed > 0 {
+		os.Exit(1)
+	}
 }
 
 func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {

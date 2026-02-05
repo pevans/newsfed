@@ -295,6 +295,39 @@ newsfed sources delete 550e8400...
 newsfed sources delete 550e8400... --force
 ```
 
+### 3.2.7. Sync Sources
+
+Users should be able to manually trigger a fetch from all enabled sources
+instead of waiting for the discovery service's scheduled polling. This is
+useful for:
+
+- Immediately checking for new content after adding sources
+- Testing source configurations
+- Force-refreshing content on demand
+
+```bash
+# Sync all enabled sources
+newsfed sync
+
+# Sync with verbose output
+newsfed sync --verbose
+
+# Sync specific source only
+newsfed sync 550e8400...
+```
+
+The sync command:
+- Fetches from all enabled sources (or a specific source if ID provided)
+- Respects HTTP caching headers (If-Modified-Since, ETag)
+- Updates operational metadata (last fetched time, error counts)
+- Adds newly discovered items to the news feed
+- Displays progress and summary of results
+- Runs synchronously (blocks until complete)
+
+This is distinct from the discovery service which runs continuously in the
+background. The sync command is a one-time manual refresh initiated by the
+user.
+
 ## 3.3. Source Health Monitoring
 
 ### 3.3.1. Check Source Status
@@ -422,13 +455,29 @@ The CLI client should support multiple output formats:
 
 ### 5.1.1. Table Format (Default)
 
-Human-readable table display:
+Human-readable table display showing both published and discovered times:
 
 ```
-ID                                    TITLE                 PUBLISHER    PUBLISHED
-550e8400-e29b-41d4-a716-446655440000  Example Article       TechCrunch   2026-02-01 10:00
-550e8400-e29b-41d4-a716-446655440001  Another Article       Ars Technica 2026-02-01 09:30
+📌 Example Article
+   TechCrunch | Published: 2026-02-01 10:00 | Discovered: 2026-02-01 12:30
+   This is a summary of the article...
+   URL: https://example.com/article1
+   ID: 550e8400-e29b-41d4-a716-446655440000
+
+  Another Article
+   Ars Technica | Published: 2026-02-01 09:30 | Discovered: 2026-02-01 11:45
+   Another article summary...
+   URL: https://example.com/article2
+   ID: 550e8400-e29b-41d4-a716-446655440001
 ```
+
+The list format includes:
+- Pin indicator (📌) for pinned items
+- Title
+- Publisher, published time, and discovered time
+- Summary (truncated)
+- URL
+- Item ID
 
 ### 5.1.2. JSON Format
 
@@ -883,6 +932,7 @@ Full source administration:
 - Update source configuration
 - Source health monitoring
 - Error reporting
+- Manual sync command
 
 ## 14.3. Phase 3: Improved UX
 

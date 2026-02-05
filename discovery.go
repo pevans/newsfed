@@ -763,3 +763,123 @@ func (ds *DiscoveryService) UpdateSourceFetchMetadata(
 
 	return ds.metadataStore.UpdateSource(sourceID, updates)
 }
+
+// SyncResult contains the results of a manual sync operation.
+type SyncResult struct {
+	SourcesSynced   int
+	SourcesFailed   int
+	ItemsDiscovered int
+	Errors          []SyncError
+}
+
+// SyncError contains details about a source sync failure.
+type SyncError struct {
+	Source Source
+	Error  error
+}
+
+// SyncSources performs a manual sync of sources. If sourceID is provided,
+// only that source is synced. Otherwise, all enabled sources are synced. This
+// is a synchronous operation that returns when all fetches complete.
+func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID) (*SyncResult, error) {
+	result := &SyncResult{
+		Errors: make([]SyncError, 0),
+	}
+	var resultMu sync.Mutex
+
+	var sources []Source
+
+	if sourceID != nil {
+		// Sync single source
+		source, err := ds.metadataStore.GetSource(*sourceID)
+		if err != nil {
+			return nil, fmt.Errorf("failed to get source: %w", err)
+		}
+		sources = []Source{*source}
+	} else {
+		// Sync all enabled sources
+		allSources, err := ds.metadataStore.ListSources()
+		if err != nil {
+			return nil, fmt.Errorf("failed to list sources: %w", err)
+		}
+
+		// Filter to only enabled sources
+		for _, source := range allSources {
+			if source.EnabledAt != nil {
+				sources = append(sources, source)
+			}
+		}
+	}
+
+	if len(sources) == 0 {
+		return result, nil
+	}
+
+	// Use a concurrency limit (default to 5 concurrent fetches)
+	concurrency := 5
+	if ds.config.Concurrency > 0 {
+		concurrency = ds.config.Concurrency
+	}
+	semaphore := make(chan struct{}, concurrency)
+
+	// Fetch sources concurrently with WaitGroup
+	var wg sync.WaitGroup
+
+	for _, source := range sources {
+		select {
+		case <-ctx.Done():
+			return nil, ctx.Err()
+		case semaphore <- struct{}{}: // Acquire semaphore
+			wg.Add(1)
+			go func(s Source) {
+				defer wg.Done()
+				defer func() { <-semaphore }() // Release semaphore
+
+				startTime := time.Now()
+
+				// Create context with timeout
+				fetchCtx, cancel := context.WithTimeout(ctx, ds.config.FetchTimeout)
+				defer cancel()
+
+				// Process based on source type
+				var newItemCount int
+				var fetchErr error
+
+				switch s.SourceType {
+				case "rss", "atom":
+					newItemCount, fetchErr = ds.fetchRSSFeed(fetchCtx, s)
+				case "website":
+					newItemCount, fetchErr = ds.fetchWebsite(fetchCtx, s)
+				default:
+					fetchErr = fmt.Errorf("unsupported source type: %s", s.SourceType)
+				}
+
+				duration := time.Since(startTime)
+
+				// Update source metadata and results (with mutex protection)
+				resultMu.Lock()
+				if fetchErr != nil {
+					ds.handleFetchError(s, fetchErr)
+					result.SourcesFailed++
+					result.Errors = append(result.Errors, SyncError{
+						Source: s,
+						Error:  fetchErr,
+					})
+					log.Printf("ERROR: Failed to sync %s (%s): %v", s.Name, s.URL, fetchErr)
+				} else {
+					// Success -- update metadata
+					ds.handleFetchSuccess(s)
+					result.SourcesSynced++
+					result.ItemsDiscovered += newItemCount
+					log.Printf("INFO: Synced %s (%s): %d new items in %v", s.Name, s.URL, newItemCount, duration)
+				}
+				resultMu.Unlock()
+			}(source)
+		}
+	}
+
+	// Wait for all goroutines to complete
+	wg.Wait()
+
+	return result, nil
+}
