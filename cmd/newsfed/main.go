@@ -71,6 +71,10 @@ func main() {
 		handleList(feedDir, os.Args[2:])
 	case "show":
 		handleShow(feedDir, os.Args[2:])
+	case "pin":
+		handlePin(feedDir, os.Args[2:])
+	case "unpin":
+		handleUnpin(feedDir, os.Args[2:])
 	case "sources":
 		if len(os.Args) < 3 {
 			printSourcesUsage()
@@ -121,6 +125,8 @@ func printUsage() {
 	fmt.Println("Commands:")
 	fmt.Println("  list       List news items")
 	fmt.Println("  show       Show detailed view of a news item")
+	fmt.Println("  pin        Pin a news item for later reference")
+	fmt.Println("  unpin      Unpin a news item")
 	fmt.Println("  sources    Manage news sources")
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
@@ -399,6 +405,113 @@ func wrapText(text string, width int) string {
 	}
 
 	return strings.Join(lines, "\n")
+}
+
+func handlePin(feedDir string, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: item ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed pin <item-id>\n")
+		os.Exit(1)
+	}
+
+	itemID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(itemID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid item ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize news feed
+	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the item
+	item, err := newsFeed.Get(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get news item: %v\n", err)
+		os.Exit(1)
+	}
+
+	if item == nil {
+		fmt.Fprintf(os.Stderr, "Error: news item not found: %s\n", itemID)
+		os.Exit(1)
+	}
+
+	// Check if already pinned
+	if item.PinnedAt != nil {
+		fmt.Printf("Item is already pinned (pinned at: %s)\n", item.PinnedAt.Format("2006-01-02 15:04:05"))
+		return
+	}
+
+	// Pin the item
+	now := time.Now()
+	item.PinnedAt = &now
+
+	err = newsFeed.Update(*item)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to pin item: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Pinned item: %s\n", item.Title)
+}
+
+func handleUnpin(feedDir string, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: item ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed unpin <item-id>\n")
+		os.Exit(1)
+	}
+
+	itemID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(itemID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid item ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize news feed
+	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the item
+	item, err := newsFeed.Get(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get news item: %v\n", err)
+		os.Exit(1)
+	}
+
+	if item == nil {
+		fmt.Fprintf(os.Stderr, "Error: news item not found: %s\n", itemID)
+		os.Exit(1)
+	}
+
+	// Check if already unpinned
+	if item.PinnedAt == nil {
+		fmt.Println("Item is already unpinned")
+		return
+	}
+
+	// Unpin the item
+	item.PinnedAt = nil
+
+	err = newsFeed.Update(*item)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to unpin item: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Unpinned item: %s\n", item.Title)
 }
 
 func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
