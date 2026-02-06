@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pevans/newsfed"
+	"github.com/pevans/newsfed/sources"
 )
 
 // getEnv returns the value of an environment variable or a default value.
@@ -53,13 +54,13 @@ func main() {
 
 	flag.Parse()
 
-	// Initialize metadata store
-	log.Printf("Opening metadata store: %s", *metadataPath)
-	metadataStore, err := newsfed.NewMetadataStore(*metadataPath)
+	// Initialize source store
+	log.Printf("Opening source store: %s", *metadataPath)
+	sourceStore, err := sources.NewSourceStore(*metadataPath)
 	if err != nil {
-		log.Fatalf("Failed to open metadata store: %v", err)
+		log.Fatalf("Failed to open source store: %v", err)
 	}
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	// Initialize news feed
 	log.Printf("Opening news feed: %s", *feedDir)
@@ -77,7 +78,7 @@ func main() {
 	}
 
 	// Create discovery service
-	service := newsfed.NewDiscoveryService(metadataStore, newsFeed, config)
+	service := newsfed.NewDiscoveryService(sourceStore, newsFeed, config)
 
 	// Setup signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())

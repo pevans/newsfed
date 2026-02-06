@@ -3,22 +3,58 @@ package main
 import (
 	"log"
 
-	"github.com/pevans/newsfed"
+	"github.com/gin-gonic/gin"
+	"github.com/pevans/newsfed/config"
+	"github.com/pevans/newsfed/sources"
 )
 
 func main() {
-	// Create metadata store (RFC 5)
-	store, err := newsfed.NewMetadataStore(".newsfed/metadata.db")
+	dbPath := ".newsfed/metadata.db"
+
+	// Create source store
+	sourceStore, err := sources.NewSourceStore(dbPath)
 	if err != nil {
-		log.Fatalf("Failed to create metadata store: %v", err)
+		log.Fatalf("Failed to create source store: %v", err)
 	}
-	defer store.Close()
+	defer sourceStore.Close()
 
-	// Create API server (RFC 6)
-	server := newsfed.NewMetadataAPIServer(store)
+	// Create config store
+	configStore, err := config.NewConfigStore(dbPath)
+	if err != nil {
+		log.Fatalf("Failed to create config store: %v", err)
+	}
+	defer configStore.Close()
 
-	// Setup Gin router with all routes
-	router := server.SetupRouter()
+	// Create router with CORS middleware
+	router := gin.Default()
+
+	router.Use(func(c *gin.Context) {
+		c.Header("Access-Control-Allow-Origin", "*")
+		c.Header("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS")
+		c.Header("Access-Control-Allow-Headers", "Content-Type, Authorization")
+
+		if c.Request.Method == "OPTIONS" {
+			c.AbortWithStatus(200)
+			return
+		}
+
+		c.Next()
+	})
+
+	// Mount source API routes
+	sourceServer := sources.NewSourceAPIServer(sourceStore)
+	sourceGroup := router.Group("/api/v1/meta")
+	sourceGroup.GET("/sources", sourceServer.HandleListSources)
+	sourceGroup.GET("/sources/:id", sourceServer.HandleGetSource)
+	sourceGroup.POST("/sources", sourceServer.HandleCreateSource)
+	sourceGroup.PUT("/sources/:id", sourceServer.HandleUpdateSource)
+	sourceGroup.DELETE("/sources/:id", sourceServer.HandleDeleteSource)
+
+	// Mount config API routes
+	configServer := config.NewConfigAPIServer(configStore)
+	configGroup := router.Group("/api/v1/meta")
+	configGroup.GET("/config", configServer.HandleGetConfig)
+	configGroup.PUT("/config", configServer.HandleUpdateConfig)
 
 	// Start server
 	addr := "localhost:8081"

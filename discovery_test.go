@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/sources"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -22,23 +23,23 @@ func TestDiscoveryService_filterDueSources(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
 	config.PollInterval = 1 * time.Hour
-	service := NewDiscoveryService(metadataStore, newsFeed, config)
+	service := NewDiscoveryService(sourceStore, newsFeed, config)
 
 	now := time.Now()
 	oneHourAgo := now.Add(-1 * time.Hour)
 	thirtyMinutesAgo := now.Add(-30 * time.Minute)
 
 	// Create test sources
-	sources := []Source{
+	sourceList := []sources.Source{
 		{
 			// Never fetched -- should be due
 			EnabledAt:     &now,
@@ -61,7 +62,7 @@ func TestDiscoveryService_filterDueSources(t *testing.T) {
 		},
 	}
 
-	dueSources := service.filterDueSources(sources)
+	dueSources := service.filterDueSources(sourceList)
 
 	// Should have 2 due sources: never fetched and overdue
 	assert.Equal(t, 2, len(dueSources))
@@ -74,16 +75,16 @@ func TestDiscoveryService_getPollingInterval(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
 	config.PollInterval = 1 * time.Hour
-	service := NewDiscoveryService(metadataStore, newsFeed, config)
+	service := NewDiscoveryService(sourceStore, newsFeed, config)
 
 	tests := []struct {
 		name             string
@@ -114,7 +115,7 @@ func TestDiscoveryService_getPollingInterval(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			source := Source{
+			source := sources.Source{
 				PollingInterval: tt.pollingInterval,
 			}
 			interval := service.getPollingInterval(source)
@@ -130,14 +131,14 @@ func TestDiscoveryService_isSourceDue(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	now := time.Now()
 	interval := 1 * time.Hour
@@ -176,7 +177,7 @@ func TestDiscoveryService_isSourceDue(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			source := Source{
+			source := sources.Source{
 				LastFetchedAt: tt.lastFetchedAt,
 			}
 			isDue := service.isSourceDue(source, interval, now)
@@ -192,20 +193,20 @@ func TestDiscoveryService_handleFetchError(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
 	config.DisableThreshold = 3
-	service := NewDiscoveryService(metadataStore, newsFeed, config)
+	service := NewDiscoveryService(sourceStore, newsFeed, config)
 
 	// Create a test source
 	now := time.Now()
-	source, err := metadataStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
+	source, err := sourceStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
 	require.NoError(t, err)
 
 	// Simulate failures
@@ -213,21 +214,21 @@ func TestDiscoveryService_handleFetchError(t *testing.T) {
 
 	// First failure -- should increment error count but not disable
 	service.handleFetchError(*source, testErr)
-	updated, err := metadataStore.GetSource(source.SourceID)
+	updated, err := sourceStore.GetSource(source.SourceID)
 	require.NoError(t, err)
 	assert.Equal(t, 1, updated.FetchErrorCount)
 	assert.NotNil(t, updated.EnabledAt, "source should still be enabled after 1 failure")
 
 	// Second failure
 	service.handleFetchError(*updated, testErr)
-	updated, err = metadataStore.GetSource(source.SourceID)
+	updated, err = sourceStore.GetSource(source.SourceID)
 	require.NoError(t, err)
 	assert.Equal(t, 2, updated.FetchErrorCount)
 	assert.NotNil(t, updated.EnabledAt, "source should still be enabled after 2 failures")
 
 	// Third failure -- should disable source
 	service.handleFetchError(*updated, testErr)
-	updated, err = metadataStore.GetSource(source.SourceID)
+	updated, err = sourceStore.GetSource(source.SourceID)
 	require.NoError(t, err)
 	assert.Equal(t, 3, updated.FetchErrorCount)
 	assert.Nil(t, updated.EnabledAt, "source should be disabled after reaching threshold")
@@ -240,35 +241,37 @@ func TestDiscoveryService_handleFetchSuccess(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	// Create a test source with error count
 	now := time.Now()
-	source, err := metadataStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
+	source, err := sourceStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
 	require.NoError(t, err)
 
 	// Simulate previous error
 	errorMsg := "previous error"
-	err = metadataStore.UpdateSource(source.SourceID, map[string]any{
-		"fetch_error_count": 5,
-		"last_error":        &errorMsg,
-	})
+	errorCount := 5
+	update := sources.SourceUpdate{
+		FetchErrorCount: &errorCount,
+		LastError:       &errorMsg,
+	}
+	err = sourceStore.UpdateSource(source.SourceID, update)
 	require.NoError(t, err)
 
 	// Handle success
-	updated, err := metadataStore.GetSource(source.SourceID)
+	updated, err := sourceStore.GetSource(source.SourceID)
 	require.NoError(t, err)
 	service.handleFetchSuccess(*updated)
 
 	// Verify error count reset and last_fetched_at updated
-	updated, err = metadataStore.GetSource(source.SourceID)
+	updated, err = sourceStore.GetSource(source.SourceID)
 	require.NoError(t, err)
 	assert.Equal(t, 0, updated.FetchErrorCount, "error count should be reset to 0")
 	assert.NotNil(t, updated.LastFetchedAt, "last_fetched_at should be set")
@@ -285,20 +288,20 @@ func TestDiscoveryService_Run_StartupBehavior(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
 	config.PollInterval = 1 * time.Hour
-	service := NewDiscoveryService(metadataStore, newsFeed, config)
+	service := NewDiscoveryService(sourceStore, newsFeed, config)
 
 	// Create enabled source that has never been fetched
 	now := time.Now()
-	_, err = metadataStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
+	_, err = sourceStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
 	require.NoError(t, err)
 
 	// Start service with short timeout
@@ -321,14 +324,14 @@ func TestDiscoveryService_isPermanentError(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	tests := []struct {
 		name        string
@@ -390,18 +393,18 @@ func TestDiscoveryService_handleFetchError_PermanentError(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	// Create a test source
 	now := time.Now()
-	source, err := metadataStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
+	source, err := sourceStore.CreateSource("rss", "http://example.com/feed", "Test Feed", nil, &now)
 	require.NoError(t, err)
 
 	// Simulate permanent error (404)
@@ -409,7 +412,7 @@ func TestDiscoveryService_handleFetchError_PermanentError(t *testing.T) {
 	service.handleFetchError(*source, permanentErr)
 
 	// Verify source was disabled immediately
-	updated, err := metadataStore.GetSource(source.SourceID)
+	updated, err := sourceStore.GetSource(source.SourceID)
 	require.NoError(t, err)
 	assert.Nil(t, updated.EnabledAt, "source should be disabled immediately on permanent error")
 	assert.Equal(t, 1, updated.FetchErrorCount, "error count should be incremented")
@@ -448,14 +451,14 @@ func TestDiscoveryService_extractDomain(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	tests := []struct {
 		name           string
@@ -494,14 +497,14 @@ func TestDiscoveryService_resolveURL(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	tests := []struct {
 		name        string
@@ -551,14 +554,14 @@ func TestDiscoveryService_extractArticleURLs(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	tests := []struct {
 		name         string
@@ -660,14 +663,14 @@ func TestDiscoveryService_extractNextPageURL(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	tests := []struct {
 		name        string
@@ -749,23 +752,23 @@ func TestDiscoveryService_fetchWebsite_InvalidConfig(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	tests := []struct {
 		name          string
-		source        Source
+		source        sources.Source
 		expectedError string
 	}{
 		{
 			name: "missing scraper config",
-			source: Source{
+			source: sources.Source{
 				SourceType:    "website",
 				URL:           "http://example.com",
 				ScraperConfig: nil,
@@ -774,7 +777,7 @@ func TestDiscoveryService_fetchWebsite_InvalidConfig(t *testing.T) {
 		},
 		{
 			name: "unsupported discovery mode",
-			source: Source{
+			source: sources.Source{
 				SourceType: "website",
 				URL:        "http://example.com",
 				ScraperConfig: &ScraperConfig{
@@ -785,7 +788,7 @@ func TestDiscoveryService_fetchWebsite_InvalidConfig(t *testing.T) {
 		},
 		{
 			name: "list mode without list config",
-			source: Source{
+			source: sources.Source{
 				SourceType: "website",
 				URL:        "http://example.com",
 				ScraperConfig: &ScraperConfig{
@@ -818,9 +821,9 @@ func TestDiscoveryService_Deduplication_WebScraping(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -904,14 +907,14 @@ func TestDiscoveryService_GetMetrics(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
-	service := NewDiscoveryService(metadataStore, newsFeed, nil)
+	service := NewDiscoveryService(sourceStore, newsFeed, nil)
 
 	// Get metrics
 	metrics := service.GetMetrics()
@@ -933,58 +936,58 @@ func TestDiscoveryService_shouldApplyItemLimit(t *testing.T) {
 	metadataPath := tempDir + "/metadata.db"
 	feedDir := tempDir + "/.news"
 
-	metadataStore, err := NewMetadataStore(metadataPath)
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	newsFeed, err := NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
-	service := NewDiscoveryService(metadataStore, newsFeed, config)
+	service := NewDiscoveryService(sourceStore, newsFeed, config)
 
 	now := time.Now()
 
 	testCases := []struct {
-		name             string
-		lastFetchedAt    *time.Time
+		name               string
+		lastFetchedAt      *time.Time
 		expectedApplyLimit bool
 	}{
 		{
-			name:             "first-time sync (never fetched)",
-			lastFetchedAt:    nil,
+			name:               "first-time sync (never fetched)",
+			lastFetchedAt:      nil,
 			expectedApplyLimit: true,
 		},
 		{
-			name:             "stale source (20 days old)",
-			lastFetchedAt:    timePtr(now.Add(-20 * 24 * time.Hour)),
+			name:               "stale source (20 days old)",
+			lastFetchedAt:      timePtr(now.Add(-20 * 24 * time.Hour)),
 			expectedApplyLimit: true,
 		},
 		{
-			name:             "stale source (exactly 16 days old)",
-			lastFetchedAt:    timePtr(now.Add(-16 * 24 * time.Hour)),
+			name:               "stale source (exactly 16 days old)",
+			lastFetchedAt:      timePtr(now.Add(-16 * 24 * time.Hour)),
 			expectedApplyLimit: true,
 		},
 		{
-			name:             "regular polling (14 days old)",
-			lastFetchedAt:    timePtr(now.Add(-14 * 24 * time.Hour)),
+			name:               "regular polling (14 days old)",
+			lastFetchedAt:      timePtr(now.Add(-14 * 24 * time.Hour)),
 			expectedApplyLimit: false,
 		},
 		{
-			name:             "regular polling (1 day old)",
-			lastFetchedAt:    timePtr(now.Add(-24 * time.Hour)),
+			name:               "regular polling (1 day old)",
+			lastFetchedAt:      timePtr(now.Add(-24 * time.Hour)),
 			expectedApplyLimit: false,
 		},
 		{
-			name:             "regular polling (1 hour old)",
-			lastFetchedAt:    timePtr(now.Add(-1 * time.Hour)),
+			name:               "regular polling (1 hour old)",
+			lastFetchedAt:      timePtr(now.Add(-1 * time.Hour)),
 			expectedApplyLimit: false,
 		},
 	}
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			source := Source{
+			source := sources.Source{
 				LastFetchedAt: tc.lastFetchedAt,
 			}
 

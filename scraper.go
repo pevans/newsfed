@@ -10,47 +10,34 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/scraper"
 )
+
+// Re-export types for backward compatibility
+type (
+	ScraperConfig = scraper.ScraperConfig
+	ListConfig    = scraper.ListConfig
+	ArticleConfig = scraper.ArticleConfig
+)
+
+// NewListConfig creates a new list configuration with default values.
+func NewListConfig(articleSelector string) *scraper.ListConfig {
+	return scraper.NewListConfig(articleSelector)
+}
 
 // ScraperSource represents a web scraping source configuration. Implements
 // RFC 3 section 2.1.
 type ScraperSource struct {
-	SourceID      uuid.UUID      `json:"source_id"`
-	SourceType    string         `json:"source_type"` // Always "website"
-	URL           string         `json:"url"`
-	Name          string         `json:"name"`
-	Enabled       bool           `json:"enabled"`
-	ScraperConfig *ScraperConfig `json:"scraper_config"`
-}
-
-// ScraperConfig defines how to extract articles from a specific website.
-// Implements RFC 3 section 2.2.
-type ScraperConfig struct {
-	DiscoveryMode string        `json:"discovery_mode"` // "list" or "direct"
-	ListConfig    *ListConfig   `json:"list_config,omitempty"`
-	ArticleConfig ArticleConfig `json:"article_config"`
-}
-
-// ListConfig defines how to discover articles from listing/index pages. Used
-// when DiscoveryMode is "list". Implements RFC 3 section 2.2.
-type ListConfig struct {
-	ArticleSelector    string `json:"article_selector"`
-	PaginationSelector string `json:"pagination_selector,omitempty"`
-	MaxPages           int    `json:"max_pages"` // Default: 1
-}
-
-// ArticleConfig defines how to extract metadata from individual article
-// pages. Implements RFC 3 section 2.2.
-type ArticleConfig struct {
-	TitleSelector   string `json:"title_selector"`
-	ContentSelector string `json:"content_selector"`
-	AuthorSelector  string `json:"author_selector,omitempty"`
-	DateSelector    string `json:"date_selector,omitempty"`
-	DateFormat      string `json:"date_format,omitempty"` // Go time format string
+	SourceID      uuid.UUID              `json:"source_id"`
+	SourceType    string                 `json:"source_type"` // Always "website"
+	URL           string                 `json:"url"`
+	Name          string                 `json:"name"`
+	Enabled       bool                   `json:"enabled"`
+	ScraperConfig *scraper.ScraperConfig `json:"scraper_config"`
 }
 
 // NewScraperSource creates a new scraper source with the given parameters.
-func NewScraperSource(url, name string, config *ScraperConfig) *ScraperSource {
+func NewScraperSource(url, name string, config *scraper.ScraperConfig) *ScraperSource {
 	return &ScraperSource{
 		SourceID:      uuid.New(),
 		SourceType:    "website",
@@ -58,14 +45,6 @@ func NewScraperSource(url, name string, config *ScraperConfig) *ScraperSource {
 		Name:          name,
 		Enabled:       true,
 		ScraperConfig: config,
-	}
-}
-
-// NewListConfig creates a new list configuration with default values.
-func NewListConfig(articleSelector string) *ListConfig {
-	return &ListConfig{
-		ArticleSelector: articleSelector,
-		MaxPages:        1, // Default per RFC 3 section 2.2
 	}
 }
 
@@ -235,7 +214,7 @@ func FetchHTML(url string) (*goquery.Document, error) {
 
 // ExtractArticle extracts article data from HTML using the given selectors.
 // Implements RFC 3 section 3.4.
-func ExtractArticle(doc *goquery.Document, config ArticleConfig, articleURL string) (*ScrapedArticle, error) {
+func ExtractArticle(doc *goquery.Document, config scraper.ArticleConfig, articleURL string) (*ScrapedArticle, error) {
 	article := &ScrapedArticle{
 		URL: articleURL,
 	}
@@ -284,7 +263,7 @@ func ExtractArticle(doc *goquery.Document, config ArticleConfig, articleURL stri
 
 // ScrapeArticle is a convenience function that fetches and extracts an
 // article in one call. Combines FetchHTML and ExtractArticle.
-func ScrapeArticle(url string, config ArticleConfig) (*ScrapedArticle, error) {
+func ScrapeArticle(url string, config scraper.ArticleConfig) (*ScrapedArticle, error) {
 	// Fetch HTML
 	doc, err := FetchHTML(url)
 	if err != nil {

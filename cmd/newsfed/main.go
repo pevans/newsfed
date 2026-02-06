@@ -12,6 +12,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pevans/newsfed"
+	"github.com/pevans/newsfed/sources"
 )
 
 // getEnv returns the value of an environment variable or a default value.
@@ -96,29 +97,29 @@ func main() {
 }
 
 func handleSourcesCommand(action, metadataPath string, args []string) {
-	// Initialize metadata store
-	metadataStore, err := newsfed.NewMetadataStore(metadataPath)
+	// Initialize source store
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to open metadata store: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: failed to open source store: %v\n", err)
 		os.Exit(1)
 	}
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	switch action {
 	case "list":
-		handleSourcesList(metadataStore, args)
+		handleSourcesList(sourceStore, args)
 	case "show":
-		handleSourcesShow(metadataStore, args)
+		handleSourcesShow(sourceStore, args)
 	case "add":
-		handleSourcesAdd(metadataStore, args)
+		handleSourcesAdd(sourceStore, args)
 	case "update":
-		handleSourcesUpdate(metadataStore, args)
+		handleSourcesUpdate(sourceStore, args)
 	case "delete":
-		handleSourcesDelete(metadataStore, args)
+		handleSourcesDelete(sourceStore, args)
 	case "enable":
-		handleSourcesEnable(metadataStore, args)
+		handleSourcesEnable(sourceStore, args)
 	case "disable":
-		handleSourcesDisable(metadataStore, args)
+		handleSourcesDisable(sourceStore, args)
 	case "help", "--help", "-h":
 		printSourcesUsage()
 	default:
@@ -561,13 +562,13 @@ func handleSync(metadataPath, feedDir string, args []string) {
 		sourceID = &id
 	}
 
-	// Initialize metadata store
-	metadataStore, err := newsfed.NewMetadataStore(metadataPath)
+	// Initialize source store
+	sourceStore, err := sources.NewSourceStore(metadataPath)
 	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: failed to open metadata store: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Error: failed to open source store: %v\n", err)
 		os.Exit(1)
 	}
-	defer metadataStore.Close()
+	defer sourceStore.Close()
 
 	// Initialize news feed
 	newsFeed, err := newsfed.NewNewsFeed(feedDir)
@@ -580,11 +581,11 @@ func handleSync(metadataPath, feedDir string, args []string) {
 	config := &newsfed.DiscoveryConfig{
 		FetchTimeout: 60 * time.Second,
 	}
-	service := newsfed.NewDiscoveryService(metadataStore, newsFeed, config)
+	service := newsfed.NewDiscoveryService(sourceStore, newsFeed, config)
 
 	// Perform sync
 	if sourceID != nil {
-		source, err := metadataStore.GetSource(*sourceID)
+		source, err := sourceStore.GetSource(*sourceID)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to get source: %v\n", err)
 			os.Exit(1)
@@ -623,19 +624,19 @@ func handleSync(metadataPath, feedDir string, args []string) {
 	}
 }
 
-func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesList(metadataStore *sources.SourceStore, args []string) {
 	// Parse flags for list command
 	fs := flag.NewFlagSet("sources list", flag.ExitOnError)
 	fs.Parse(args)
 
 	// Get all sources
-	sources, err := metadataStore.ListSources()
+	sourceList, err := metadataStore.ListSources(sources.SourceFilter{})
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to list sources: %v\n", err)
 		os.Exit(1)
 	}
 
-	if len(sources) == 0 {
+	if len(sourceList) == 0 {
 		fmt.Println("No sources configured.")
 		return
 	}
@@ -645,7 +646,7 @@ func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
 	fmt.Println("----------------------------------------------------------------------------------------------------")
 
 	// Print each source
-	for _, source := range sources {
+	for _, source := range sourceList {
 		// Truncate name and URL if too long
 		name := source.Name
 		if len(name) > 50 {
@@ -665,7 +666,7 @@ func handleSourcesList(metadataStore *newsfed.MetadataStore, args []string) {
 	}
 }
 
-func handleSourcesShow(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesShow(metadataStore *sources.SourceStore, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
 		fmt.Fprintf(os.Stderr, "Usage: newsfed sources show <source-id>\n")
@@ -775,7 +776,7 @@ func handleSourcesShow(metadataStore *newsfed.MetadataStore, args []string) {
 	fmt.Printf("ID:          %s\n", source.SourceID.String())
 }
 
-func handleSourcesAdd(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	// Parse flags for add command
 	fs := flag.NewFlagSet("sources add", flag.ExitOnError)
 	sourceType := fs.String("type", "", "Source type (rss, atom, or website)")
@@ -846,7 +847,7 @@ func handleSourcesAdd(metadataStore *newsfed.MetadataStore, args []string) {
 	}
 }
 
-func handleSourcesUpdate(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesUpdate(metadataStore *sources.SourceStore, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
 		fmt.Fprintf(os.Stderr, "Usage: newsfed sources update <source-id> [flags]\n")
@@ -875,11 +876,11 @@ func handleSourcesUpdate(metadataStore *newsfed.MetadataStore, args []string) {
 		os.Exit(1)
 	}
 
-	// Build updates map
-	updates := make(map[string]any)
+	// Build updates struct
+	update := sources.SourceUpdate{}
 
 	if *name != "" {
-		updates["name"] = *name
+		update.Name = name
 	}
 
 	if *interval != "" {
@@ -889,7 +890,7 @@ func handleSourcesUpdate(metadataStore *newsfed.MetadataStore, args []string) {
 			fmt.Fprintf(os.Stderr, "Error: invalid interval format: %v\n", err)
 			os.Exit(1)
 		}
-		updates["polling_interval"] = *interval
+		update.PollingInterval = interval
 	}
 
 	if *configFile != "" {
@@ -905,11 +906,11 @@ func handleSourcesUpdate(metadataStore *newsfed.MetadataStore, args []string) {
 			fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
 			os.Exit(1)
 		}
-		updates["scraper_config"] = scraperConfig
+		update.ScraperConfig = scraperConfig
 	}
 
 	// Apply updates
-	err = metadataStore.UpdateSource(id, updates)
+	err = metadataStore.UpdateSource(id, update)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to update source: %v\n", err)
 		os.Exit(1)
@@ -927,7 +928,7 @@ func handleSourcesUpdate(metadataStore *newsfed.MetadataStore, args []string) {
 	}
 }
 
-func handleSourcesDelete(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesDelete(metadataStore *sources.SourceStore, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
 		fmt.Fprintf(os.Stderr, "Usage: newsfed sources delete <source-id>\n")
@@ -953,7 +954,7 @@ func handleSourcesDelete(metadataStore *newsfed.MetadataStore, args []string) {
 	fmt.Printf("✓ Deleted source: %s\n", sourceID)
 }
 
-func handleSourcesEnable(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesEnable(metadataStore *sources.SourceStore, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
 		fmt.Fprintf(os.Stderr, "Usage: newsfed sources enable <source-id>\n")
@@ -984,11 +985,11 @@ func handleSourcesEnable(metadataStore *newsfed.MetadataStore, args []string) {
 
 	// Enable the source
 	now := time.Now()
-	updates := map[string]any{
-		"enabled_at": &now,
+	update := sources.SourceUpdate{
+		EnabledAt: &now,
 	}
 
-	err = metadataStore.UpdateSource(id, updates)
+	err = metadataStore.UpdateSource(id, update)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to enable source: %v\n", err)
 		os.Exit(1)
@@ -997,7 +998,7 @@ func handleSourcesEnable(metadataStore *newsfed.MetadataStore, args []string) {
 	fmt.Printf("✓ Enabled source: %s\n", source.Name)
 }
 
-func handleSourcesDisable(metadataStore *newsfed.MetadataStore, args []string) {
+func handleSourcesDisable(metadataStore *sources.SourceStore, args []string) {
 	if len(args) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
 		fmt.Fprintf(os.Stderr, "Usage: newsfed sources disable <source-id>\n")
@@ -1028,11 +1029,11 @@ func handleSourcesDisable(metadataStore *newsfed.MetadataStore, args []string) {
 
 	// Disable the source
 	var nilTime *time.Time
-	updates := map[string]any{
-		"enabled_at": nilTime,
+	update := sources.SourceUpdate{
+		EnabledAt: nilTime,
 	}
 
-	err = metadataStore.UpdateSource(id, updates)
+	err = metadataStore.UpdateSource(id, update)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to disable source: %v\n", err)
 		os.Exit(1)

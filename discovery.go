@@ -13,12 +13,13 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/sources"
 )
 
 // DiscoveryService is a background service that automatically discovers and
 // ingests news items from configured sources. Implements RFC 7.
 type DiscoveryService struct {
-	metadataStore   *MetadataStore
+	sourceStore     *sources.SourceStore
 	newsFeed        *NewsFeed
 	config          *DiscoveryConfig
 	httpClient      *http.Client
@@ -143,7 +144,7 @@ func DefaultDiscoveryConfig() *DiscoveryConfig {
 
 // NewDiscoveryService creates a new discovery service.
 func NewDiscoveryService(
-	metadataStore *MetadataStore,
+	sourceStore *sources.SourceStore,
 	newsFeed *NewsFeed,
 	config *DiscoveryConfig,
 ) *DiscoveryService {
@@ -152,9 +153,9 @@ func NewDiscoveryService(
 	}
 
 	return &DiscoveryService{
-		metadataStore: metadataStore,
-		newsFeed:      newsFeed,
-		config:        config,
+		sourceStore: sourceStore,
+		newsFeed:    newsFeed,
+		config:      config,
 		httpClient: &http.Client{
 			Timeout: 10 * time.Second, // Per RFC 3 section 3.2
 		},
@@ -225,14 +226,14 @@ func (ds *DiscoveryService) Stop() {
 // fetchSources fetches all sources that are due for polling.
 func (ds *DiscoveryService) fetchSources(ctx context.Context) error {
 	// Get all sources from metadata store
-	sources, err := ds.metadataStore.ListSources()
+	sourceList, err := ds.sourceStore.ListSources(sources.SourceFilter{})
 	if err != nil {
 		return fmt.Errorf("failed to list sources: %w", err)
 	}
 
 	// Update metrics with total enabled sources
 	enabledCount := 0
-	for _, s := range sources {
+	for _, s := range sourceList {
 		if s.EnabledAt != nil {
 			enabledCount++
 		}
@@ -240,7 +241,7 @@ func (ds *DiscoveryService) fetchSources(ctx context.Context) error {
 	ds.metrics.updateSourcesTotal(enabledCount)
 
 	// Filter for enabled sources that are due
-	dueSources := ds.filterDueSources(sources)
+	dueSources := ds.filterDueSources(sourceList)
 	if len(dueSources) == 0 {
 		return nil
 	}
@@ -254,7 +255,7 @@ func (ds *DiscoveryService) fetchSources(ctx context.Context) error {
 			return ctx.Err()
 		case ds.sourceSemaphore <- struct{}{}: // Acquire semaphore
 			ds.wg.Add(1)
-			go func(s Source) {
+			go func(s sources.Source) {
 				defer ds.wg.Done()
 				defer func() { <-ds.sourceSemaphore }() // Release semaphore
 
@@ -270,11 +271,11 @@ func (ds *DiscoveryService) fetchSources(ctx context.Context) error {
 
 // filterDueSources returns sources that are enabled and due for fetching.
 // Implements RFC 7 section 3.2 and 3.3.
-func (ds *DiscoveryService) filterDueSources(sources []Source) []Source {
+func (ds *DiscoveryService) filterDueSources(sourceList []sources.Source) []sources.Source {
 	now := time.Now()
-	var dueSources []Source
+	var dueSources []sources.Source
 
-	for _, source := range sources {
+	for _, source := range sourceList {
 		// Skip disabled sources (enabled_at is nil)
 		if source.EnabledAt == nil {
 			continue
@@ -295,7 +296,7 @@ func (ds *DiscoveryService) filterDueSources(sources []Source) []Source {
 // getPollingInterval returns the polling interval for a source. Uses the
 // source's specific interval if set, otherwise uses the global default.
 // Implements RFC 7 section 3.1.
-func (ds *DiscoveryService) getPollingInterval(source Source) time.Duration {
+func (ds *DiscoveryService) getPollingInterval(source sources.Source) time.Duration {
 	if source.PollingInterval != nil {
 		interval, err := time.ParseDuration(*source.PollingInterval)
 		if err == nil {
@@ -317,7 +318,7 @@ func (ds *DiscoveryService) getPollingInterval(source Source) time.Duration {
 
 // isSourceDue checks if a source is due for fetching based on its last fetch
 // time and polling interval. Implements RFC 7 section 3.2 and 3.3.
-func (ds *DiscoveryService) isSourceDue(source Source, interval time.Duration, now time.Time) bool {
+func (ds *DiscoveryService) isSourceDue(source sources.Source, interval time.Duration, now time.Time) bool {
 	// Never fetched -- fetch immediately per RFC 7 section 3.3
 	if source.LastFetchedAt == nil {
 		return true
@@ -332,7 +333,7 @@ func (ds *DiscoveryService) isSourceDue(source Source, interval time.Duration, n
 
 // fetchSource fetches a single source and processes its items. Implements RFC
 // 7 section 4 for RSS/Atom feeds.
-func (ds *DiscoveryService) fetchSource(ctx context.Context, source Source) error {
+func (ds *DiscoveryService) fetchSource(ctx context.Context, source sources.Source) error {
 	startTime := time.Now()
 
 	// Create context with timeout
@@ -381,7 +382,7 @@ func (ds *DiscoveryService) fetchSource(ctx context.Context, source Source) erro
 // limit applies when:
 // - First-time sync: source has never been fetched (last_fetched_at is nil)
 // - Stale source: source has not been synced for more than 15 days
-func (ds *DiscoveryService) shouldApplyItemLimit(source Source) bool {
+func (ds *DiscoveryService) shouldApplyItemLimit(source sources.Source) bool {
 	// First-time sync -- never fetched before
 	if source.LastFetchedAt == nil {
 		return true
@@ -400,7 +401,7 @@ func (ds *DiscoveryService) shouldApplyItemLimit(source Source) bool {
 
 // fetchRSSFeed fetches and processes an RSS or Atom feed. Implements RFC 7
 // section 4 with conditional 20-item limit per RFC 2 section 2.2.3.
-func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source Source) (int, error) {
+func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source sources.Source) (int, error) {
 	// Fetch the feed (FetchFeed from RFC 2)
 	feed, err := FetchFeed(source.URL)
 	if err != nil {
@@ -445,7 +446,7 @@ func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source Source) (int,
 
 // fetchWebsite fetches and processes a website source. Implements RFC 7
 // section 5.
-func (ds *DiscoveryService) fetchWebsite(_ context.Context, source Source) (int, error) {
+func (ds *DiscoveryService) fetchWebsite(_ context.Context, source sources.Source) (int, error) {
 	if source.ScraperConfig == nil {
 		return 0, fmt.Errorf("scraper config is required for website sources")
 	}
@@ -470,7 +471,7 @@ func (ds *DiscoveryService) fetchWebsite(_ context.Context, source Source) (int,
 
 // fetchDirectMode fetches a single article page directly. Implements RFC 7
 // section 5.1.1.
-func (ds *DiscoveryService) fetchDirectMode(source Source, config *ScraperConfig, domain string) (int, error) {
+func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *ScraperConfig, domain string) (int, error) {
 	// Rate limit before fetching
 	ds.rateLimiter.wait(domain)
 
@@ -512,7 +513,7 @@ func (ds *DiscoveryService) fetchDirectMode(source Source, config *ScraperConfig
 
 // fetchListMode fetches articles from a list/index page. Implements RFC 7
 // section 5.1.2 with conditional 20-article cap per RFC 3 section 3.1.1.
-func (ds *DiscoveryService) fetchListMode(source Source, config *ScraperConfig, domain string) (int, error) {
+func (ds *DiscoveryService) fetchListMode(source sources.Source, config *ScraperConfig, domain string) (int, error) {
 	if config.ListConfig == nil {
 		return 0, fmt.Errorf("list_config is required for list mode")
 	}
@@ -704,51 +705,54 @@ func (ds *DiscoveryService) extractDomain(urlStr string) (string, error) {
 
 // handleFetchSuccess updates source metadata after a successful fetch.
 // Implements RFC 7 section 4.3.
-func (ds *DiscoveryService) handleFetchSuccess(source Source) {
+func (ds *DiscoveryService) handleFetchSuccess(source sources.Source) {
 	now := time.Now()
-	updates := map[string]any{
-		"last_fetched_at":   &now,
-		"fetch_error_count": 0,
-		"last_error":        (*string)(nil),
+	zero := 0
+	var nilStr *string
+	update := sources.SourceUpdate{
+		LastFetchedAt:   &now,
+		FetchErrorCount: &zero,
+		LastError:       nilStr,
 	}
 
-	if err := ds.metadataStore.UpdateSource(source.SourceID, updates); err != nil {
+	if err := ds.sourceStore.UpdateSource(source.SourceID, update); err != nil {
 		log.Printf("ERROR: Failed to update source metadata for %s: %v", source.Name, err)
 	}
 }
 
 // handleFetchError updates source metadata after a fetch error. Implements
 // RFC 7 section 7 (Error Handling).
-func (ds *DiscoveryService) handleFetchError(source Source, fetchErr error) {
+func (ds *DiscoveryService) handleFetchError(source sources.Source, fetchErr error) {
 	now := time.Now()
 	errorMsg := fetchErr.Error()
 
 	// Determine if error is permanent or transient
 	isPermanent := ds.isPermanentError(fetchErr)
 
-	updates := map[string]any{
-		"last_fetched_at": &now,
-		"last_error":      &errorMsg,
+	update := sources.SourceUpdate{
+		LastFetchedAt: &now,
+		LastError:     &errorMsg,
 	}
 
 	if isPermanent {
 		// Permanent errors -- disable immediately (RFC 7 section 7.2)
 		log.Printf("ERROR: Disabling source %s (%s) due to permanent error: %v", source.Name, source.URL, fetchErr)
-		updates["enabled_at"] = (*time.Time)(nil)
-		updates["fetch_error_count"] = source.FetchErrorCount + 1
+		update.ClearEnabledAt = true
+		newCount := source.FetchErrorCount + 1
+		update.FetchErrorCount = &newCount
 	} else {
 		// Transient errors -- increment counter and check threshold (RFC 7
 		// section 7.1 and 7.3)
 		newErrorCount := source.FetchErrorCount + 1
-		updates["fetch_error_count"] = newErrorCount
+		update.FetchErrorCount = &newErrorCount
 
 		if newErrorCount >= ds.config.DisableThreshold {
 			log.Printf("ERROR: Auto-disabling source %s (%s) after %d consecutive failures", source.Name, source.URL, newErrorCount)
-			updates["enabled_at"] = (*time.Time)(nil)
+			update.ClearEnabledAt = true
 		}
 	}
 
-	if err := ds.metadataStore.UpdateSource(source.SourceID, updates); err != nil {
+	if err := ds.sourceStore.UpdateSource(source.SourceID, update); err != nil {
 		log.Printf("ERROR: Failed to update source metadata for %s: %v", source.Name, err)
 	}
 }
@@ -809,19 +813,17 @@ func (ds *DiscoveryService) UpdateSourceFetchMetadata(
 	sourceID uuid.UUID,
 	lastModified, etag *string,
 ) error {
-	updates := map[string]any{}
-	if lastModified != nil {
-		updates["last_modified"] = lastModified
-	}
-	if etag != nil {
-		updates["etag"] = etag
+	update := sources.SourceUpdate{
+		LastModified: lastModified,
+		ETag:         etag,
 	}
 
-	if len(updates) == 0 {
+	// Only update if at least one field is set
+	if lastModified == nil && etag == nil {
 		return nil
 	}
 
-	return ds.metadataStore.UpdateSource(sourceID, updates)
+	return ds.sourceStore.UpdateSource(sourceID, update)
 }
 
 // SyncResult contains the results of a manual sync operation.
@@ -834,7 +836,7 @@ type SyncResult struct {
 
 // SyncError contains details about a source sync failure.
 type SyncError struct {
-	Source Source
+	Source sources.Source
 	Error  error
 }
 
@@ -847,18 +849,18 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 	}
 	var resultMu sync.Mutex
 
-	var sources []Source
+	var sourceList []sources.Source
 
 	if sourceID != nil {
 		// Sync single source
-		source, err := ds.metadataStore.GetSource(*sourceID)
+		source, err := ds.sourceStore.GetSource(*sourceID)
 		if err != nil {
 			return nil, fmt.Errorf("failed to get source: %w", err)
 		}
-		sources = []Source{*source}
+		sourceList = []sources.Source{*source}
 	} else {
 		// Sync all enabled sources
-		allSources, err := ds.metadataStore.ListSources()
+		allSources, err := ds.sourceStore.ListSources(sources.SourceFilter{})
 		if err != nil {
 			return nil, fmt.Errorf("failed to list sources: %w", err)
 		}
@@ -866,12 +868,12 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 		// Filter to only enabled sources
 		for _, source := range allSources {
 			if source.EnabledAt != nil {
-				sources = append(sources, source)
+				sourceList = append(sourceList, source)
 			}
 		}
 	}
 
-	if len(sources) == 0 {
+	if len(sourceList) == 0 {
 		return result, nil
 	}
 
@@ -885,13 +887,13 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 	// Fetch sources concurrently with WaitGroup
 	var wg sync.WaitGroup
 
-	for _, source := range sources {
+	for _, source := range sourceList {
 		select {
 		case <-ctx.Done():
 			return nil, ctx.Err()
 		case semaphore <- struct{}{}: // Acquire semaphore
 			wg.Add(1)
-			go func(s Source) {
+			go func(s sources.Source) {
 				defer wg.Done()
 				defer func() { <-semaphore }() // Release semaphore
 
