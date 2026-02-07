@@ -1028,9 +1028,8 @@ func handleSourcesDisable(metadataStore *sources.SourceStore, args []string) {
 	}
 
 	// Disable the source
-	var nilTime *time.Time
 	update := sources.SourceUpdate{
-		EnabledAt: nilTime,
+		ClearEnabledAt: true,
 	}
 
 	err = metadataStore.UpdateSource(id, update)
