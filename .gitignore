@@ -3,3 +3,4 @@
 /newsfed
 /metadata.db
 dist/
+.test-data/
