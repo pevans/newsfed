@@ -4,11 +4,12 @@ import (
 	"log"
 
 	"github.com/pevans/newsfed"
+	"github.com/pevans/newsfed/newsfeed"
 )
 
 func main() {
 	// Create news feed with .news directory storage (RFC 1)
-	feed, err := newsfed.NewNewsFeed(".news")
+	feed, err := newsfeed.NewNewsFeed(".news")
 	if err != nil {
 		log.Fatalf("Failed to create news feed: %v", err)
 	}

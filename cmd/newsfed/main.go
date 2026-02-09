@@ -15,6 +15,7 @@ import (
 	"github.com/google/uuid"
 	"github.com/pevans/newsfed"
 	"github.com/pevans/newsfed/config"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 )
 
@@ -187,7 +188,7 @@ func handleList(feedDir string, args []string) {
 	fs.Parse(args)
 
 	// Initialize news feed
-	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
 		os.Exit(1)
@@ -201,7 +202,7 @@ func handleList(feedDir string, args []string) {
 	}
 
 	// Apply filters
-	var filtered []newsfed.NewsItem
+	var filtered []newsfeed.NewsItem
 	for _, item := range items {
 		// Default filter: show items from past 3 days OR pinned items (unless
 		// --all is set)
@@ -300,7 +301,7 @@ func handleList(feedDir string, args []string) {
 }
 
 // printListTable prints items in human-readable table format
-func printListTable(items []newsfed.NewsItem, total, offset int) {
+func printListTable(items []newsfeed.NewsItem, total, offset int) {
 	if len(items) == 0 {
 		fmt.Println("No items to display.")
 		return
@@ -348,7 +349,7 @@ func printListTable(items []newsfed.NewsItem, total, offset int) {
 }
 
 // printListJSON prints items in JSON format
-func printListJSON(items []newsfed.NewsItem, total int) {
+func printListJSON(items []newsfeed.NewsItem, total int) {
 	output := map[string]any{
 		"items": items,
 		"total": total,
@@ -364,7 +365,7 @@ func printListJSON(items []newsfed.NewsItem, total int) {
 }
 
 // printListCompact prints items in compact format
-func printListCompact(items []newsfed.NewsItem) {
+func printListCompact(items []newsfeed.NewsItem) {
 	if len(items) == 0 {
 		fmt.Println("No items to display.")
 		return
@@ -403,7 +404,7 @@ func handleShow(feedDir string, args []string) {
 	}
 
 	// Initialize news feed
-	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
 		os.Exit(1)
@@ -516,7 +517,7 @@ func handlePin(feedDir string, args []string) {
 	}
 
 	// Initialize news feed
-	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
 		os.Exit(1)
@@ -570,7 +571,7 @@ func handleUnpin(feedDir string, args []string) {
 	}
 
 	// Initialize news feed
-	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
 		os.Exit(1)
@@ -629,7 +630,7 @@ func handleOpen(metadataPath, feedDir string, args []string) {
 	}
 
 	// Initialize news feed
-	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
 		os.Exit(1)
@@ -724,7 +725,7 @@ func handleSync(metadataPath, feedDir string, args []string) {
 	defer sourceStore.Close()
 
 	// Initialize news feed
-	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
 		os.Exit(1)

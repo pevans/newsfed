@@ -8,14 +8,15 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
 // Test helper: create a sample news item for testing
-func createTestItem(title string) NewsItem {
+func createTestItem(title string) newsfeed.NewsItem {
 	publisher := "Test Publisher"
-	return NewsItem{
+	return newsfeed.NewsItem{
 		ID:           uuid.New(),
 		Title:        title,
 		Summary:      "Test summary for " + title,
@@ -37,7 +38,7 @@ func TestNew_CreatesDirectory(t *testing.T) {
 	_, err := os.Stat(storageDir)
 	assert.True(t, os.IsNotExist(err), "directory should not exist before New")
 
-	feed, err := NewNewsFeed(storageDir)
+	feed, err := newsfeed.NewNewsFeed(storageDir)
 	require.NoError(t, err, "New should succeed")
 	require.NotNil(t, feed, "feed should not be nil")
 
@@ -52,7 +53,7 @@ func TestNew_CreatesNestedDirectories(t *testing.T) {
 	tempDir := t.TempDir()
 	storageDir := filepath.Join(tempDir, "deeply", "nested", "newsfeed")
 
-	feed, err := NewNewsFeed(storageDir)
+	feed, err := newsfeed.NewNewsFeed(storageDir)
 	require.NoError(t, err, "New should create nested directories")
 	require.NotNil(t, feed)
 
@@ -71,7 +72,7 @@ func TestNew_ExistingDirectory(t *testing.T) {
 	err := os.MkdirAll(storageDir, 0o755)
 	require.NoError(t, err)
 
-	feed, err := NewNewsFeed(storageDir)
+	feed, err := newsfeed.NewNewsFeed(storageDir)
 	require.NoError(t, err, "New should work with existing directory")
 	require.NotNil(t, feed)
 }
@@ -79,7 +80,7 @@ func TestNew_ExistingDirectory(t *testing.T) {
 // TestAdd_CreatesFile verifies that Add creates a JSON file
 func TestAdd_CreatesFile(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Test Article")
@@ -95,7 +96,7 @@ func TestAdd_CreatesFile(t *testing.T) {
 // TestAdd_FileContents verifies JSON file contents are correct
 func TestAdd_FileContents(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Test Article")
@@ -107,7 +108,7 @@ func TestAdd_FileContents(t *testing.T) {
 	data, err := os.ReadFile(filename)
 	require.NoError(t, err, "should be able to read file")
 
-	var savedItem NewsItem
+	var savedItem newsfeed.NewsItem
 	err = json.Unmarshal(data, &savedItem)
 	require.NoError(t, err, "file should contain valid JSON")
 
@@ -122,7 +123,7 @@ func TestAdd_FileContents(t *testing.T) {
 // TestAdd_Overwrite verifies that Add can overwrite existing files
 func TestAdd_Overwrite(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Original Title")
@@ -139,7 +140,7 @@ func TestAdd_Overwrite(t *testing.T) {
 	data, err := os.ReadFile(filename)
 	require.NoError(t, err)
 
-	var savedItem NewsItem
+	var savedItem newsfeed.NewsItem
 	err = json.Unmarshal(data, &savedItem)
 	require.NoError(t, err)
 	assert.Equal(t, "Updated Title", savedItem.Title, "file should contain updated data")
@@ -148,7 +149,7 @@ func TestAdd_Overwrite(t *testing.T) {
 // TestList_EmptyDirectory verifies List returns empty slice for empty feed
 func TestList_EmptyDirectory(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	items, err := feed.List()
@@ -159,7 +160,7 @@ func TestList_EmptyDirectory(t *testing.T) {
 // TestList_SingleItem verifies List returns single item
 func TestList_SingleItem(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Test Article")
@@ -175,7 +176,7 @@ func TestList_SingleItem(t *testing.T) {
 // TestList_MultipleItems verifies List returns all items
 func TestList_MultipleItems(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	itemCount := 5
@@ -201,7 +202,7 @@ func TestList_MultipleItems(t *testing.T) {
 // TestList_IgnoresNonJSONFiles verifies List skips non-JSON files
 func TestList_IgnoresNonJSONFiles(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Add a valid item
@@ -223,7 +224,7 @@ func TestList_IgnoresNonJSONFiles(t *testing.T) {
 // TestList_IgnoresDirectories verifies List skips subdirectories
 func TestList_IgnoresDirectories(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Add a valid item
@@ -243,7 +244,7 @@ func TestList_IgnoresDirectories(t *testing.T) {
 // TestList_SkipsCorruptedFiles verifies List continues on corrupted files
 func TestList_SkipsCorruptedFiles(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Add valid items
@@ -271,7 +272,7 @@ func TestList_SkipsUnreadableFiles(t *testing.T) {
 	}
 
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Add valid item
@@ -295,7 +296,7 @@ func TestList_SkipsUnreadableFiles(t *testing.T) {
 // TestGet_Success verifies Get retrieves item by ID
 func TestGet_Success(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Test Article")
@@ -312,7 +313,7 @@ func TestGet_Success(t *testing.T) {
 // TestGet_NotFound verifies Get returns nil for non-existent item
 func TestGet_NotFound(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	nonExistentID := uuid.New()
@@ -324,7 +325,7 @@ func TestGet_NotFound(t *testing.T) {
 // TestGet_CorruptedFile verifies Get returns error for corrupted file
 func TestGet_CorruptedFile(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Create a corrupted JSON file
@@ -341,7 +342,7 @@ func TestGet_CorruptedFile(t *testing.T) {
 // TestUpdate_Success verifies Update modifies existing item
 func TestUpdate_Success(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Original Title")
@@ -364,7 +365,7 @@ func TestUpdate_Success(t *testing.T) {
 // TestUpdate_NotFound verifies Update returns error for non-existent item
 func TestUpdate_NotFound(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Non-existent")
@@ -376,13 +377,13 @@ func TestUpdate_NotFound(t *testing.T) {
 // TestUpdate_PreservesOtherFields verifies Update doesn't corrupt data
 func TestUpdate_PreservesOtherFields(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	now := time.Now()
 	pinnedTime := now
 	publisher := "Original Publisher"
-	item := NewsItem{
+	item := newsfeed.NewsItem{
 		ID:           uuid.New(),
 		Title:        "Original",
 		Summary:      "Original summary",
@@ -414,13 +415,13 @@ func TestUpdate_PreservesOtherFields(t *testing.T) {
 // Property test: Add and Get are inverse operations
 func TestAddGet_InverseOperations(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	now := time.Now()
 	publisher := "Test Publisher"
 	pinnedTime := now
-	testCases := []NewsItem{
+	testCases := []newsfeed.NewsItem{
 		{
 			ID:           uuid.New(),
 			Title:        "Simple item",
@@ -486,7 +487,7 @@ func TestAddGet_InverseOperations(t *testing.T) {
 // Property test: List returns all added items
 func TestList_ReturnsAllAdded(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	itemCount := 20
@@ -515,7 +516,7 @@ func TestList_ReturnsAllAdded(t *testing.T) {
 // Property test: Update followed by Get returns updated data
 func TestUpdateGet_ConsistentState(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	item := createTestItem("Original")

@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/scraper"
 )
 
@@ -60,7 +61,7 @@ type ScrapedArticle struct {
 
 // ScrapedArticleToNewsItem converts scraped article data to a NewsItem.
 // Implements RFC 3 section 4.1 field mapping.
-func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) NewsItem {
+func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) newsfeed.NewsItem {
 	// Generate new UUID for the item
 	id := uuid.New()
 
@@ -106,7 +107,7 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) New
 	// Pinned_at: set to nil (not yet pinned)
 	var pinnedAt *time.Time
 
-	return NewsItem{
+	return newsfeed.NewsItem{
 		ID:           id,
 		Title:        title,
 		Summary:      summary,
@@ -159,7 +160,7 @@ func ParseAuthors(authorText string) []string {
 
 // URLExists checks if a NewsItem with the given URL already exists in the
 // feed. Implements RFC 3 section 4.2 deduplication strategy.
-func URLExists(feed *NewsFeed, url string) (bool, error) {
+func URLExists(feed *newsfeed.NewsFeed, url string) (bool, error) {
 	items, err := feed.List()
 	if err != nil {
 		return false, err

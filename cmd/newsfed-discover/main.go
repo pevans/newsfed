@@ -11,6 +11,7 @@ import (
 	"time"
 
 	"github.com/pevans/newsfed"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 )
 
@@ -64,7 +65,7 @@ func main() {
 
 	// Initialize news feed
 	log.Printf("Opening news feed: %s", *feedDir)
-	newsFeed, err := newsfed.NewNewsFeed(*feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(*feedDir)
 	if err != nil {
 		log.Fatalf("Failed to open news feed: %v", err)
 	}

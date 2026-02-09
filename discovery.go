@@ -13,6 +13,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 )
 
@@ -20,7 +21,7 @@ import (
 // ingests news items from configured sources. Implements RFC 7.
 type DiscoveryService struct {
 	sourceStore     *sources.SourceStore
-	newsFeed        *NewsFeed
+	newsFeed        *newsfeed.NewsFeed
 	config          *DiscoveryConfig
 	httpClient      *http.Client
 	stopChan        chan struct{}
@@ -145,7 +146,7 @@ func DefaultDiscoveryConfig() *DiscoveryConfig {
 // NewDiscoveryService creates a new discovery service.
 func NewDiscoveryService(
 	sourceStore *sources.SourceStore,
-	newsFeed *NewsFeed,
+	newsFeed *newsfeed.NewsFeed,
 	config *DiscoveryConfig,
 ) *DiscoveryService {
 	if config == nil {

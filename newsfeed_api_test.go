@@ -11,6 +11,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
@@ -20,22 +21,22 @@ func init() {
 }
 
 // Test helper: create a test news feed
-func setupTestFeed(t *testing.T) *NewsFeed {
+func setupTestFeed(t *testing.T) *newsfeed.NewsFeed {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 	return feed
 }
 
 // Test helper: create a test API server
-func setupTestAPIServer(t *testing.T) (*APIServer, *NewsFeed) {
+func setupTestAPIServer(t *testing.T) (*APIServer, *newsfeed.NewsFeed) {
 	feed := setupTestFeed(t)
 	server := NewAPIServer(feed)
 	return server, feed
 }
 
 // Test helper: create a test router
-func setupTestNewsFeedRouter(t *testing.T) (*gin.Engine, *NewsFeed) {
+func setupTestNewsFeedRouter(t *testing.T) (*gin.Engine, *newsfeed.NewsFeed) {
 	feed := setupTestFeed(t)
 	server := NewAPIServer(feed)
 	router := server.SetupRouter()
@@ -49,12 +50,12 @@ func createSampleItem(
 	authors []string,
 	publishedAt, discoveredAt time.Time,
 	pinnedAt *time.Time,
-) NewsItem {
+) newsfeed.NewsItem {
 	var pub *string
 	if publisher != "" {
 		pub = &publisher
 	}
-	return NewsItem{
+	return newsfeed.NewsItem{
 		ID:           id,
 		Title:        "Test Article",
 		Summary:      "Test summary",
@@ -501,7 +502,7 @@ func TestHandleGetItem_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp NewsItem
+	var resp newsfeed.NewsItem
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	assert.Equal(t, item.ID, resp.ID, "returned item should match")
@@ -559,7 +560,7 @@ func TestHandlePinItem_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp NewsItem
+	var resp newsfeed.NewsItem
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	assert.NotNil(t, resp.PinnedAt, "item should be pinned")
@@ -608,7 +609,7 @@ func TestHandleUnpinItem_Success(t *testing.T) {
 
 	assert.Equal(t, http.StatusOK, w.Code)
 
-	var resp NewsItem
+	var resp newsfeed.NewsItem
 	err := json.Unmarshal(w.Body.Bytes(), &resp)
 	require.NoError(t, err)
 	assert.Nil(t, resp.PinnedAt, "item should be unpinned")
@@ -718,7 +719,7 @@ func TestPinUnpin_Idempotent(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code, "pinning should succeed each time")
 
-		var resp NewsItem
+		var resp newsfeed.NewsItem
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.NotNil(t, resp.PinnedAt, "item should remain pinned")
@@ -733,7 +734,7 @@ func TestPinUnpin_Idempotent(t *testing.T) {
 
 		assert.Equal(t, http.StatusOK, w.Code, "unpinning should succeed each time")
 
-		var resp NewsItem
+		var resp newsfeed.NewsItem
 		err := json.Unmarshal(w.Body.Bytes(), &resp)
 		require.NoError(t, err)
 		assert.Nil(t, resp.PinnedAt, "item should remain unpinned")

@@ -11,15 +11,16 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
 )
 
 // APIServer represents the HTTP API server. Implements RFC 4.
 type APIServer struct {
-	feed *NewsFeed
+	feed *newsfeed.NewsFeed
 }
 
 // NewAPIServer creates a new API server with the given news feed.
-func NewAPIServer(feed *NewsFeed) *APIServer {
+func NewAPIServer(feed *newsfeed.NewsFeed) *APIServer {
 	return &APIServer{
 		feed: feed,
 	}
@@ -55,10 +56,10 @@ func (s *APIServer) SetupRouter() *gin.Engine {
 // ListItemsResponse represents the response for GET /api/v1/items. Implements
 // RFC 4 section 3.1.
 type ListItemsResponse struct {
-	Items  []NewsItem `json:"items"`
-	Total  int        `json:"total"`
-	Limit  int        `json:"limit"`
-	Offset int        `json:"offset"`
+	Items  []newsfeed.NewsItem `json:"items"`
+	Total  int                 `json:"total"`
+	Limit  int                 `json:"limit"`
+	Offset int                 `json:"offset"`
 }
 
 // ErrorResponse represents an error response. Implements RFC 4 section 4.1.
@@ -190,8 +191,8 @@ func (s *APIServer) HandleListItems(c *gin.Context) {
 }
 
 // filterByPinned filters items by pinned status.
-func (s *APIServer) filterByPinned(items []NewsItem, pinnedParam string) []NewsItem {
-	var filtered []NewsItem
+func (s *APIServer) filterByPinned(items []newsfeed.NewsItem, pinnedParam string) []newsfeed.NewsItem {
+	var filtered []newsfeed.NewsItem
 	for _, item := range items {
 		if pinnedParam == "true" && item.PinnedAt != nil {
 			filtered = append(filtered, item)
@@ -203,8 +204,8 @@ func (s *APIServer) filterByPinned(items []NewsItem, pinnedParam string) []NewsI
 }
 
 // filterByPublisher filters items by publisher name (exact match).
-func (s *APIServer) filterByPublisher(items []NewsItem, publisher string) []NewsItem {
-	var filtered []NewsItem
+func (s *APIServer) filterByPublisher(items []newsfeed.NewsItem, publisher string) []newsfeed.NewsItem {
+	var filtered []newsfeed.NewsItem
 	for _, item := range items {
 		if item.Publisher != nil && *item.Publisher == publisher {
 			filtered = append(filtered, item)
@@ -214,8 +215,8 @@ func (s *APIServer) filterByPublisher(items []NewsItem, publisher string) []News
 }
 
 // filterByAuthor filters items by author name (matches any author in array).
-func (s *APIServer) filterByAuthor(items []NewsItem, author string) []NewsItem {
-	var filtered []NewsItem
+func (s *APIServer) filterByAuthor(items []newsfeed.NewsItem, author string) []newsfeed.NewsItem {
+	var filtered []newsfeed.NewsItem
 	for _, item := range items {
 		if slices.Contains(item.Authors, author) {
 			filtered = append(filtered, item)
@@ -225,8 +226,8 @@ func (s *APIServer) filterByAuthor(items []NewsItem, author string) []NewsItem {
 }
 
 // filterBySince filters items discovered after the given time.
-func (s *APIServer) filterBySince(items []NewsItem, since time.Time) []NewsItem {
-	var filtered []NewsItem
+func (s *APIServer) filterBySince(items []newsfeed.NewsItem, since time.Time) []newsfeed.NewsItem {
+	var filtered []newsfeed.NewsItem
 	for _, item := range items {
 		if item.DiscoveredAt.After(since) {
 			filtered = append(filtered, item)
@@ -236,8 +237,8 @@ func (s *APIServer) filterBySince(items []NewsItem, since time.Time) []NewsItem 
 }
 
 // filterByUntil filters items discovered before the given time.
-func (s *APIServer) filterByUntil(items []NewsItem, until time.Time) []NewsItem {
-	var filtered []NewsItem
+func (s *APIServer) filterByUntil(items []newsfeed.NewsItem, until time.Time) []newsfeed.NewsItem {
+	var filtered []newsfeed.NewsItem
 	for _, item := range items {
 		if item.DiscoveredAt.Before(until) {
 			filtered = append(filtered, item)
@@ -247,7 +248,7 @@ func (s *APIServer) filterByUntil(items []NewsItem, until time.Time) []NewsItem 
 }
 
 // sortItems sorts items by the given sort parameter.
-func (s *APIServer) sortItems(items []NewsItem, sortParam string) {
+func (s *APIServer) sortItems(items []newsfeed.NewsItem, sortParam string) {
 	switch sortParam {
 	case "published_desc":
 		sort.Slice(items, func(i, j int) bool {
@@ -289,9 +290,9 @@ func (s *APIServer) sortItems(items []NewsItem, sortParam string) {
 }
 
 // paginate returns a slice of items for the given offset and limit.
-func (s *APIServer) paginate(items []NewsItem, offset, limit int) []NewsItem {
+func (s *APIServer) paginate(items []newsfeed.NewsItem, offset, limit int) []newsfeed.NewsItem {
 	if offset >= len(items) {
-		return []NewsItem{}
+		return []newsfeed.NewsItem{}
 	}
 
 	end := min(offset+limit, len(items))

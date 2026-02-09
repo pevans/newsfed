@@ -8,6 +8,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
+	"github.com/pevans/newsfed/newsfeed"
 )
 
 // FetchFeed fetches and parses an RSS or Atom feed from the given URL. The
@@ -21,11 +22,11 @@ func FetchFeed(url string) (*gofeed.Feed, error) {
 	return feed, nil
 }
 
-// FeedItemToNewsItem converts an RSS or Atom feed item to a NewsItem.
-// Implements RFC 2 section 2.3.1 (RSS) and section 2.4.1 (Atom) mappings. The
-// gofeed library normalizes both formats into a common structure, so this
-// function handles both RSS and Atom feeds transparently.
-func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
+// FeedItemToNewsItem converts an RSS or Atom feed item to a
+// newsfeed.NewsItem. Implements RFC 2 section 2.3.1 (RSS) and section 2.4.1
+// (Atom) mappings. The gofeed library normalizes both formats into a common
+// structure, so this function handles both RSS and Atom feeds transparently.
+func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) newsfeed.NewsItem {
 	// Generate new UUID for the item
 	id := uuid.New()
 
@@ -92,7 +93,7 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
 	// Pinned_at: set to nil (not yet pinned)
 	var pinnedAt *time.Time
 
-	return NewsItem{
+	return newsfeed.NewsItem{
 		ID:           id,
 		Title:        title,
 		Summary:      summary,
@@ -105,17 +106,17 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) NewsItem {
 	}
 }
 
-// FeedToNewsItems converts all items in an RSS or Atom feed to NewsItems.
-// Implements RFC 2 section 2.2.3: conditionally limits to 20 most recent
-// items based on published_at timestamp.
+// FeedToNewsItems converts all items in an RSS or Atom feed to
+// newsfeed.NewsItems. Implements RFC 2 section 2.2.3: conditionally limits to
+// 20 most recent items based on published_at timestamp.
 //
 // The applyLimit parameter determines whether to apply the 20-item cap:
-// - true: limit to 20 most recent items (for first-time sync or stale
-//   sources)
-// - false: process all items (for regular polling)
-func FeedToNewsItems(feed *gofeed.Feed, applyLimit bool) []NewsItem {
-	// Convert all items to NewsItems
-	items := make([]NewsItem, 0, len(feed.Items))
+//   - true: limit to 20 most recent items (for first-time sync or stale
+//     sources)
+//   - false: process all items (for regular polling)
+func FeedToNewsItems(feed *gofeed.Feed, applyLimit bool) []newsfeed.NewsItem {
+	// Convert all items to newsfeed.NewsItems
+	items := make([]newsfeed.NewsItem, 0, len(feed.Items))
 	for _, item := range feed.Items {
 		newsItem := FeedItemToNewsItem(item, feed.Title)
 		items = append(items, newsItem)

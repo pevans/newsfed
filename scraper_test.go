@@ -8,6 +8,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"github.com/pevans/newsfed/newsfeed"
 )
 
 // TestNewScraperSource verifies scraper source creation
@@ -209,7 +210,7 @@ func TestParseAuthors_PreferCommaOverAnd(t *testing.T) {
 // TestURLExists_NotFound verifies URL doesn't exist
 func TestURLExists_NotFound(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	exists, err := URLExists(feed, "http://example.com/nonexistent")
@@ -220,12 +221,12 @@ func TestURLExists_NotFound(t *testing.T) {
 // TestURLExists_Found verifies URL exists
 func TestURLExists_Found(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	// Add an item
 	publisher := "Test"
-	item := NewsItem{
+	item := newsfeed.NewsItem{
 		Title:        "Test",
 		Summary:      "Summary",
 		URL:          "http://example.com/article",
@@ -246,7 +247,7 @@ func TestURLExists_Found(t *testing.T) {
 // TestURLExists_EmptyFeed verifies empty feed handling
 func TestURLExists_EmptyFeed(t *testing.T) {
 	tempDir := t.TempDir()
-	feed, err := NewNewsFeed(tempDir)
+	feed, err := newsfeed.NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
 	exists, err := URLExists(feed, "http://example.com/anything")

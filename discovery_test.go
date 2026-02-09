@@ -10,6 +10,7 @@ import (
 
 	"github.com/PuerkitoBio/goquery"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -27,7 +28,7 @@ func TestDiscoveryService_filterDueSources(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
@@ -79,7 +80,7 @@ func TestDiscoveryService_getPollingInterval(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
@@ -135,7 +136,7 @@ func TestDiscoveryService_isSourceDue(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -197,7 +198,7 @@ func TestDiscoveryService_handleFetchError(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
@@ -245,7 +246,7 @@ func TestDiscoveryService_handleFetchSuccess(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -292,7 +293,7 @@ func TestDiscoveryService_Run_StartupBehavior(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
@@ -328,7 +329,7 @@ func TestDiscoveryService_isPermanentError(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -397,7 +398,7 @@ func TestDiscoveryService_handleFetchError_PermanentError(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -455,7 +456,7 @@ func TestDiscoveryService_extractDomain(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -501,7 +502,7 @@ func TestDiscoveryService_resolveURL(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -558,7 +559,7 @@ func TestDiscoveryService_extractArticleURLs(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -667,7 +668,7 @@ func TestDiscoveryService_extractNextPageURL(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -756,7 +757,7 @@ func TestDiscoveryService_fetchWebsite_InvalidConfig(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -825,11 +826,11 @@ func TestDiscoveryService_Deduplication_WebScraping(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	// Add an existing item to the feed
-	existingItem := NewsItem{
+	existingItem := newsfeed.NewsItem{
 		ID:           uuid.New(),
 		Title:        "Existing Article",
 		URL:          "http://example.com/article1",
@@ -911,7 +912,7 @@ func TestDiscoveryService_GetMetrics(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	service := NewDiscoveryService(sourceStore, newsFeed, nil)
@@ -940,7 +941,7 @@ func TestDiscoveryService_shouldApplyItemLimit(t *testing.T) {
 	require.NoError(t, err)
 	defer sourceStore.Close()
 
-	newsFeed, err := NewNewsFeed(feedDir)
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
 
 	config := DefaultDiscoveryConfig()
