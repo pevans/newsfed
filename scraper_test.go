@@ -6,9 +6,9 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/pevans/newsfed/newsfeed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/pevans/newsfed/newsfeed"
 )
 
 // TestNewScraperSource verifies scraper source creation

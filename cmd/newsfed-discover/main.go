@@ -23,7 +23,8 @@ func getEnv(key, defaultValue string) string {
 	return defaultValue
 }
 
-// getEnvDuration parses a duration from environment variable or returns default.
+// getEnvDuration parses a duration from environment variable or returns
+// default.
 func getEnvDuration(key string, defaultValue time.Duration) time.Duration {
 	if value := os.Getenv(key); value != "" {
 		if duration, err := time.ParseDuration(value); err == nil {
