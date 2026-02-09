@@ -1,5 +1,5 @@
 #!/bin/bash
-# Run all CLI source management tests
+# Run all CLI configuration tests
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_DIR="$SCRIPT_DIR/.test-data"
@@ -7,9 +7,7 @@ TEST_DIR="$SCRIPT_DIR/.test-data"
 # Setup test environment silently (run as script, not sourced)
 bash "$SCRIPT_DIR/setup.sh" > /dev/null 2>&1
 
-# Export environment variables for child processes
-export NEWSFED_METADATA_DSN="$TEST_DIR/metadata.db"
-export NEWSFED_FEED_DSN="$TEST_DIR/.news"
+# Export PATH for child processes
 export PATH="$TEST_DIR:$PATH"
 
 # Track overall results
@@ -34,20 +32,14 @@ run_test() {
     rm -f "$tmpfile"
 }
 
-# Run tests in logical order
-run_test "$SCRIPT_DIR/test-add.sh"
-run_test "$SCRIPT_DIR/test-list.sh"
-run_test "$SCRIPT_DIR/test-show.sh"
-run_test "$SCRIPT_DIR/test-update.sh"
-run_test "$SCRIPT_DIR/test-enable-disable.sh"
-run_test "$SCRIPT_DIR/test-delete.sh"
-run_test "$SCRIPT_DIR/test-sync.sh"
+# Run tests
+run_test "$SCRIPT_DIR/test-storage-config.sh"
 
 # Print single summary line
 if [ $TOTAL_FAILED -eq 0 ]; then
-    echo "cli-sources: OK"
+    echo "cli-config: OK"
 else
-    echo "cli-sources: FAIL"
+    echo "cli-config: FAIL"
     printf "%b" "$FAILED_OUTPUT"
 fi
 

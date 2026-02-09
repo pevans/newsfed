@@ -1,6 +1,6 @@
 .news/
 .newsfed/
 /newsfed
-/metadata.db
+metadata.db
 dist/
 .test-data/

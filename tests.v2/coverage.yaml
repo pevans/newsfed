@@ -89,7 +89,8 @@ rfcs:
       - section: "3.2.7"
         title: Sync Sources
         testable: true
-        tests: []
+        tests:
+          - tests.v2/cli-sources/test-sync.sh
 
       - section: "3.3"
         title: Source Health Monitoring
@@ -99,7 +100,8 @@ rfcs:
       - section: "4.1"
         title: Storage Configuration
         testable: true
-        tests: []
+        tests:
+          - tests.v2/cli-config/test-storage-config.sh
 
       - section: "4.2"
         title: Display Preferences
