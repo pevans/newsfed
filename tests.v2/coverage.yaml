@@ -47,7 +47,8 @@ rfcs:
       - section: "3.1.4"
         title: Open Items in Browser
         testable: true
-        tests: []
+        tests:
+          - tests.v2/cli-items/test-open.sh
 
       - section: "3.2.1"
         title: List Sources

@@ -187,7 +187,16 @@ For CLI clients, provide a quick way to open the original URL in a browser:
 ```bash
 # Open item URL in default browser
 newsfed open 550e8400-e29b-41d4-a716-446655440000
+
+# Echo the command that would be executed (for testing/debugging)
+newsfed open --echo 550e8400-e29b-41d4-a716-446655440000
 ```
+
+**Flags:**
+
+- `--echo` -- Instead of executing the browser command, print the command that
+  would be executed (including the platform-specific browser command and the
+  URL). Useful for testing and debugging.
 
 ## 3.2. Source Management
 

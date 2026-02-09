@@ -6,6 +6,8 @@ import (
 	"flag"
 	"fmt"
 	"os"
+	"os/exec"
+	"runtime"
 	"sort"
 	"strings"
 	"time"
@@ -78,6 +80,8 @@ func main() {
 		handlePin(feedDir, os.Args[2:])
 	case "unpin":
 		handleUnpin(feedDir, os.Args[2:])
+	case "open":
+		handleOpen(feedDir, os.Args[2:])
 	case "sync":
 		handleSync(metadataPath, feedDir, os.Args[2:])
 	case "sources":
@@ -140,6 +144,7 @@ func printUsage() {
 	fmt.Println("  show       Show detailed view of a news item")
 	fmt.Println("  pin        Pin a news item for later reference")
 	fmt.Println("  unpin      Unpin a news item")
+	fmt.Println("  open       Open a news item URL in default browser")
 	fmt.Println("  sync       Manually sync sources to fetch new items")
 	fmt.Println("  sources    Manage news sources")
 	fmt.Println("  help       Show this help message")
@@ -598,6 +603,83 @@ func handleUnpin(feedDir string, args []string) {
 	}
 
 	fmt.Printf("✓ Unpinned item: %s\n", item.Title)
+}
+
+func handleOpen(feedDir string, args []string) {
+	// Parse flags for open command
+	fs := flag.NewFlagSet("open", flag.ExitOnError)
+	echo := fs.Bool("echo", false, "Echo the command instead of executing it")
+	fs.Parse(args)
+
+	// Get item ID from remaining args
+	if len(fs.Args()) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: item ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed open [--echo] <item-id>\n")
+		os.Exit(1)
+	}
+
+	itemID := fs.Args()[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(itemID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid item ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Initialize news feed
+	newsFeed, err := newsfed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the item
+	item, err := newsFeed.Get(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get news item: %v\n", err)
+		os.Exit(1)
+	}
+
+	if item == nil {
+		fmt.Fprintf(os.Stderr, "Error: news item not found: %s\n", itemID)
+		os.Exit(1)
+	}
+
+	// Determine the browser command based on platform
+	var browserCmd string
+	var cmdArgs []string
+	switch runtime.GOOS {
+	case "darwin":
+		browserCmd = "open"
+		cmdArgs = []string{item.URL}
+	case "linux":
+		browserCmd = "xdg-open"
+		cmdArgs = []string{item.URL}
+	case "windows":
+		browserCmd = "cmd"
+		cmdArgs = []string{"/c", "start", item.URL}
+	default:
+		fmt.Fprintf(os.Stderr, "Error: unsupported platform: %s\n", runtime.GOOS)
+		os.Exit(1)
+	}
+
+	// If echo mode, print the command instead of executing it
+	if *echo {
+		fmt.Printf("%s %s\n", browserCmd, strings.Join(cmdArgs, " "))
+		return
+	}
+
+	// Build and execute the command
+	cmd := exec.Command(browserCmd, cmdArgs...)
+
+	err = cmd.Start()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open URL: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("✓ Opening in browser: %s\n", item.Title)
 }
 
 func handleSync(metadataPath, feedDir string, args []string) {

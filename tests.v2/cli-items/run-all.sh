@@ -36,6 +36,7 @@ run_test() {
 # Run tests in logical order
 run_test "$SCRIPT_DIR/test-show.sh"
 run_test "$SCRIPT_DIR/test-pin-unpin.sh"
+run_test "$SCRIPT_DIR/test-open.sh"
 
 # Print single summary line
 if [ $TOTAL_FAILED -eq 0 ]; then
