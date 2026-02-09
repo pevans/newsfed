@@ -15,6 +15,7 @@ type ConfigStore struct {
 // Config represents user configuration.
 type Config struct {
 	DefaultPollingInterval string `json:"default_polling_interval"`
+	BrowserCommand         string `json:"browser_command"`
 }
 
 // NewConfigStore creates a new config store with the given database path.
@@ -58,22 +59,39 @@ func (c *ConfigStore) GetConfig() (*Config, error) {
 	var defaultPollingInterval string
 	err := c.db.QueryRow(query, "default_polling_interval").Scan(&defaultPollingInterval)
 	if err == sql.ErrNoRows {
-		// Return default config if not set
-		return &Config{DefaultPollingInterval: "1h"}, nil
-	}
-	if err != nil {
-		return nil, fmt.Errorf("failed to query config: %w", err)
+		defaultPollingInterval = "1h"
+	} else if err != nil {
+		return nil, fmt.Errorf("failed to query default_polling_interval: %w", err)
 	}
 
-	return &Config{DefaultPollingInterval: defaultPollingInterval}, nil
+	var browserCommand string
+	err = c.db.QueryRow(query, "browser_command").Scan(&browserCommand)
+	if err != nil && err != sql.ErrNoRows {
+		return nil, fmt.Errorf("failed to query browser_command: %w", err)
+	}
+	// If not found, browserCommand will be empty string (default)
+
+	return &Config{
+		DefaultPollingInterval: defaultPollingInterval,
+		BrowserCommand:         browserCommand,
+	}, nil
 }
 
 // UpdateConfig updates user configuration.
 func (c *ConfigStore) UpdateConfig(cfg *Config) error {
 	query := "INSERT OR REPLACE INTO config (key, value) VALUES (?, ?)"
+
 	_, err := c.db.Exec(query, "default_polling_interval", cfg.DefaultPollingInterval)
 	if err != nil {
-		return fmt.Errorf("failed to update config: %w", err)
+		return fmt.Errorf("failed to update default_polling_interval: %w", err)
 	}
+
+	if cfg.BrowserCommand != "" {
+		_, err = c.db.Exec(query, "browser_command", cfg.BrowserCommand)
+		if err != nil {
+			return fmt.Errorf("failed to update browser_command: %w", err)
+		}
+	}
+
 	return nil
 }

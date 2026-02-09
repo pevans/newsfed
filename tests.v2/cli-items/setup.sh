@@ -30,6 +30,7 @@ if [ ! -f "$TEST_DIR/newsfed" ]; then
 fi
 
 # Export test environment variables
+export NEWSFED_METADATA_DSN="$TEST_DIR/metadata.db"
 export NEWSFED_FEED_DSN="$TEST_DIR/.news"
 export PATH="$TEST_DIR:$PATH"
 
@@ -98,6 +99,7 @@ JSONEOF
 
 echo "✓ Test environment ready"
 echo "  CLI binary: $TEST_DIR/newsfed"
+echo "  Metadata DB: $NEWSFED_METADATA_DSN"
 echo "  Feed storage: $NEWSFED_FEED_DSN"
 echo "  Sample items: 4 items created"
 echo ""

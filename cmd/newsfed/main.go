@@ -14,6 +14,7 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/pevans/newsfed"
+	"github.com/pevans/newsfed/config"
 	"github.com/pevans/newsfed/sources"
 )
 
@@ -81,7 +82,7 @@ func main() {
 	case "unpin":
 		handleUnpin(feedDir, os.Args[2:])
 	case "open":
-		handleOpen(feedDir, os.Args[2:])
+		handleOpen(metadataPath, feedDir, os.Args[2:])
 	case "sync":
 		handleSync(metadataPath, feedDir, os.Args[2:])
 	case "sources":
@@ -605,7 +606,7 @@ func handleUnpin(feedDir string, args []string) {
 	fmt.Printf("✓ Unpinned item: %s\n", item.Title)
 }
 
-func handleOpen(feedDir string, args []string) {
+func handleOpen(metadataPath, feedDir string, args []string) {
 	// Parse flags for open command
 	fs := flag.NewFlagSet("open", flag.ExitOnError)
 	echo := fs.Bool("echo", false, "Echo the command instead of executing it")
@@ -646,22 +647,37 @@ func handleOpen(feedDir string, args []string) {
 		os.Exit(1)
 	}
 
-	// Determine the browser command based on platform
+	// Load config to check for custom browser command
 	var browserCmd string
 	var cmdArgs []string
-	switch runtime.GOOS {
-	case "darwin":
-		browserCmd = "open"
-		cmdArgs = []string{item.URL}
-	case "linux":
-		browserCmd = "xdg-open"
-		cmdArgs = []string{item.URL}
-	case "windows":
-		browserCmd = "cmd"
-		cmdArgs = []string{"/c", "start", item.URL}
-	default:
-		fmt.Fprintf(os.Stderr, "Error: unsupported platform: %s\n", runtime.GOOS)
-		os.Exit(1)
+
+	configStore, err := config.NewConfigStore(metadataPath)
+	if err == nil {
+		defer configStore.Close()
+		cfg, err := configStore.GetConfig()
+		if err == nil && cfg.BrowserCommand != "" {
+			// Use configured browser command
+			browserCmd = cfg.BrowserCommand
+			cmdArgs = []string{item.URL}
+		}
+	}
+
+	// If no configured browser command, determine based on platform
+	if browserCmd == "" {
+		switch runtime.GOOS {
+		case "darwin":
+			browserCmd = "open"
+			cmdArgs = []string{item.URL}
+		case "linux":
+			browserCmd = "xdg-open"
+			cmdArgs = []string{item.URL}
+		case "windows":
+			browserCmd = "cmd"
+			cmdArgs = []string{"/c", "start", item.URL}
+		default:
+			fmt.Fprintf(os.Stderr, "Error: unsupported platform: %s\n", runtime.GOOS)
+			os.Exit(1)
+		}
 	}
 
 	// If echo mode, print the command instead of executing it

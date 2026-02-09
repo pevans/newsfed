@@ -13,6 +13,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 TEST_DIR="$SCRIPT_DIR/.test-data"
 
 # Export test environment variables
+export NEWSFED_METADATA_DSN="$TEST_DIR/metadata.db"
 export NEWSFED_FEED_DSN="$TEST_DIR/.news"
 export PATH="$TEST_DIR:$PATH"
 

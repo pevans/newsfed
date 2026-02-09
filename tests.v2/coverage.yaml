@@ -110,7 +110,9 @@ rfcs:
 
       - section: "4.3"
         title: Default Browser
-        testable: false
+        testable: true
+        tests:
+          - tests.v2/cli-items/test-open-custom-browser.sh
 
       - section: "5.1.1"
         title: Table Format (Default)
