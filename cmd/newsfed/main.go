@@ -177,6 +177,7 @@ func handleList(feedDir string, args []string) {
 	sortBy := fs.String("sort", "published", "Sort by: published, discovered, pinned")
 	limit := fs.Int("limit", 20, "Maximum number of items to display")
 	offset := fs.Int("offset", 0, "Number of items to skip")
+	format := fs.String("format", "table", "Output format: table, json, compact")
 	fs.Parse(args)
 
 	// Initialize news feed
@@ -278,17 +279,32 @@ func handleList(feedDir string, args []string) {
 	end := min(*offset+*limit, total)
 	paged := filtered[*offset:end]
 
-	// Display results
-	if len(paged) == 0 {
-		fmt.Println("No items found.")
+	// Display results based on format
+	switch *format {
+	case "json":
+		printListJSON(paged, total)
+	case "compact":
+		printListCompact(paged)
+	case "table":
+		printListTable(paged, total, *offset)
+	default:
+		fmt.Fprintf(os.Stderr, "Error: invalid format: %s (must be table, json, or compact)\n", *format)
+		os.Exit(1)
+	}
+}
+
+// printListTable prints items in human-readable table format
+func printListTable(items []newsfed.NewsItem, total, offset int) {
+	if len(items) == 0 {
+		fmt.Println("No items to display.")
 		return
 	}
 
 	// Print header
-	fmt.Printf("Showing %d-%d of %d items\n\n", *offset+1, *offset+len(paged), total)
+	fmt.Printf("Showing %d-%d of %d items\n\n", offset+1, offset+len(items), total)
 
 	// Print each item
-	for _, item := range paged {
+	for _, item := range items {
 		pinnedMarker := " "
 		if item.PinnedAt != nil {
 			pinnedMarker = "📌"
@@ -322,6 +338,45 @@ func handleList(feedDir string, args []string) {
 		fmt.Printf("   URL: %s\n", item.URL)
 		fmt.Printf("   ID: %s\n", item.ID.String())
 		fmt.Println()
+	}
+}
+
+// printListJSON prints items in JSON format
+func printListJSON(items []newsfed.NewsItem, total int) {
+	output := map[string]any{
+		"items": items,
+		"total": total,
+	}
+
+	data, err := json.MarshalIndent(output, "", "  ")
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to marshal JSON: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Println(string(data))
+}
+
+// printListCompact prints items in compact format
+func printListCompact(items []newsfed.NewsItem) {
+	if len(items) == 0 {
+		fmt.Println("No items to display.")
+		return
+	}
+
+	for _, item := range items {
+		// Truncate ID to first 8 characters
+		shortID := item.ID.String()
+		if len(shortID) > 8 {
+			shortID = shortID[:8] + "..."
+		}
+
+		publisher := "Unknown"
+		if item.Publisher != nil {
+			publisher = *item.Publisher
+		}
+
+		fmt.Printf("%s %s (%s)\n", shortID, item.Title, publisher)
 	}
 }
 
