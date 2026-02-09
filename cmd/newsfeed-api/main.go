@@ -3,7 +3,6 @@ package main
 import (
 	"log"
 
-	"github.com/pevans/newsfed"
 	"github.com/pevans/newsfed/newsfeed"
 )
 
@@ -15,7 +14,7 @@ func main() {
 	}
 
 	// Create API server (RFC 4)
-	server := newsfed.NewAPIServer(feed)
+	server := newsfeed.NewAPIServer(feed)
 
 	// Setup Gin router with all routes
 	router := server.SetupRouter()
