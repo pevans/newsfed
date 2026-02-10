@@ -2,18 +2,9 @@ package main
 
 import (
 	"fmt"
-	"os"
 	"strings"
 	"time"
 )
-
-// getEnv returns the value of an environment variable or a default value.
-func getEnv(key, defaultValue string) string {
-	if value := os.Getenv(key); value != "" {
-		return value
-	}
-	return defaultValue
-}
 
 // parseDuration extends time.ParseDuration to support 'd' (days) and 'w'
 // (weeks)

@@ -102,6 +102,9 @@ rfcs:
         testable: true
         tests:
           - tests.v2/cli-config/test-storage-config.sh
+          - tests.v2/cli-config/test-storage-type-env.sh
+          - tests.v2/cli-config/test-config-file.sh
+          - tests.v2/cli-config/test-config-precedence.sh
 
       - section: "4.2"
         title: Display Preferences

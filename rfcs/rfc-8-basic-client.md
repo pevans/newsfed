@@ -420,10 +420,16 @@ NEWSFED_FEED_DSN="file:/Users/username/.newsfed/feed"
 
 **Configuration Precedence:**
 
-1. Command-line flags (if provided)
-2. Environment variables
-3. Configuration file
-4. Default values
+Storage configuration (type and DSN) is loaded in the following order:
+
+1. Environment variables
+2. Configuration file (`~/.newsfed/config.yaml`)
+3. Default values
+
+**Note:** Storage DSN configuration is **not** exposed as command-line flags.
+This keeps the CLI interface clean and encourages using configuration files or
+environment variables for deployment-specific settings. Other command-specific
+options (filters, output formats, etc.) are available as CLI flags.
 
 ## 4.2. Display Preferences
 

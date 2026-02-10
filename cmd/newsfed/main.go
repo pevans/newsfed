@@ -13,9 +13,20 @@ func main() {
 		os.Exit(1)
 	}
 
-	// Parse global flags
-	metadataPath := getEnv("NEWSFED_METADATA_DSN", "metadata.db")
-	feedDir := getEnv("NEWSFED_FEED_DSN", ".news")
+	// Load storage configuration with precedence: env vars > config file > defaults
+	metadataType, metadataPath, feedType, feedDir := loadStorageConfig()
+
+	// Validate storage types (currently only sqlite and file are supported)
+	if metadataType != "sqlite" {
+		fmt.Fprintf(os.Stderr, "Error: unsupported metadata storage type: %s\n", metadataType)
+		fmt.Fprintf(os.Stderr, "Supported types: sqlite\n")
+		os.Exit(1)
+	}
+	if feedType != "file" {
+		fmt.Fprintf(os.Stderr, "Error: unsupported feed storage type: %s\n", feedType)
+		fmt.Fprintf(os.Stderr, "Supported types: file\n")
+		os.Exit(1)
+	}
 
 	// Get subcommand
 	subcommand := os.Args[1]
@@ -105,6 +116,8 @@ func printUsage() {
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
 	fmt.Println("Environment Variables:")
-	fmt.Println("  NEWSFED_METADATA_DSN  Path to metadata database (default: metadata.db)")
-	fmt.Println("  NEWSFED_FEED_DSN      Path to news feed storage (default: .news)")
+	fmt.Println("  NEWSFED_METADATA_TYPE  Metadata storage type (default: sqlite)")
+	fmt.Println("  NEWSFED_METADATA_DSN   Path to metadata database (default: metadata.db)")
+	fmt.Println("  NEWSFED_FEED_TYPE      Feed storage type (default: file)")
+	fmt.Println("  NEWSFED_FEED_DSN       Path to news feed storage (default: .news)")
 }

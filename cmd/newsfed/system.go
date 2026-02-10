@@ -6,9 +6,61 @@ import (
 	"os"
 	"strings"
 
+	"github.com/pevans/newsfed/config"
 	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 )
+
+// loadStorageConfig loads storage configuration with precedence:
+// 1. Environment variables (highest priority)
+// 2. Configuration file (~/.newsfed/config.yaml)
+// 3. Default values (lowest priority)
+func loadStorageConfig() (metadataType, metadataPath, feedType, feedDir string) {
+	// Set defaults
+	metadataType = "sqlite"
+	metadataPath = "metadata.db"
+	feedType = "file"
+	feedDir = ".news"
+
+	// Load config file (if it exists)
+	cfg, err := config.LoadConfigFile()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Warning: failed to load config file: %v\n", err)
+		fmt.Fprintf(os.Stderr, "Continuing with defaults and environment variables...\n\n")
+	}
+
+	// Apply config file values (if loaded)
+	if cfg != nil {
+		if cfg.Storage.Metadata.Type != "" {
+			metadataType = cfg.Storage.Metadata.Type
+		}
+		if cfg.Storage.Metadata.DSN != "" {
+			metadataPath = cfg.Storage.Metadata.DSN
+		}
+		if cfg.Storage.Feed.Type != "" {
+			feedType = cfg.Storage.Feed.Type
+		}
+		if cfg.Storage.Feed.DSN != "" {
+			feedDir = cfg.Storage.Feed.DSN
+		}
+	}
+
+	// Apply environment variables (highest priority)
+	if val := os.Getenv("NEWSFED_METADATA_TYPE"); val != "" {
+		metadataType = val
+	}
+	if val := os.Getenv("NEWSFED_METADATA_DSN"); val != "" {
+		metadataPath = val
+	}
+	if val := os.Getenv("NEWSFED_FEED_TYPE"); val != "" {
+		feedType = val
+	}
+	if val := os.Getenv("NEWSFED_FEED_DSN"); val != "" {
+		feedDir = val
+	}
+
+	return metadataType, metadataPath, feedType, feedDir
+}
 
 func handleInit(metadataPath, feedDir string, args []string) {
 	// Parse flags for init command
