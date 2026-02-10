@@ -155,7 +155,9 @@ rfcs:
       - section: "6.3"
         title: Storage Initialization
         testable: true
-        tests: []
+        tests:
+          - tests.v2/cli-init/test-init.sh
+          - tests.v2/cli-init/test-doctor.sh
 
       - section: "6.4"
         title: Partial Failures
