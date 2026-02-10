@@ -1,4 +1,4 @@
-package newsfed
+package discovery
 
 import (
 	"strings"

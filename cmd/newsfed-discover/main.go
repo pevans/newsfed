@@ -10,7 +10,7 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/pevans/newsfed"
+	"github.com/pevans/newsfed/discovery"
 	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 )
@@ -72,7 +72,7 @@ func main() {
 	}
 
 	// Create discovery service configuration
-	config := &newsfed.DiscoveryConfig{
+	config := &discovery.DiscoveryConfig{
 		PollInterval:     *pollInterval,
 		Concurrency:      *concurrency,
 		FetchTimeout:     *fetchTimeout,
@@ -80,7 +80,7 @@ func main() {
 	}
 
 	// Create discovery service
-	service := newsfed.NewDiscoveryService(sourceStore, newsFeed, config)
+	service := discovery.NewDiscoveryService(sourceStore, newsFeed, config)
 
 	// Setup signal handling for graceful shutdown
 	ctx, cancel := context.WithCancel(context.Background())

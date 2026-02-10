@@ -13,8 +13,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
-	"github.com/pevans/newsfed"
 	"github.com/pevans/newsfed/config"
+	"github.com/pevans/newsfed/discovery"
 	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 )
@@ -732,10 +732,10 @@ func handleSync(metadataPath, feedDir string, args []string) {
 	}
 
 	// Create discovery service
-	config := &newsfed.DiscoveryConfig{
+	config := &discovery.DiscoveryConfig{
 		FetchTimeout: 60 * time.Second,
 	}
-	service := newsfed.NewDiscoveryService(sourceStore, newsFeed, config)
+	service := discovery.NewDiscoveryService(sourceStore, newsFeed, config)
 
 	// Perform sync
 	if sourceID != nil {
@@ -963,7 +963,7 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	}
 
 	// For website sources, config is required
-	var scraperConfig *newsfed.ScraperConfig
+	var scraperConfig *discovery.ScraperConfig
 	if *sourceType == "website" {
 		if *configFile == "" {
 			fmt.Fprintf(os.Stderr, "Error: --config is required for website sources\n")
@@ -977,7 +977,7 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 			os.Exit(1)
 		}
 
-		scraperConfig = &newsfed.ScraperConfig{}
+		scraperConfig = &discovery.ScraperConfig{}
 		if err := json.Unmarshal(data, scraperConfig); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
 			os.Exit(1)
@@ -1055,7 +1055,7 @@ func handleSourcesUpdate(metadataStore *sources.SourceStore, args []string) {
 			os.Exit(1)
 		}
 
-		scraperConfig := &newsfed.ScraperConfig{}
+		scraperConfig := &discovery.ScraperConfig{}
 		if err := json.Unmarshal(data, scraperConfig); err != nil {
 			fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
 			os.Exit(1)
