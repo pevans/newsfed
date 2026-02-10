@@ -142,7 +142,8 @@ rfcs:
       - section: "6.1"
         title: Storage Errors
         testable: true
-        tests: []
+        tests:
+          - tests.v2/cli-errors/test-storage-errors.sh
 
       - section: "6.2"
         title: User Input Validation
