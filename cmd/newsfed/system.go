@@ -198,9 +198,10 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 				if *verbose {
 					fmt.Printf("  Permissions: %o\n", perm)
 				}
-				// Check if file is world-readable (per Spec 8 section 8.1)
-				if perm&0o044 != 0 {
+				// Database files should be 0600 (owner read/write only)
+				if perm&0o077 != 0 {
 					fmt.Println("  ⚠ Warning: Database file has overly permissive permissions")
+					fmt.Printf("    Current: %o, expected: 600\n", perm)
 					fmt.Println("    Consider: chmod 600 " + metadataPath)
 					hasWarnings = true
 				}
@@ -247,11 +248,39 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 			if *verbose {
 				fmt.Printf("  Permissions: %o\n", perm)
 			}
-			// Check if directory is world-readable (per Spec 8 section 8.1)
-			if perm&0o044 != 0 {
+			// Storage directories should be 0700 (owner only)
+			if perm&0o077 != 0 {
 				fmt.Println("  ⚠ Warning: Storage directory has overly permissive permissions")
+				fmt.Printf("    Current: %o, expected: 700\n", perm)
 				fmt.Println("    Consider: chmod 700 " + feedDir)
 				hasWarnings = true
+			}
+
+			// Check individual feed file permissions
+			entries, dirErr := os.ReadDir(feedDir)
+			if dirErr != nil {
+				fmt.Printf("  ⚠ Warning: Could not read feed directory: %v\n", dirErr)
+				hasWarnings = true
+			} else {
+				looseFileCount := 0
+				for _, entry := range entries {
+					if entry.IsDir() {
+						continue
+					}
+					info, err := entry.Info()
+					if err != nil {
+						continue
+					}
+					filePerm := info.Mode().Perm()
+					if filePerm&0o077 != 0 {
+						looseFileCount++
+					}
+				}
+				if looseFileCount > 0 {
+					fmt.Printf("  ⚠ Warning: %d file(s) have overly permissive permissions\n", looseFileCount)
+					fmt.Printf("    Consider: chmod 600 %s/*\n", feedDir)
+					hasWarnings = true
+				}
 			}
 
 			// Count items

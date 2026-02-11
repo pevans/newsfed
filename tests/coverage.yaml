@@ -198,7 +198,17 @@ specs:
 
       - section: "7"
         title: Security Considerations
-        testable: false
+        testable: true
+        tests:
+          - "tests/cli-security.bats::newsfed init: creates feed directory with 0700 permissions"
+          - "tests/cli-security.bats::newsfed init: creates metadata database with 0600 permissions"
+          - "tests/cli-security.bats::newsfed init: never creates world-readable storage files"
+          - "tests/cli-security.bats::newsfed doctor: warns when database has overly permissive permissions"
+          - "tests/cli-security.bats::newsfed doctor: warns when feed directory has overly permissive permissions"
+          - "tests/cli-security.bats::newsfed doctor: warns when feed files have overly permissive permissions"
+          - "tests/cli-security.bats::newsfed doctor: no warnings when all permissions are correct"
+          - "tests/cli-security.bats::newsfed sources add: database retains 0600 permissions after source operations"
+          - "tests/cli-security.bats::newsfed sources add: implicitly created database gets 0600 permissions"
 
       - section: "8"
         title: Implementation Considerations

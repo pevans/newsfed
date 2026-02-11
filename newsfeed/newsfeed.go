@@ -33,8 +33,8 @@ type ListResult struct {
 
 // NewNewsFeed creates a new news feed with the specified storage directory
 func NewNewsFeed(storageDir string) (*NewsFeed, error) {
-	// Create the storage directory if it doesn't exist
-	if err := os.MkdirAll(storageDir, 0o755); err != nil {
+	// Create the storage directory if it doesn't exist (0700: owner-only access)
+	if err := os.MkdirAll(storageDir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
 
@@ -54,8 +54,8 @@ func (nf *NewsFeed) Add(item NewsItem) error {
 		return fmt.Errorf("failed to marshal news item: %w", err)
 	}
 
-	// Write to file
-	if err := os.WriteFile(filename, data, 0o644); err != nil {
+	// Write to file (0600: owner-only read/write)
+	if err := os.WriteFile(filename, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write news item: %w", err)
 	}
 
@@ -141,8 +141,8 @@ func (nf *NewsFeed) Update(item NewsItem) error {
 		return fmt.Errorf("failed to marshal news item: %w", err)
 	}
 
-	// Write to file
-	if err := os.WriteFile(filename, data, 0o644); err != nil {
+	// Write to file (0600: owner-only read/write)
+	if err := os.WriteFile(filename, data, 0o600); err != nil {
 		return fmt.Errorf("failed to write news item: %w", err)
 	}
 

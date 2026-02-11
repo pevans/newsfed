@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"os"
 	"strings"
 	"time"
 
@@ -73,6 +74,10 @@ type SourceFilter struct {
 
 // NewSourceStore creates a new source store with the given database path.
 func NewSourceStore(dbPath string) (*SourceStore, error) {
+	// Check if this is a fresh database creation
+	_, statErr := os.Stat(dbPath)
+	isNew := os.IsNotExist(statErr)
+
 	db, err := sql.Open("sqlite3", dbPath)
 	if err != nil {
 		return nil, fmt.Errorf("failed to open database: %w", err)
@@ -82,6 +87,14 @@ func NewSourceStore(dbPath string) (*SourceStore, error) {
 	if err := store.initSchema(); err != nil {
 		db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
+	}
+
+	// Set restricted permissions on newly created database files
+	if isNew {
+		if err := os.Chmod(dbPath, 0o600); err != nil {
+			db.Close()
+			return nil, fmt.Errorf("failed to set database permissions: %w", err)
+		}
 	}
 
 	return store, nil
