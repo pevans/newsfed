@@ -27,79 +27,79 @@ specs:
         title: List News Items
         testable: true
         tests:
-          - tests/cli-list.bats::newsfed list: shows recent items
-          - tests/cli-list.bats::newsfed list: does not show old unpinned items
-          - tests/cli-list.bats::newsfed list --all: shows all items
-          - tests/cli-list.bats::newsfed list --publisher: filters by publisher
-          - tests/cli-list.bats::newsfed list --pinned: shows only pinned items
-          - tests/cli-list.bats::newsfed list --sort: sorts results
-          - tests/cli-list.bats::newsfed list --limit: limits results
-          - tests/cli-list.bats::newsfed list --offset: paginates results
+          - "tests/cli-list.bats::newsfed list: shows recent items"
+          - "tests/cli-list.bats::newsfed list: does not show old unpinned items"
+          - "tests/cli-list.bats::newsfed list --all: shows all items"
+          - "tests/cli-list.bats::newsfed list --publisher: filters by publisher"
+          - "tests/cli-list.bats::newsfed list --pinned: shows only pinned items"
+          - "tests/cli-list.bats::newsfed list --sort: sorts results"
+          - "tests/cli-list.bats::newsfed list --limit: limits results"
+          - "tests/cli-list.bats::newsfed list --offset: paginates results"
 
       - section: "3.1.2"
         title: View Individual Items
         testable: true
         tests:
-          - tests/cli-items.bats::newsfed show: displays all item metadata
+          - "tests/cli-items.bats::newsfed show: displays all item metadata"
 
       - section: "3.1.3"
         title: Pin and Unpin Items
         testable: true
         tests:
-          - tests/cli-items.bats::newsfed pin: pins an unpinned item
-          - tests/cli-items.bats::newsfed unpin: unpins a pinned item
+          - "tests/cli-items.bats::newsfed pin: pins an unpinned item"
+          - "tests/cli-items.bats::newsfed unpin: unpins a pinned item"
 
       - section: "3.1.4"
         title: Open Items in Browser
         testable: true
         tests:
-          - tests/cli-items.bats::newsfed open: opens item in browser
+          - "tests/cli-items.bats::newsfed open: opens item in browser"
 
       - section: "3.2.1"
         title: List Sources
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources list: shows all sources
+          - "tests/cli-sources.bats::newsfed sources list: shows all sources"
 
       - section: "3.2.2"
         title: View Source Details
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources show: displays source details
+          - "tests/cli-sources.bats::newsfed sources show: displays source details"
 
       - section: "3.2.3"
         title: Add Sources
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources add: adds RSS source
-          - tests/cli-sources.bats::newsfed sources add: adds Atom source
-          - tests/cli-sources.bats::newsfed sources add: adds website source
+          - "tests/cli-sources.bats::newsfed sources add: adds RSS source"
+          - "tests/cli-sources.bats::newsfed sources add: adds Atom source"
+          - "tests/cli-sources.bats::newsfed sources add: adds website source"
 
       - section: "3.2.4"
         title: Update Sources
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources update: updates source name
-          - tests/cli-sources.bats::newsfed sources update: updates source URL
+          - "tests/cli-sources.bats::newsfed sources update: updates source name"
+          - "tests/cli-sources.bats::newsfed sources update: updates source URL"
 
       - section: "3.2.5"
         title: Enable and Disable Sources
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources disable: disables a source
-          - tests/cli-sources.bats::newsfed sources enable: enables a source
+          - "tests/cli-sources.bats::newsfed sources disable: disables a source"
+          - "tests/cli-sources.bats::newsfed sources enable: enables a source"
 
       - section: "3.2.6"
         title: Delete Sources
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources delete: deletes a source
+          - "tests/cli-sources.bats::newsfed sources delete: deletes a source"
 
       - section: "3.2.7"
         title: Sync Sources
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources sync: syncs sources
+          - "tests/cli-sources.bats::newsfed sources sync: syncs sources"
 
       - section: "3.3"
         title: Source Health Monitoring
@@ -110,10 +110,10 @@ specs:
         title: Storage Configuration
         testable: true
         tests:
-          - tests/cli-config.bats::newsfed config: reads from environment variables
-          - tests/cli-config.bats::newsfed config: reads from config file
-          - tests/cli-config.bats::newsfed config: environment overrides config file
-          - tests/cli-config.bats::newsfed config: supports storage type
+          - "tests/cli-config.bats::newsfed config: reads from environment variables"
+          - "tests/cli-config.bats::newsfed config: reads from config file"
+          - "tests/cli-config.bats::newsfed config: environment overrides config file"
+          - "tests/cli-config.bats::newsfed config: supports storage type"
 
       - section: "4.2"
         title: Display Preferences
@@ -124,56 +124,56 @@ specs:
         title: Default Browser
         testable: true
         tests:
-          - tests/cli-config.bats::newsfed config: supports custom browser
+          - "tests/cli-config.bats::newsfed config: supports custom browser"
 
       - section: "5.1.1"
         title: Table Format (Default)
         testable: true
         tests:
-          - tests/cli-list.bats::newsfed list: default output format
-          - tests/cli-list.bats::newsfed list --format=table: shows table format
+          - "tests/cli-list.bats::newsfed list: default output format"
+          - "tests/cli-list.bats::newsfed list --format=table: shows table format"
 
       - section: "5.1.2"
         title: JSON Format
         testable: true
         tests:
-          - tests/cli-list.bats::newsfed list --format=json: outputs JSON
+          - "tests/cli-list.bats::newsfed list --format=json: outputs JSON"
 
       - section: "5.1.3"
         title: Compact Format
         testable: true
         tests:
-          - tests/cli-list.bats::newsfed list --format=compact: shows compact format
+          - "tests/cli-list.bats::newsfed list --format=compact: shows compact format"
 
       - section: "6.1"
         title: Storage Errors
         testable: true
         tests:
-          - tests/cli-errors.bats::newsfed errors: handles missing metadata database
-          - tests/cli-errors.bats::newsfed errors: handles corrupted database
-          - tests/cli-errors.bats::newsfed errors: handles missing feed directory
-          - tests/cli-errors.bats::newsfed errors: handles corrupted JSON files
+          - "tests/cli-errors.bats::newsfed errors: handles missing metadata database"
+          - "tests/cli-errors.bats::newsfed errors: handles corrupted database"
+          - "tests/cli-errors.bats::newsfed errors: handles missing feed directory"
+          - "tests/cli-errors.bats::newsfed errors: handles corrupted JSON files"
 
       - section: "6.2"
         title: User Input Validation
         testable: true
         tests:
-          - tests/cli-sources.bats::newsfed sources add: requires --type flag
-          - tests/cli-sources.bats::newsfed sources add: requires --url flag
-          - tests/cli-sources.bats::newsfed sources add: requires --name flag
-          - tests/cli-sources.bats::newsfed sources add: rejects invalid type
-          - tests/cli-errors.bats::newsfed errors: validates UUID format
-          - tests/cli-errors.bats::newsfed errors: validates URL format
+          - "tests/cli-sources.bats::newsfed sources add: requires --type flag"
+          - "tests/cli-sources.bats::newsfed sources add: requires --url flag"
+          - "tests/cli-sources.bats::newsfed sources add: requires --name flag"
+          - "tests/cli-sources.bats::newsfed sources add: rejects invalid type"
+          - "tests/cli-errors.bats::newsfed errors: validates UUID format"
+          - "tests/cli-errors.bats::newsfed errors: validates URL format"
 
       - section: "6.3"
         title: Storage Initialization
         testable: true
         tests:
-          - tests/cli-init.bats::newsfed init: creates metadata database
-          - tests/cli-init.bats::newsfed init: creates feed directory
-          - tests/cli-init.bats::newsfed doctor: verifies healthy storage
-          - tests/cli-init.bats::newsfed doctor: detects missing database
-          - tests/cli-init.bats::newsfed doctor: detects missing directory
+          - "tests/cli-init.bats::newsfed init: creates metadata database"
+          - "tests/cli-init.bats::newsfed init: creates feed directory"
+          - "tests/cli-init.bats::newsfed doctor: verifies healthy storage"
+          - "tests/cli-init.bats::newsfed doctor: detects missing database"
+          - "tests/cli-init.bats::newsfed doctor: detects missing directory"
 
       - section: "6.4"
         title: Partial Failures
