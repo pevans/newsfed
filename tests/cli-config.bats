@@ -79,22 +79,3 @@ EOF
     run newsfed doctor
     assert_success
 }
-
-# Display preferences tests
-
-@test "newsfed config: supports custom display preferences" {
-    skip "Display preferences not yet implemented"
-}
-
-# Browser configuration tests
-
-@test "newsfed config: supports custom browser setting" {
-    mkdir -p "$TEST_DIR/.config/newsfed"
-    cat > "$TEST_DIR/.config/newsfed/config.yaml" <<EOF
-browser: "firefox"
-EOF
-
-    export XDG_CONFIG_HOME="$TEST_DIR/.config"
-    # Test would require browser mock
-    skip "Requires browser mock"
-}

@@ -115,12 +115,6 @@ specs:
           - "tests/cli-config.bats::newsfed config: environment overrides config file"
           - "tests/cli-config.bats::newsfed config: supports storage type"
 
-      - section: "4.3"
-        title: Default Browser
-        testable: true
-        tests:
-          - "tests/cli-config.bats::newsfed config: supports custom browser"
-
       - section: "5.1.1"
         title: Table Format (Default)
         testable: true

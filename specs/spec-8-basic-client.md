@@ -398,18 +398,6 @@ This keeps the CLI interface clean and encourages using configuration files or
 environment variables for deployment-specific settings. Other command-specific
 options (filters, output formats, etc.) are available as CLI flags.
 
-## 4.3. Default Browser
-
-For opening URLs from CLI:
-
-```yaml
-browser:
-  # Command to open URLs (defaults to system default)
-  command: "open"  # macOS
-  # command: "xdg-open"  # Linux
-  # command: "start"  # Windows
-```
-
 # 5. Output Formatting
 
 ## 5.1. CLI Output Formats
