@@ -530,14 +530,6 @@ For file-based storage, the CLI client should:
 - Warn if storage files have overly permissive permissions
 - Never create world-readable storage files
 
-## 7.2. Multi-User Environments
-
-In multi-user systems:
-
-- Default to per-user storage locations (`~/.newsfed/`)
-- Support system-wide storage with appropriate permissions
-- Document shared database setup for teams
-
 # 8. Implementation Considerations
 
 ## 8.1. Storage Initialization
