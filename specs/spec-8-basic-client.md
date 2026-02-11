@@ -27,11 +27,10 @@ The client serves two primary purposes:
 
 A command-line interface client provides direct access to newsfed
 functionality by using the storage layer Go packages directly (metadata store
-from Spec 5, news feed from Spec 1). The CLI client runs on the same machine as
-the data stores.
+from Spec 5, news feed from Spec 1). The CLI client runs on the same machine
+as the data stores.
 
 **Advantages:**
-- Lightweight and fast -- no HTTP overhead
 - Scriptable and automatable
 - No browser or GUI dependencies
 - Easy to integrate with shell workflows
@@ -518,50 +517,11 @@ For batch operations (e.g., listing many items), handle partial failures:
 
 - Display what succeeded before the failure
 - Provide clear error message about what failed
-- Allow retry or continuation
 - For file-based storage, handle individual file read errors
 
-# 7. Interactive Features
+# 7. Security Considerations
 
-## 7.1. Interactive Mode (CLI)
-
-For CLI clients, consider an interactive mode:
-
-```bash
-# Start interactive shell
-newsfed interactive
-```
-
-Interactive mode provides:
-- Persistent storage connections (avoids repeated initialization)
-- Command history and completion
-- Faster operations (reuses database connections)
-- Better user experience for exploratory workflows
-
-## 7.2. Fuzzy Search (CLI)
-
-For CLI clients, provide fuzzy finding:
-
-```bash
-# Select an item interactively
-newsfed list | fzf | newsfed show
-
-# Or built-in selection
-newsfed select
-```
-
-## 7.3. Watch Mode
-
-Monitor for new items in real-time:
-
-```bash
-# Poll for new items every 30 seconds
-newsfed watch --interval=30s
-```
-
-# 8. Security Considerations
-
-## 8.1. File Permissions
+## 7.1. File Permissions
 
 For file-based storage, the CLI client should:
 
@@ -570,16 +530,7 @@ For file-based storage, the CLI client should:
 - Warn if storage files have overly permissive permissions
 - Never create world-readable storage files
 
-## 8.2. Database Authentication
-
-For database-based storage (PostgreSQL, MySQL):
-
-- Support password authentication via DSN
-- Support reading credentials from environment variables
-- Warn about credentials in command history
-- Consider using connection string files with restricted permissions
-
-## 8.3. Multi-User Environments
+## 7.2. Multi-User Environments
 
 In multi-user systems:
 
@@ -587,9 +538,9 @@ In multi-user systems:
 - Support system-wide storage with appropriate permissions
 - Document shared database setup for teams
 
-# 9. Implementation Considerations
+# 8. Implementation Considerations
 
-## 9.1. Storage Initialization
+## 8.1. Storage Initialization
 
 The CLI client should handle storage initialization:
 
@@ -607,7 +558,7 @@ The CLI client should handle storage initialization:
 5. Verify connectivity (test query or file access)
 6. Handle initialization errors gracefully
 
-## 9.2. Querying and Filtering
+## 8.2. Querying and Filtering
 
 The CLI client uses the storage layer directly:
 
@@ -621,7 +572,7 @@ For large result sets:
 - Display results progressively as they're fetched
 - Provide progress indicators for slow queries
 
-## 9.3. Transaction Handling
+## 8.3. Transaction Handling
 
 For operations that modify data:
 
@@ -630,7 +581,7 @@ For operations that modify data:
 - Roll back on errors
 - Provide clear feedback on success/failure
 
-## 9.4. Storage Backend Selection
+## 8.4. Storage Backend Selection
 
 The client should support multiple storage backends via factory pattern:
 
@@ -648,9 +599,9 @@ Initial implementation should support:
 
 Additional backends can be added later without changing client logic.
 
-# 10. Example Workflows
+# 9. Example Workflows
 
-## 10.1. Daily News Reading Workflow
+## 9.1. Daily News Reading Workflow
 
 ```bash
 # Check for new items today
@@ -669,7 +620,7 @@ newsfed open 550e8400...
 newsfed list --pinned
 ```
 
-## 10.2. Source Management Workflow
+## 9.2. Source Management Workflow
 
 ```bash
 # Add a new RSS feed
@@ -688,7 +639,7 @@ newsfed sources update 550e8400... --interval=2h
 newsfed list --publisher="Rust Blog"
 ```
 
-## 10.3. Troubleshooting Workflow
+## 9.3. Troubleshooting Workflow
 
 ```bash
 # Check source health
@@ -707,9 +658,9 @@ newsfed sources update 550e8400... --config=fixed-config.json
 newsfed sources enable 550e8400...
 ```
 
-# 11. Testing
+# 10. Testing
 
-## 11.1. Unit Tests
+## 10.1. Unit Tests
 
 Test client functionality independently:
 
@@ -719,7 +670,7 @@ Test client functionality independently:
 - Error handling and user messages
 - Configuration loading
 
-## 11.2. Integration Tests
+## 10.2. Integration Tests
 
 Test against real or in-memory storage backends:
 
@@ -731,7 +682,7 @@ Test against real or in-memory storage backends:
 
 Use in-memory SQLite (`:memory:`) for fast, isolated integration tests.
 
-## 11.3. End-to-End Tests
+## 10.3. End-to-End Tests
 
 Test complete user workflows with real storage:
 
@@ -741,102 +692,9 @@ Test complete user workflows with real storage:
 - State persistence across commands
 - Storage migration and initialization
 
-# 12. Documentation
+# 11. Implementation Phases
 
-## 12.1. User Documentation
-
-Provide comprehensive user documentation:
-
-- **Installation guide** -- How to install and configure
-- **Quick start** -- Basic usage examples
-- **Command reference** -- All commands and flags
-- **Configuration guide** -- All settings and options
-- **Troubleshooting** -- Common problems and solutions
-
-## 12.2. Developer Documentation
-
-For those extending or contributing:
-
-- **Architecture overview** -- How the client is structured
-- **Storage layer** -- How to use NewsFeed and MetadataStore interfaces
-- **Adding commands** -- How to add new CLI commands
-- **Testing guide** -- How to run and write tests
-- **Factory patterns** -- How storage backends are initialized
-
-# 13. Future Enhancements
-
-## 13.1. Full-Text Search
-
-Search across all news items:
-
-```bash
-# Search in titles and summaries
-newsfed search "rust programming"
-```
-
-Requires backend support for full-text indexing.
-
-## 13.2. Feed Import/Export
-
-Import and export source configurations:
-
-```bash
-# Export all sources to OPML
-newsfed sources export --format=opml > sources.opml
-
-# Import from OPML
-newsfed sources import sources.opml
-```
-
-## 13.3. Notification System
-
-Notify users of new items:
-
-- Desktop notifications
-- Email digests
-- Webhook integrations
-
-## 13.4. Read/Unread Tracking
-
-Track which items the user has read:
-
-- Mark items as read when viewed
-- Filter to show only unread items
-- Read counts per source
-
-Requires backend support for read state storage.
-
-## 13.5. Collections and Tags
-
-Organize items into collections:
-
-```bash
-# Create collection
-newsfed collections create "Rust Articles"
-
-# Add item to collection
-newsfed collections add "Rust Articles" 550e8400...
-
-# View collection
-newsfed collections show "Rust Articles"
-```
-
-Requires backend support for collection management.
-
-## 13.6. Sync Across Devices
-
-Synchronize state across multiple devices:
-
-- Pinned items
-- Read status
-- Collections
-- Preferences
-
-Requires backend support and authentication.
-
-# 14. Implementation Phases
-
-## 14.1. Phase 1: Core CLI Client
+## 11.1. Phase 1: Core CLI Client
 
 Minimal viable product:
 
@@ -846,7 +704,7 @@ Minimal viable product:
 - Add/remove RSS/Atom sources
 - List sources
 
-## 14.2. Phase 2: Enhanced Source Management
+## 11.2. Phase 2: Enhanced Source Management
 
 Full source administration:
 
@@ -857,29 +715,15 @@ Full source administration:
 - Error reporting
 - Manual sync command
 
-## 14.3. Phase 3: Improved UX
+## 11.3. Phase 3: Improved UX
 
 Better user experience:
 
-- Interactive mode
-- Multiple output formats (JSON, table, compact)
 - Configuration file support
-- Better error messages
-- Command completion
 
-## 14.4. Phase 4: Advanced Features
+# 12. Relationship to Other Specifications
 
-Optional enhancements:
-
-- Full-text search
-- Collections and tagging
-- Read/unread tracking
-- Notifications
-- Feed import/export (OPML)
-
-# 15. Relationship to Other RFCs
-
-## 15.1. News Feed Storage (Spec 1)
+## 12.1. News Feed Storage (Spec 1)
 
 The CLI client directly uses the `NewsFeed` interface from Spec 1:
 
@@ -892,7 +736,7 @@ The CLI client directly uses the `NewsFeed` interface from Spec 1:
 The client uses the factory function to initialize the appropriate storage
 backend (file-based, SQLite, etc.).
 
-## 15.2. Metadata Storage (Spec 5)
+## 12.2. Metadata Storage (Spec 5)
 
 The CLI client directly uses the `MetadataStore` interface from Spec 5:
 
@@ -906,7 +750,7 @@ The CLI client directly uses the `MetadataStore` interface from Spec 5:
 The client uses the factory function to initialize the appropriate storage
 backend (SQLite, PostgreSQL, MySQL).
 
-## 15.3. Web Scraping (Spec 3)
+## 12.3. Web Scraping (Spec 3)
 
 The client needs to understand scraper configuration format from Spec 3 when:
 
