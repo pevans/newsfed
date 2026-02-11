@@ -4,11 +4,7 @@ utest:
 
 # Run black box tests
 btest:
-    @for d in ./tests.v2/*; do \
-        if [ -f $d/run-all.sh ]; then \
-            bash $d/run-all.sh; \
-        fi; \
-    done
+    tests/run-all-tests.sh
 
 build:
     go build -o dist/newsfed ./cmd/newsfed
