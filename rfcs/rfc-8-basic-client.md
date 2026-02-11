@@ -9,14 +9,11 @@ Authors:
 # 1. Overview
 
 A news feed client provides users with an interface for reading news and
-managing sources. This RFC describes the essential functionality, architecture
-options, and implementation patterns for building a basic client.
+managing sources. This RFC describes the essential functionality and
+implementation patterns for building a CLI-based client.
 
-There are two client architecture approaches:
-
-1. **CLI client** -- Direct access to storage layers (metadata and news feed
-   stores) using Go packages from RFC 1 and RFC 5
-2. **Web client** -- Remote access via HTTP APIs (RFC 4 and RFC 6)
+The CLI client provides direct access to storage layers (metadata and news feed
+stores) using Go packages from RFC 1 and RFC 5.
 
 The client serves two primary purposes:
 
@@ -24,21 +21,21 @@ The client serves two primary purposes:
 2. **Source administration** -- Configure and manage RSS/Atom feeds and
    website scrapers
 
-# 2. Client Architecture Options
+# 2. Client Architecture
 
 ## 2.1. CLI Client
 
 A command-line interface client provides direct access to newsfed
 functionality by using the storage layer Go packages directly (metadata store
 from RFC 5, news feed from RFC 1). The CLI client runs on the same machine as
-the data stores and does not require the HTTP API server to be running.
+the data stores.
 
 **Advantages:**
 - Lightweight and fast -- no HTTP overhead
 - Scriptable and automatable
 - No browser or GUI dependencies
 - Easy to integrate with shell workflows
-- Direct storage access -- no API server required
+- Direct storage access
 - Simple deployment -- single binary with storage configuration
 
 **Disadvantages:**
@@ -47,26 +44,7 @@ the data stores and does not require the HTTP API server to be running.
 - Cannot display rich media without external tools
 - Must run on same machine as data stores (or have network access to database)
 
-## 2.2. Web Client
-
-A web-based client provides a graphical interface through a browser. Unlike
-the CLI client, the web client must use the HTTP APIs (RFC 4 and RFC 6) since
-it runs in a browser and cannot directly access the storage layer.
-
-**Advantages:**
-- Rich, visual interface with formatting and layout
-- Accessible from any device with a browser
-- Can display images, videos, and rich content
-- Familiar interaction patterns for most users
-- Can run remotely (different machine than data stores)
-
-**Disadvantages:**
-- Requires web development (HTML/CSS/JavaScript)
-- More complex to build and maintain
-- Requires HTTP API server to be running (RFC 4, RFC 6)
-- Additional network latency
-
-## 2.3. Shared Command Library
+## 2.2. Shared Command Library
 
 For the CLI client, common functionality can be extracted into a shared Go
 package that handles:
@@ -89,20 +67,15 @@ client library.
 - Additional abstraction layer
 - More code to maintain
 
-## 2.4. Recommended Approach
+## 2.3. Implementation Approach
 
-The recommended approach is to build a **CLI client first** as a minimal
-viable product. The CLI client directly accesses the storage layers using the
-Go packages from RFC 1 (news feed storage) and RFC 5 (metadata storage). This
-approach is simpler than building API-based clients because:
+The CLI client directly accesses the storage layers using the Go packages from
+RFC 1 (news feed storage) and RFC 5 (metadata storage). This approach provides:
 
-- No HTTP API server required for basic usage
+- No server dependencies for basic usage
 - Single binary deployment
 - Lower latency (direct storage access)
 - Fewer moving parts
-
-A web client can be added later, which would require the HTTP API servers
-(RFC 4 and RFC 6) to be running.
 
 # 3. Core Functionality
 
@@ -307,12 +280,11 @@ newsfed sources delete 550e8400... --force
 ### 3.2.7. Sync Sources
 
 Users should be able to manually trigger a fetch from all enabled sources
-instead of waiting for the discovery service's scheduled polling. This is
-useful for:
+to check for new content. This is useful for:
 
 - Immediately checking for new content after adding sources
 - Testing source configurations
-- Force-refreshing content on demand
+- Refreshing content on demand
 
 ```bash
 # Sync all enabled sources
@@ -332,10 +304,6 @@ The sync command:
 - Adds newly discovered items to the news feed
 - Displays progress and summary of results
 - Runs synchronously (blocks until complete)
-
-This is distinct from the discovery service which runs continuously in the
-background. The sync command is a one-time manual refresh initiated by the
-user.
 
 ## 3.3. Source Health Monitoring
 
@@ -370,8 +338,7 @@ newsfed sources errors 550e8400...
 ## 4.1. Storage Configuration
 
 The CLI client needs to know how to connect to the metadata and news feed
-storage. This configuration is identical to what the discovery service uses
-(RFC 7, section 9.1.1).
+storage.
 
 **Configuration file** (`~/.newsfed/config.yaml`):
 
@@ -528,16 +495,6 @@ newsfed list --format=compact
 550e8400... Example Article (TechCrunch)
 550e8401... Another Article (Ars Technica)
 ```
-
-## 5.2. Web Client Display
-
-Web clients should provide:
-
-- Card-based or list-based layouts for news items
-- Visual indicators for pinned items
-- Responsive design for mobile and desktop
-- Search and filter controls
-- Rich text rendering for summaries
 
 # 6. Error Handling
 
@@ -866,8 +823,7 @@ newsfed sources import sources.opml
 
 Notify users of new items:
 
-- Desktop notifications (CLI client)
-- Push notifications (web client)
+- Desktop notifications
 - Email digests
 - Webhook integrations
 
@@ -896,7 +852,7 @@ newsfed collections add "Rust Articles" 550e8400...
 newsfed collections show "Rust Articles"
 ```
 
-Requires backend API for collection management.
+Requires backend support for collection management.
 
 ## 13.6. Sync Across Devices
 
@@ -908,23 +864,6 @@ Synchronize state across multiple devices:
 - Preferences
 
 Requires backend support and authentication.
-
-## 13.7. Discovery Service Status
-
-Show discovery service health:
-
-```bash
-# Check if discovery service is running
-newsfed status
-
-# View recent discovery activity
-newsfed activity
-
-# Force fetch from a specific source
-newsfed sources fetch 550e8400...
-```
-
-Requires discovery service to expose status API.
 
 # 14. Implementation Phases
 
@@ -959,16 +898,7 @@ Better user experience:
 - Better error messages
 - Command completion
 
-## 14.4. Phase 4: Web Client
-
-Graphical interface:
-
-- Web-based news reader
-- Visual source management
-- Responsive design
-- Rich media display
-
-## 14.5. Phase 5: Advanced Features
+## 14.4. Phase 4: Advanced Features
 
 Optional enhancements:
 
@@ -1007,23 +937,7 @@ The CLI client directly uses the `MetadataStore` interface from RFC 5:
 The client uses the factory function to initialize the appropriate storage
 backend (SQLite, PostgreSQL, MySQL).
 
-## 15.3. Discovery Service (RFC 7)
-
-The CLI client does not directly interact with the discovery service, but:
-
-- Shares the same storage configuration format (section 9.1.1 of RFC 7)
-- Displays operational metadata updated by the service (fetch errors, last
-  fetch time, error counts)
-- Source configuration changes made via the client affect the discovery service
-- Both the CLI client and discovery service can run concurrently, accessing the
-  same storage
-
-**Concurrent access considerations:**
-- Both use the same storage backend
-- Database backends handle concurrent access via transactions
-- File-based storage may need locking for safe concurrent updates
-
-## 15.4. Web Scraping (RFC 3)
+## 15.3. Web Scraping (RFC 3)
 
 The client needs to understand scraper configuration format from RFC 3 when:
 
@@ -1034,23 +948,3 @@ The client needs to understand scraper configuration format from RFC 3 when:
 
 The client validates scraper configuration structure but does not perform
 actual scraping.
-
-## 15.5. News Feed API (RFC 4)
-
-The CLI client does **not** use the News Feed API. Web clients would use
-RFC 4 for remote access, but the CLI client accesses storage directly.
-
-If both CLI and web clients are used in the same deployment:
-- CLI client accesses storage directly (RFC 1)
-- Web client accesses via HTTP API (RFC 4)
-- Both operate on the same underlying storage
-
-## 15.6. Metadata Management API (RFC 6)
-
-The CLI client does **not** use the Metadata Management API. Web clients would
-use RFC 6 for remote access, but the CLI client accesses storage directly.
-
-If both CLI and web clients are used in the same deployment:
-- CLI client accesses storage directly (RFC 5)
-- Web client accesses via HTTP API (RFC 6)
-- Both operate on the same underlying storage

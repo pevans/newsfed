@@ -1,0 +1,217 @@
+# RFC Test Coverage
+# This file tracks which RFC sections have black box test coverage
+#
+# Structure:
+#   rfcs: List of RFCs
+#     - rfc: RFC identifier (e.g., rfc-8)
+#       title: RFC title
+#       sections: List of sections in the RFC
+#         - section: Section number (e.g., 3.1.1)
+#           title: Section title
+#           testable: Whether this section can be tested with black box tests
+#           tests: List of test files that cover this section (empty list if not tested)
+
+rfcs:
+  - rfc: rfc-8
+    title: Basic News Feed Client
+    sections:
+      - section: "1"
+        title: Overview
+        testable: false
+
+      - section: "2"
+        title: Client Architecture
+        testable: false
+
+      - section: "3.1.1"
+        title: List News Items
+        testable: true
+        tests:
+          - tests.v3/cli-list.bats::newsfed list: shows recent items
+          - tests.v3/cli-list.bats::newsfed list: does not show old unpinned items
+          - tests.v3/cli-list.bats::newsfed list --all: shows all items
+          - tests.v3/cli-list.bats::newsfed list --publisher: filters by publisher
+          - tests.v3/cli-list.bats::newsfed list --pinned: shows only pinned items
+          - tests.v3/cli-list.bats::newsfed list --sort: sorts results
+          - tests.v3/cli-list.bats::newsfed list --limit: limits results
+          - tests.v3/cli-list.bats::newsfed list --offset: paginates results
+
+      - section: "3.1.2"
+        title: View Individual Items
+        testable: true
+        tests:
+          - tests.v3/cli-items.bats::newsfed show: displays all item metadata
+
+      - section: "3.1.3"
+        title: Pin and Unpin Items
+        testable: true
+        tests:
+          - tests.v3/cli-items.bats::newsfed pin: pins an unpinned item
+          - tests.v3/cli-items.bats::newsfed unpin: unpins a pinned item
+
+      - section: "3.1.4"
+        title: Open Items in Browser
+        testable: true
+        tests:
+          - tests.v3/cli-items.bats::newsfed open: opens item in browser
+
+      - section: "3.2.1"
+        title: List Sources
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources list: shows all sources
+
+      - section: "3.2.2"
+        title: View Source Details
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources show: displays source details
+
+      - section: "3.2.3"
+        title: Add Sources
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources add: adds RSS source
+          - tests.v3/cli-sources.bats::newsfed sources add: adds Atom source
+          - tests.v3/cli-sources.bats::newsfed sources add: adds website source
+
+      - section: "3.2.4"
+        title: Update Sources
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources update: updates source name
+          - tests.v3/cli-sources.bats::newsfed sources update: updates source URL
+
+      - section: "3.2.5"
+        title: Enable and Disable Sources
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources disable: disables a source
+          - tests.v3/cli-sources.bats::newsfed sources enable: enables a source
+
+      - section: "3.2.6"
+        title: Delete Sources
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources delete: deletes a source
+
+      - section: "3.2.7"
+        title: Sync Sources
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources sync: syncs sources
+
+      - section: "3.3"
+        title: Source Health Monitoring
+        testable: true
+        tests: []
+
+      - section: "4.1"
+        title: Storage Configuration
+        testable: true
+        tests:
+          - tests.v3/cli-config.bats::newsfed config: reads from environment variables
+          - tests.v3/cli-config.bats::newsfed config: reads from config file
+          - tests.v3/cli-config.bats::newsfed config: environment overrides config file
+          - tests.v3/cli-config.bats::newsfed config: supports storage type
+
+      - section: "4.2"
+        title: Display Preferences
+        testable: true
+        tests: []
+
+      - section: "4.3"
+        title: Default Browser
+        testable: true
+        tests:
+          - tests.v3/cli-config.bats::newsfed config: supports custom browser
+
+      - section: "5.1.1"
+        title: Table Format (Default)
+        testable: true
+        tests:
+          - tests.v3/cli-list.bats::newsfed list: default output format
+          - tests.v3/cli-list.bats::newsfed list --format=table: shows table format
+
+      - section: "5.1.2"
+        title: JSON Format
+        testable: true
+        tests:
+          - tests.v3/cli-list.bats::newsfed list --format=json: outputs JSON
+
+      - section: "5.1.3"
+        title: Compact Format
+        testable: true
+        tests:
+          - tests.v3/cli-list.bats::newsfed list --format=compact: shows compact format
+
+      - section: "6.1"
+        title: Storage Errors
+        testable: true
+        tests:
+          - tests.v3/cli-errors.bats::newsfed errors: handles missing metadata database
+          - tests.v3/cli-errors.bats::newsfed errors: handles corrupted database
+          - tests.v3/cli-errors.bats::newsfed errors: handles missing feed directory
+          - tests.v3/cli-errors.bats::newsfed errors: handles corrupted JSON files
+
+      - section: "6.2"
+        title: User Input Validation
+        testable: true
+        tests:
+          - tests.v3/cli-sources.bats::newsfed sources add: requires --type flag
+          - tests.v3/cli-sources.bats::newsfed sources add: requires --url flag
+          - tests.v3/cli-sources.bats::newsfed sources add: requires --name flag
+          - tests.v3/cli-sources.bats::newsfed sources add: rejects invalid type
+          - tests.v3/cli-errors.bats::newsfed errors: validates UUID format
+          - tests.v3/cli-errors.bats::newsfed errors: validates URL format
+
+      - section: "6.3"
+        title: Storage Initialization
+        testable: true
+        tests:
+          - tests.v3/cli-init.bats::newsfed init: creates metadata database
+          - tests.v3/cli-init.bats::newsfed init: creates feed directory
+          - tests.v3/cli-init.bats::newsfed doctor: verifies healthy storage
+          - tests.v3/cli-init.bats::newsfed doctor: detects missing database
+          - tests.v3/cli-init.bats::newsfed doctor: detects missing directory
+
+      - section: "6.4"
+        title: Partial Failures
+        testable: true
+        tests: []
+
+      - section: "7"
+        title: Future Enhancements
+        testable: false
+
+      - section: "8"
+        title: Security Considerations
+        testable: false
+
+      - section: "9"
+        title: Implementation Notes
+        testable: false
+
+      - section: "10"
+        title: Common Usage Patterns
+        testable: false
+
+      - section: "11"
+        title: Testing Strategy
+        testable: false
+
+      - section: "12"
+        title: Documentation
+        testable: false
+
+      - section: "13"
+        title: Future Considerations
+        testable: false
+
+      - section: "14"
+        title: Implementation Roadmap
+        testable: false
+
+      - section: "15"
+        title: Related RFCs
+        testable: false
