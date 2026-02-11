@@ -161,12 +161,12 @@ func ParseAuthors(authorText string) []string {
 // URLExists checks if a NewsItem with the given URL already exists in the
 // feed. Implements Spec 3 section 4.2 deduplication strategy.
 func URLExists(feed *newsfeed.NewsFeed, url string) (bool, error) {
-	items, err := feed.List()
+	result, err := feed.List()
 	if err != nil {
 		return false, err
 	}
 
-	for _, item := range items {
+	for _, item := range result.Items {
 		if item.URL == url {
 			return true, nil
 		}

@@ -39,7 +39,8 @@ teardown_file() {
     rm -rf "$NEWSFED_FEED_DSN"
 
     run newsfed list
-    # Should handle gracefully, might succeed with empty results
+    # NewNewsFeed re-creates the directory, so list succeeds with empty results
+    assert_success
 }
 
 @test "newsfed errors: handles permission denied on metadata database" {
@@ -114,6 +115,7 @@ teardown_file() {
 }
 
 @test "newsfed errors: handles corrupted JSON item files" {
+    rm -rf "$NEWSFED_FEED_DSN"
     mkdir -p "$NEWSFED_FEED_DSN"
     newsfed init > /dev/null 2>&1
 
@@ -121,11 +123,9 @@ teardown_file() {
     echo "not valid json" > "$NEWSFED_FEED_DSN/11111111-1111-1111-1111-111111111111.json"
 
     run newsfed list
-    # Should handle gracefully, skip corrupted files
-}
-
-@test "newsfed errors: handles disk full scenario" {
-    skip "Disk full simulation requires special setup"
+    assert_success
+    assert_output_contains "Warning"
+    assert_output_contains "1 item(s) could not be read"
 }
 
 # Input validation tests
@@ -154,14 +154,55 @@ teardown_file() {
     assert_output_contains "Error"
 }
 
-# Partial failure tests
+# Partial failure tests (Spec 8 section 6.4)
 
-@test "newsfed errors: handles partial sync failures" {
-    skip "Requires mock server setup"
+@test "newsfed errors: list displays valid items alongside corrupted file warnings" {
+    rm -rf "$NEWSFED_FEED_DSN"
+    mkdir -p "$NEWSFED_FEED_DSN"
+    newsfed init > /dev/null 2>&1
+
+    # Create two valid items
+    create_news_item \
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" \
+        "Valid Article One" \
+        "Publisher A"
+    create_news_item \
+        "bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb" \
+        "Valid Article Two" \
+        "Publisher B"
+
+    # Create a corrupted JSON file
+    echo "not valid json" > "$NEWSFED_FEED_DSN/cccccccc-cccc-cccc-cccc-cccccccccccc.json"
+
+    run newsfed list --all
+    assert_success
+    # Valid items are displayed
+    assert_output_contains "Valid Article One"
+    assert_output_contains "Valid Article Two"
+    # Warning about the corrupted file is reported
+    assert_output_contains "Warning"
+    assert_output_contains "1 item(s) could not be read"
 }
 
-@test "newsfed errors: continues processing after individual item errors" {
-    skip "Requires specific error scenario setup"
+@test "newsfed errors: list reports multiple corrupted files" {
+    rm -rf "$NEWSFED_FEED_DSN"
+    mkdir -p "$NEWSFED_FEED_DSN"
+    newsfed init > /dev/null 2>&1
+
+    # Create one valid item
+    create_news_item \
+        "aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa" \
+        "The Good Article" \
+        "Publisher A"
+
+    # Create two corrupted JSON files
+    echo "{bad" > "$NEWSFED_FEED_DSN/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.json"
+    echo "" > "$NEWSFED_FEED_DSN/cccccccc-cccc-cccc-cccc-cccccccccccc.json"
+
+    run newsfed list --all
+    assert_success
+    assert_output_contains "The Good Article"
+    assert_output_contains "2 item(s) could not be read"
 }
 
 # Error message quality tests (Spec 8 section 6.1)

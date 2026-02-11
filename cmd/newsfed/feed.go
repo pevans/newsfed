@@ -37,15 +37,25 @@ func handleList(feedDir string, args []string) {
 	}
 
 	// Get all items
-	items, err := newsFeed.List()
+	result, err := newsFeed.List()
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to list news items: %v\n", err)
 		os.Exit(1)
 	}
 
+	// Report any partial failures after displaying results
+	defer func() {
+		if len(result.Errors) > 0 {
+			fmt.Fprintf(os.Stderr, "\nWarning: %d item(s) could not be read:\n", len(result.Errors))
+			for _, readErr := range result.Errors {
+				fmt.Fprintf(os.Stderr, "  %s\n", readErr.Error())
+			}
+		}
+	}()
+
 	// Apply filters
 	var filtered []newsfeed.NewsItem
-	for _, item := range items {
+	for _, item := range result.Items {
 		// Default filter: show items from past 3 days OR pinned items (unless
 		// --all is set)
 		if !*all && *since == "" && !*pinned && !*unpinned {

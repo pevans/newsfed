@@ -255,12 +255,18 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 			}
 
 			// Count items
-			items, err := newsFeed.List()
+			result, err := newsFeed.List()
 			if err != nil {
 				fmt.Printf("  ⚠ Warning: Could not list items: %v\n", err)
 				hasWarnings = true
-			} else if *verbose || len(items) > 0 {
-				fmt.Printf("  News items stored: %d\n", len(items))
+			} else {
+				if *verbose || len(result.Items) > 0 {
+					fmt.Printf("  News items stored: %d\n", len(result.Items))
+				}
+				if len(result.Errors) > 0 {
+					fmt.Printf("  ⚠ Warning: %d item(s) could not be read\n", len(result.Errors))
+					hasWarnings = true
+				}
 			}
 		}
 	}

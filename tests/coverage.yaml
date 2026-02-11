@@ -187,7 +187,10 @@ specs:
       - section: "6.4"
         title: Partial Failures
         testable: true
-        tests: []
+        tests:
+          - "tests/cli-errors.bats::newsfed errors: handles corrupted JSON item files"
+          - "tests/cli-errors.bats::newsfed errors: list displays valid items alongside corrupted file warnings"
+          - "tests/cli-errors.bats::newsfed errors: list reports multiple corrupted files"
 
       - section: "7"
         title: Future Enhancements

@@ -151,9 +151,10 @@ func TestList_EmptyDirectory(t *testing.T) {
 	feed, err := NewNewsFeed(tempDir)
 	require.NoError(t, err)
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err, "List should succeed on empty directory")
-	assert.Empty(t, items, "List should return empty slice")
+	assert.Empty(t, result.Items, "List should return empty slice")
+	assert.Empty(t, result.Errors, "List should have no errors")
 }
 
 // TestList_SingleItem verifies List returns single item
@@ -166,10 +167,10 @@ func TestList_SingleItem(t *testing.T) {
 	err = feed.Add(item)
 	require.NoError(t, err)
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err)
-	require.Len(t, items, 1, "should return one item")
-	assert.Equal(t, item.ID, items[0].ID, "returned item should match")
+	require.Len(t, result.Items, 1, "should return one item")
+	assert.Equal(t, item.ID, result.Items[0].ID, "returned item should match")
 }
 
 // TestList_MultipleItems verifies List returns all items
@@ -188,12 +189,12 @@ func TestList_MultipleItems(t *testing.T) {
 		addedIDs[item.ID] = true
 	}
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err)
-	assert.Len(t, items, itemCount, "should return all items")
+	assert.Len(t, result.Items, itemCount, "should return all items")
 
 	// Verify all IDs are present
-	for _, item := range items {
+	for _, item := range result.Items {
 		assert.True(t, addedIDs[item.ID], "returned item should be one we added")
 	}
 }
@@ -215,9 +216,10 @@ func TestList_IgnoresNonJSONFiles(t *testing.T) {
 	err = os.WriteFile(filepath.Join(tempDir, "config.yaml"), []byte("test"), 0o644)
 	require.NoError(t, err)
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err)
-	assert.Len(t, items, 1, "should only return JSON files")
+	assert.Len(t, result.Items, 1, "should only return JSON files")
+	assert.Empty(t, result.Errors, "non-JSON files should not produce errors")
 }
 
 // TestList_IgnoresDirectories verifies List skips subdirectories
@@ -235,9 +237,9 @@ func TestList_IgnoresDirectories(t *testing.T) {
 	err = os.Mkdir(filepath.Join(tempDir, "subdir"), 0o755)
 	require.NoError(t, err)
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err)
-	assert.Len(t, items, 1, "should ignore subdirectories")
+	assert.Len(t, result.Items, 1, "should ignore subdirectories")
 }
 
 // TestList_SkipsCorruptedFiles verifies List continues on corrupted files
@@ -255,13 +257,16 @@ func TestList_SkipsCorruptedFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create a corrupted JSON file
-	corruptedFile := filepath.Join(tempDir, uuid.New().String()+".json")
+	corruptedName := uuid.New().String() + ".json"
+	corruptedFile := filepath.Join(tempDir, corruptedName)
 	err = os.WriteFile(corruptedFile, []byte("{invalid json}"), 0o644)
 	require.NoError(t, err)
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err, "List should succeed despite corrupted file")
-	assert.Len(t, items, 2, "should return valid items and skip corrupted ones")
+	assert.Len(t, result.Items, 2, "should return valid items and skip corrupted ones")
+	require.Len(t, result.Errors, 1, "should report one read error")
+	assert.Equal(t, corruptedName, result.Errors[0].Filename)
 }
 
 // TestList_SkipsUnreadableFiles verifies List continues on unreadable files
@@ -280,16 +285,19 @@ func TestList_SkipsUnreadableFiles(t *testing.T) {
 	require.NoError(t, err)
 
 	// Create an unreadable file
-	unreadableFile := filepath.Join(tempDir, uuid.New().String()+".json")
+	unreadableName := uuid.New().String() + ".json"
+	unreadableFile := filepath.Join(tempDir, unreadableName)
 	err = os.WriteFile(unreadableFile, []byte("{}"), 0o000)
 	require.NoError(t, err)
 	t.Cleanup(func() {
 		os.Chmod(unreadableFile, 0o644) // Restore permissions for cleanup
 	})
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err, "List should succeed despite unreadable file")
-	assert.Len(t, items, 1, "should return readable items")
+	assert.Len(t, result.Items, 1, "should return readable items")
+	require.Len(t, result.Errors, 1, "should report one read error")
+	assert.Equal(t, unreadableName, result.Errors[0].Filename)
 }
 
 // TestGet_Success verifies Get retrieves item by ID
@@ -499,12 +507,13 @@ func TestList_ReturnsAllAdded(t *testing.T) {
 		addedIDs[item.ID] = true
 	}
 
-	items, err := feed.List()
+	result, err := feed.List()
 	require.NoError(t, err)
-	assert.Len(t, items, itemCount, "List should return exactly all added items")
+	assert.Len(t, result.Items, itemCount, "List should return exactly all added items")
+	assert.Empty(t, result.Errors, "List should have no errors for valid items")
 
 	// Verify each returned item was added
-	for _, item := range items {
+	for _, item := range result.Items {
 		assert.True(t, addedIDs[item.ID], "each returned item should be one we added")
 		delete(addedIDs, item.ID)
 	}

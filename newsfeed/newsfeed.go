@@ -14,6 +14,23 @@ type NewsFeed struct {
 	storageDir string
 }
 
+// ReadError describes a failure to read a single news item file.
+type ReadError struct {
+	Filename string
+	Err      error
+}
+
+func (e *ReadError) Error() string {
+	return fmt.Sprintf("%s: %v", e.Filename, e.Err)
+}
+
+// ListResult contains the results of listing news items, including
+// any per-file errors that occurred during the operation.
+type ListResult struct {
+	Items  []NewsItem
+	Errors []ReadError
+}
+
 // NewNewsFeed creates a new news feed with the specified storage directory
 func NewNewsFeed(storageDir string) (*NewsFeed, error) {
 	// Create the storage directory if it doesn't exist
@@ -46,14 +63,16 @@ func (nf *NewsFeed) Add(item NewsItem) error {
 }
 
 // List returns all news items in the feed. Corrupted or invalid files are
-// logged and skipped rather than causing the entire operation to fail.
-func (nf *NewsFeed) List() ([]NewsItem, error) {
+// collected in the result's Errors slice rather than causing the entire
+// operation to fail. A non-nil error return indicates a total failure
+// (e.g., the storage directory is unreadable).
+func (nf *NewsFeed) List() (*ListResult, error) {
 	entries, err := os.ReadDir(nf.storageDir)
 	if err != nil {
 		return nil, fmt.Errorf("failed to read storage directory: %w", err)
 	}
 
-	var items []NewsItem
+	result := &ListResult{}
 	for _, entry := range entries {
 		if entry.IsDir() || filepath.Ext(entry.Name()) != ".json" {
 			continue
@@ -63,21 +82,27 @@ func (nf *NewsFeed) List() ([]NewsItem, error) {
 		filename := filepath.Join(nf.storageDir, entry.Name())
 		data, err := os.ReadFile(filename)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to read file %s: %v\n", entry.Name(), err)
+			result.Errors = append(result.Errors, ReadError{
+				Filename: entry.Name(),
+				Err:      err,
+			})
 			continue
 		}
 
 		// Unmarshal the news item
 		var item NewsItem
 		if err := json.Unmarshal(data, &item); err != nil {
-			fmt.Fprintf(os.Stderr, "Warning: failed to unmarshal file %s: %v\n", entry.Name(), err)
+			result.Errors = append(result.Errors, ReadError{
+				Filename: entry.Name(),
+				Err:      err,
+			})
 			continue
 		}
 
-		items = append(items, item)
+		result.Items = append(result.Items, item)
 	}
 
-	return items, nil
+	return result, nil
 }
 
 // Get retrieves a news item by its ID.
