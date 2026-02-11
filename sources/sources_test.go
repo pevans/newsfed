@@ -542,3 +542,100 @@ func TestSource_IsEnabled(t *testing.T) {
 	disabled := Source{EnabledAt: nil}
 	assert.False(t, disabled.IsEnabled())
 }
+
+// TestRecordError_StoresErrorHistory verifies that errors are persisted
+func TestRecordError_StoresErrorHistory(t *testing.T) {
+	store := createTestSourceStore(t)
+
+	now := time.Now()
+	source, err := store.CreateSource("rss", "http://example.com/feed", "Test", nil, &now)
+	require.NoError(t, err)
+
+	err = store.RecordError(source.SourceID, "connection timeout", now)
+	require.NoError(t, err)
+
+	errors, err := store.ListErrors(source.SourceID, 10)
+	require.NoError(t, err)
+	require.Len(t, errors, 1)
+	assert.Equal(t, "connection timeout", errors[0].Error)
+	assert.Equal(t, source.SourceID, errors[0].SourceID)
+}
+
+// TestListErrors_OrdersMostRecentFirst verifies descending chronological order
+func TestListErrors_OrdersMostRecentFirst(t *testing.T) {
+	store := createTestSourceStore(t)
+
+	now := time.Now()
+	source, err := store.CreateSource("rss", "http://example.com/feed", "Test", nil, &now)
+	require.NoError(t, err)
+
+	t1 := now.Add(-2 * time.Hour)
+	t2 := now.Add(-1 * time.Hour)
+	t3 := now
+
+	require.NoError(t, store.RecordError(source.SourceID, "first error", t1))
+	require.NoError(t, store.RecordError(source.SourceID, "second error", t2))
+	require.NoError(t, store.RecordError(source.SourceID, "third error", t3))
+
+	errors, err := store.ListErrors(source.SourceID, 10)
+	require.NoError(t, err)
+	require.Len(t, errors, 3)
+	assert.Equal(t, "third error", errors[0].Error)
+	assert.Equal(t, "second error", errors[1].Error)
+	assert.Equal(t, "first error", errors[2].Error)
+}
+
+// TestListErrors_RespectsLimit verifies the limit parameter
+func TestListErrors_RespectsLimit(t *testing.T) {
+	store := createTestSourceStore(t)
+
+	now := time.Now()
+	source, err := store.CreateSource("rss", "http://example.com/feed", "Test", nil, &now)
+	require.NoError(t, err)
+
+	for i := 0; i < 5; i++ {
+		require.NoError(t, store.RecordError(source.SourceID, "error", now.Add(time.Duration(i)*time.Minute)))
+	}
+
+	errors, err := store.ListErrors(source.SourceID, 2)
+	require.NoError(t, err)
+	assert.Len(t, errors, 2)
+}
+
+// TestListErrors_EmptyForCleanSource verifies no errors for a source that
+// has never failed
+func TestListErrors_EmptyForCleanSource(t *testing.T) {
+	store := createTestSourceStore(t)
+
+	now := time.Now()
+	source, err := store.CreateSource("rss", "http://example.com/feed", "Test", nil, &now)
+	require.NoError(t, err)
+
+	errors, err := store.ListErrors(source.SourceID, 10)
+	require.NoError(t, err)
+	assert.Empty(t, errors)
+}
+
+// TestListErrors_IsolatedPerSource verifies errors are scoped to the correct source
+func TestListErrors_IsolatedPerSource(t *testing.T) {
+	store := createTestSourceStore(t)
+
+	now := time.Now()
+	source1, err := store.CreateSource("rss", "http://example.com/1", "Source 1", nil, &now)
+	require.NoError(t, err)
+	source2, err := store.CreateSource("rss", "http://example.com/2", "Source 2", nil, &now)
+	require.NoError(t, err)
+
+	require.NoError(t, store.RecordError(source1.SourceID, "error for source 1", now))
+	require.NoError(t, store.RecordError(source2.SourceID, "error for source 2", now))
+
+	errors1, err := store.ListErrors(source1.SourceID, 10)
+	require.NoError(t, err)
+	require.Len(t, errors1, 1)
+	assert.Equal(t, "error for source 1", errors1[0].Error)
+
+	errors2, err := store.ListErrors(source2.SourceID, 10)
+	require.NoError(t, err)
+	require.Len(t, errors2, 1)
+	assert.Equal(t, "error for source 2", errors2[0].Error)
+}

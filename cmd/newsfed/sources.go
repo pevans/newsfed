@@ -27,6 +27,7 @@ func printSourcesUsage() {
 	fmt.Println("  enable     Enable a source")
 	fmt.Println("  disable    Disable a source")
 	fmt.Println("  status     Check source health")
+	fmt.Println("  errors     View error history for a source")
 	fmt.Println("  help       Show this help message")
 }
 
@@ -615,6 +616,50 @@ func handleSourcesStatus(metadataStore *sources.SourceStore, args []string) {
 		fmt.Println("  • Run 'newsfed sources enable <id>' to re-enable")
 	}
 	fmt.Println()
+}
+
+func handleSourcesErrors(metadataStore *sources.SourceStore, args []string) {
+	if len(args) < 1 {
+		fmt.Fprintf(os.Stderr, "Error: source ID is required\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed sources errors <source-id>\n")
+		os.Exit(1)
+	}
+
+	sourceID := args[0]
+
+	// Parse UUID
+	id, err := uuid.Parse(sourceID)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: invalid source ID: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get the source to verify it exists and show its name
+	source, err := metadataStore.GetSource(id)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to get source: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Retrieve error history (default limit of 20)
+	errors, err := metadataStore.ListErrors(id, 20)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to list errors: %v\n", err)
+		os.Exit(1)
+	}
+
+	fmt.Printf("Error history for: %s\n", source.Name)
+	fmt.Printf("Source ID: %s\n", source.SourceID.String())
+	fmt.Println()
+
+	if len(errors) == 0 {
+		fmt.Println("No errors recorded.")
+		return
+	}
+
+	for _, e := range errors {
+		fmt.Printf("[%s] %s\n", e.OccurredAt.Format("2006-01-02 15:04:05"), e.Error)
+	}
 }
 
 // formatDuration formats a duration in human-readable form

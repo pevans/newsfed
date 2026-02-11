@@ -118,7 +118,13 @@ specs:
       - section: "3.3.2"
         title: View Error History
         testable: true
-        tests: []
+        tests:
+          - "tests/cli-sources.bats::newsfed sources errors: shows no errors for clean source"
+          - "tests/cli-sources.bats::newsfed sources errors: shows recorded errors"
+          - "tests/cli-sources.bats::newsfed sources errors: shows errors in reverse chronological order"
+          - "tests/cli-sources.bats::newsfed sources errors: requires source ID argument"
+          - "tests/cli-sources.bats::newsfed sources errors: validates source ID format"
+          - "tests/cli-sources.bats::newsfed sources errors: handles non-existent source"
 
       - section: "4.1"
         title: Storage Configuration

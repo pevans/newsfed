@@ -756,6 +756,11 @@ func (ds *DiscoveryService) handleFetchError(source sources.Source, fetchErr err
 	if err := ds.sourceStore.UpdateSource(source.SourceID, update); err != nil {
 		log.Printf("ERROR: Failed to update source metadata for %s: %v", source.Name, err)
 	}
+
+	// Record error in history for troubleshooting (Spec 8 section 3.3.2)
+	if err := ds.sourceStore.RecordError(source.SourceID, errorMsg, now); err != nil {
+		log.Printf("ERROR: Failed to record error history for %s: %v", source.Name, err)
+	}
 }
 
 // isPermanentError determines if an error is permanent (requiring immediate

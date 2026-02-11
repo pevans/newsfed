@@ -509,3 +509,77 @@ EOF
     assert_output_contains "Check source configurations for errors"
     assert_output_contains "Run 'newsfed sources show <id>' for details"
 }
+
+# Test: View error history (Spec 8 section 3.3.2)
+
+@test "newsfed sources errors: shows no errors for clean source" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/clean.xml --name="Clean Source")
+    source_id=$(extract_uuid "$output_add")
+
+    run newsfed sources errors "$source_id"
+    assert_success
+    assert_output_contains "Error history for: Clean Source"
+    assert_output_contains "No errors recorded."
+}
+
+@test "newsfed sources errors: shows recorded errors" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/errors.xml --name="Error Source")
+    source_id=$(extract_uuid "$output_add")
+
+    # Insert errors directly into the source_errors table
+    exec_sqlite "INSERT INTO source_errors (source_id, error, occurred_at) VALUES ('$source_id', 'Connection timeout', '2026-02-10T10:00:00Z')"
+    exec_sqlite "INSERT INTO source_errors (source_id, error, occurred_at) VALUES ('$source_id', 'DNS resolution failed', '2026-02-10T11:00:00Z')"
+
+    run newsfed sources errors "$source_id"
+    assert_success
+    assert_output_contains "Error history for: Error Source"
+    assert_output_contains "Connection timeout"
+    assert_output_contains "DNS resolution failed"
+}
+
+@test "newsfed sources errors: shows errors in reverse chronological order" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/order.xml --name="Order Test")
+    source_id=$(extract_uuid "$output_add")
+
+    exec_sqlite "INSERT INTO source_errors (source_id, error, occurred_at) VALUES ('$source_id', 'First error', '2026-02-10T08:00:00Z')"
+    exec_sqlite "INSERT INTO source_errors (source_id, error, occurred_at) VALUES ('$source_id', 'Second error', '2026-02-10T09:00:00Z')"
+    exec_sqlite "INSERT INTO source_errors (source_id, error, occurred_at) VALUES ('$source_id', 'Third error', '2026-02-10T10:00:00Z')"
+
+    run newsfed sources errors "$source_id"
+    assert_success
+
+    # Third error (most recent) should appear before First error (oldest)
+    third_pos=$(echo "$output" | grep -n "Third error" | head -1 | cut -d: -f1)
+    first_pos=$(echo "$output" | grep -n "First error" | head -1 | cut -d: -f1)
+    [ "$third_pos" -lt "$first_pos" ]
+}
+
+@test "newsfed sources errors: requires source ID argument" {
+    run newsfed sources errors
+    assert_failure
+    assert_output_contains "Error: source ID is required"
+}
+
+@test "newsfed sources errors: validates source ID format" {
+    run newsfed sources errors "not-a-uuid"
+    assert_failure
+    assert_output_contains "Error: invalid source ID"
+}
+
+@test "newsfed sources errors: handles non-existent source" {
+    run newsfed sources errors "00000000-0000-0000-0000-000000000000"
+    assert_failure
+    assert_output_contains "Error:"
+}

@@ -87,6 +87,13 @@ func NewSourceStore(dbPath string) (*SourceStore, error) {
 	return store, nil
 }
 
+// SourceError represents a single error event for a source.
+type SourceError struct {
+	SourceID  uuid.UUID `json:"source_id"`
+	Error     string    `json:"error"`
+	OccurredAt time.Time `json:"occurred_at"`
+}
+
 // initSchema creates the sources table if it doesn't exist.
 func (s *SourceStore) initSchema() error {
 	schema := `
@@ -105,6 +112,14 @@ func (s *SourceStore) initSchema() error {
 		fetch_error_count INTEGER DEFAULT 0,
 		last_error TEXT,
 		scraper_config TEXT
+	);
+
+	CREATE TABLE IF NOT EXISTS source_errors (
+		id INTEGER PRIMARY KEY AUTOINCREMENT,
+		source_id TEXT NOT NULL,
+		error TEXT NOT NULL,
+		occurred_at TEXT NOT NULL,
+		FOREIGN KEY (source_id) REFERENCES sources(source_id) ON DELETE CASCADE
 	);
 	`
 
@@ -393,6 +408,61 @@ func (s *SourceStore) DeleteSource(sourceID uuid.UUID) error {
 	}
 
 	return nil
+}
+
+// RecordError records a fetch error in the source error history.
+func (s *SourceStore) RecordError(sourceID uuid.UUID, errorMsg string, occurredAt time.Time) error {
+	query := `INSERT INTO source_errors (source_id, error, occurred_at) VALUES (?, ?, ?)`
+	_, err := s.db.Exec(query, sourceID.String(), errorMsg, formatTime(&occurredAt))
+	if err != nil {
+		return fmt.Errorf("failed to record error: %w", err)
+	}
+	return nil
+}
+
+// ListErrors returns error history for a source, most recent first.
+func (s *SourceStore) ListErrors(sourceID uuid.UUID, limit int) ([]SourceError, error) {
+	query := `
+		SELECT source_id, error, occurred_at
+		FROM source_errors
+		WHERE source_id = ?
+		ORDER BY occurred_at DESC
+	`
+
+	var args []any
+	args = append(args, sourceID.String())
+
+	if limit > 0 {
+		query += " LIMIT ?"
+		args = append(args, limit)
+	}
+
+	rows, err := s.db.Query(query, args...)
+	if err != nil {
+		return nil, fmt.Errorf("failed to query errors: %w", err)
+	}
+	defer rows.Close()
+
+	var errs []SourceError
+	for rows.Next() {
+		var sourceIDStr, errMsg, occurredAtStr string
+		if err := rows.Scan(&sourceIDStr, &errMsg, &occurredAtStr); err != nil {
+			return nil, fmt.Errorf("failed to scan error: %w", err)
+		}
+
+		sid, err := uuid.Parse(sourceIDStr)
+		if err != nil {
+			return nil, fmt.Errorf("failed to parse source ID: %w", err)
+		}
+
+		errs = append(errs, SourceError{
+			SourceID:   sid,
+			Error:      errMsg,
+			OccurredAt: parseTime(occurredAtStr),
+		})
+	}
+
+	return errs, nil
 }
 
 // scanSource is a shared helper that parses SQL row data into a Source
