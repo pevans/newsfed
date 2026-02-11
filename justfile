@@ -8,6 +8,3 @@ btest:
 
 build:
     go build -o dist/newsfed ./cmd/newsfed
-    go build -o dist/newsfed-metadata-api ./cmd/metadata-api
-    go build -o dist/newsfed-discover ./cmd/newsfed-discover
-    go build -o dist/newsfed-newsfeed-api ./cmd/newsfeed-api
