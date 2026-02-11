@@ -332,6 +332,123 @@ For troubleshooting, users should see error details:
 newsfed sources errors 550e8400...
 ```
 
+## 3.4. System Diagnostics
+
+### 3.4.1. Doctor Command
+
+The `doctor` command checks the health of newsfed storage and reports errors,
+warnings, and status information. It verifies that storage is properly
+initialized, accessible, and configured with correct permissions.
+
+```bash
+# Check storage health
+newsfed doctor
+
+# Check with detailed diagnostic output
+newsfed doctor --verbose
+```
+
+**Flags:**
+
+- `--verbose` -- Show detailed diagnostic information including file
+  permissions and item/source counts even when zero.
+
+### 3.4.2. Checks Performed
+
+The doctor command performs the following checks in order:
+
+**Metadata database:**
+
+1. **Existence** -- Verify the database file exists at the configured path.
+2. **Accessibility** -- Open the database and confirm it can be queried.
+3. **Permissions** -- Verify the database file has restricted permissions
+   (0600). Warn if the file is readable or writable by group or others.
+4. **Source count** -- Report the number of configured sources (shown in
+   verbose mode or when sources exist).
+
+**Feed storage:**
+
+1. **Existence** -- Verify the storage directory exists at the configured path.
+2. **Type** -- Confirm the path is a directory, not a regular file.
+3. **Accessibility** -- Initialize the feed storage to verify read/write
+   access.
+4. **Directory permissions** -- Verify the storage directory has restricted
+   permissions (0700). Warn if the directory is accessible by group or others.
+5. **File permissions** -- Scan individual feed files and warn if any have
+   overly permissive permissions (should be 0600).
+6. **Item count** -- Report the number of stored news items (shown in verbose
+   mode or when items exist).
+7. **Read errors** -- Report the count of items that could not be read,
+   indicating possible file corruption.
+
+### 3.4.3. Output
+
+The command categorizes findings into three severity levels:
+
+- **Errors** (marked with `✗`) -- Storage is broken or missing. The command
+  exits with code 1 and suggests running `newsfed init`.
+- **Warnings** (marked with `⚠`) -- Storage is functional but has issues that
+  should be addressed (e.g., overly permissive file permissions, unreadable
+  items). The command exits with code 0.
+- **Success** (marked with `✓`) -- All checks passed. The command exits with
+  code 0.
+
+**Example output (healthy):**
+
+```
+Checking newsfed storage health...
+
+Metadata Database:
+  Path: /Users/username/.newsfed/metadata.db
+  ✓ Database is accessible
+  Sources configured: 3
+
+Feed Storage:
+  Path: /Users/username/.newsfed/feed
+  ✓ Storage directory is accessible
+  News items stored: 42
+
+✓ All checks passed
+```
+
+**Example output (errors):**
+
+```
+Checking newsfed storage health...
+
+Metadata Database:
+  Path: /Users/username/.newsfed/metadata.db
+  ✗ Database file does not exist
+    Run 'newsfed init' to create it
+
+Feed Storage:
+  Path: /Users/username/.newsfed/feed
+  ✓ Storage directory is accessible
+
+✗ Storage has errors
+  Run 'newsfed init' to initialize storage
+```
+
+**Example output (warnings):**
+
+```
+Checking newsfed storage health...
+
+Metadata Database:
+  Path: /Users/username/.newsfed/metadata.db
+  ✓ Database is accessible
+  ⚠ Warning: Database file has overly permissive permissions
+    Current: 644, expected: 600
+    Consider: chmod 600 /Users/username/.newsfed/metadata.db
+
+Feed Storage:
+  Path: /Users/username/.newsfed/feed
+  ✓ Storage directory is accessible
+
+✓ Storage is functional but has warnings
+  Run 'newsfed doctor --verbose' for more details
+```
+
 # 4. Configuration
 
 ## 4.1. Storage Configuration
@@ -507,7 +624,7 @@ The client should detect uninitialized storage and help users:
 # Initialize storage (create databases/directories)
 newsfed init
 
-# Check storage health
+# Check storage health (see Section 3.4 for full specification)
 newsfed doctor
 ```
 

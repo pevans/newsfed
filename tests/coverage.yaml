@@ -126,6 +126,36 @@ specs:
           - "tests/cli-sources.bats::newsfed sources errors: validates source ID format"
           - "tests/cli-sources.bats::newsfed sources errors: handles non-existent source"
 
+      - section: "3.4.1"
+        title: Doctor Command
+        testable: true
+        tests:
+          - "tests/cli-init.bats::newsfed doctor: verifies healthy storage"
+          - "tests/cli-init.bats::newsfed doctor --verbose: shows detailed diagnostic information"
+
+      - section: "3.4.2"
+        title: Checks Performed
+        testable: true
+        tests:
+          - "tests/cli-init.bats::newsfed doctor: detects missing metadata database"
+          - "tests/cli-init.bats::newsfed doctor: detects missing feed directory"
+          - "tests/cli-init.bats::newsfed doctor: detects feed path that is not a directory"
+          - "tests/cli-init.bats::newsfed doctor: checks storage connectivity"
+          - "tests/cli-init.bats::newsfed doctor: reports unreadable feed items"
+          - "tests/cli-security.bats::newsfed doctor: warns when database has overly permissive permissions"
+          - "tests/cli-security.bats::newsfed doctor: warns when feed directory has overly permissive permissions"
+          - "tests/cli-security.bats::newsfed doctor: warns when feed files have overly permissive permissions"
+
+      - section: "3.4.3"
+        title: Output
+        testable: true
+        tests:
+          - "tests/cli-init.bats::newsfed doctor: returns exit code 0 on healthy storage"
+          - "tests/cli-init.bats::newsfed doctor: returns exit code 0 on warnings"
+          - "tests/cli-init.bats::newsfed doctor: detects missing metadata database"
+          - "tests/cli-init.bats::newsfed doctor: detects missing feed directory"
+          - "tests/cli-security.bats::newsfed doctor: no warnings when all permissions are correct"
+
       - section: "4.1"
         title: Storage Configuration
         testable: true
@@ -180,9 +210,6 @@ specs:
         tests:
           - "tests/cli-init.bats::newsfed init: creates metadata database"
           - "tests/cli-init.bats::newsfed init: creates feed directory"
-          - "tests/cli-init.bats::newsfed doctor: verifies healthy storage"
-          - "tests/cli-init.bats::newsfed doctor: detects missing database"
-          - "tests/cli-init.bats::newsfed doctor: detects missing directory"
 
       - section: "6.4"
         title: Partial Failures
