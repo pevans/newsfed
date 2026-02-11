@@ -309,7 +309,7 @@ func TestFeedToNewsItems_MultipleItems(t *testing.T) {
 }
 
 // TestFeedToNewsItems_SortsByPublishedDate verifies items are sorted by
-// published_at (most recent first) per RFC 2 section 2.2.3
+// published_at (most recent first) per Spec 2 section 2.2.3
 func TestFeedToNewsItems_SortsByPublishedDate(t *testing.T) {
 	// Create items with dates in non-chronological order
 	pubOld := time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC)
@@ -419,7 +419,7 @@ func TestFeedItemToNewsItem_AlwaysValid(t *testing.T) {
 	}
 }
 
-// Property test: FeedToNewsItems caps at 20 items per RFC 2 section 2.2.3
+// Property test: FeedToNewsItems caps at 20 items per Spec 2 section 2.2.3
 func TestFeedToNewsItems_CapsAt20Items(t *testing.T) {
 	testCases := []struct {
 		inputCount    int
@@ -462,7 +462,7 @@ func TestFeedToNewsItems_CapsAt20Items(t *testing.T) {
 }
 
 // TestFeedToNewsItems_SelectsMostRecent20 verifies that when a feed has more
-// than 20 items, the 20 most recent (by published_at) are selected per RFC 2
+// than 20 items, the 20 most recent (by published_at) are selected per Spec 2
 // section 2.2.3
 func TestFeedToNewsItems_SelectsMostRecent20(t *testing.T) {
 	// Create 30 items with ascending dates

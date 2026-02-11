@@ -1,5 +1,5 @@
 ---
-Request For Comments: 2
+Specification: 2
 Title: External News Feed Ingestion
 Drafted At: 2026-01-30
 Authors:
@@ -10,7 +10,7 @@ Authors:
 
 newsfed aggregates news items from external sources into a user's personal
 news feed. An external news feed is any source that provides structured news
-or article data that can be converted into news items as defined in RFC 1,
+or article data that can be converted into news items as defined in Spec 1,
 section 2.1.
 
 The system should support multiple types of external feed formats, each with
@@ -109,7 +109,7 @@ RSS items are mapped to NewsItem fields as follows:
   item-level publisher is not available
 - `authors` -- From `<author>` or `<dc:creator>` element (Dublin Core
   extension); if multiple authors are in a single field, parse as a list
-- `published_at` -- From `<pubDate>` element; parse as RFC 822 date format
+- `published_at` -- From `<pubDate>` element; parse as Spec 822 date format
 - `discovered_at` -- Set to current time when ingesting
 - `pinned_at` -- Set to nil (not yet pinned)
 
@@ -124,7 +124,7 @@ To avoid duplicate items when re-fetching an RSS feed:
 
 ## 2.4. Atom Feed Support
 
-Atom is an XML-based web feed format standardized as IETF RFC 4287. Atom feeds
+Atom is an XML-based web feed format standardized as IETF Spec 4287. Atom feeds
 provide more structured metadata than RSS and use different element names and
 formats.
 

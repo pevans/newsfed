@@ -1,4 +1,4 @@
-All RFCs are located in the `rfcs/` directory.
+All specifications are located in the `specs/` directory.
 
 Whenever you have a task you must perform, you must track it with `bd`.
 
@@ -34,8 +34,8 @@ tested.
 Each test must not print anything out unless it fails. If it fails, it should
 print the filename and some descriptive message of what went wrong.
 
-Every test you add should be logged in @tests.v2/coverage.yaml, which tags
-tests for the RFC and section that the test covers.
+Every test you add should be logged in @tests/coverage.yaml, which tags
+tests for the specification and section that the test covers.
 
 Example:
 

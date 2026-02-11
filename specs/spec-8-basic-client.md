@@ -1,5 +1,5 @@
 ---
-Request For Comments: 8
+Specification: 8
 Title: Basic News Feed Client
 Drafted At: 2026-02-04
 Authors:
@@ -9,11 +9,11 @@ Authors:
 # 1. Overview
 
 A news feed client provides users with an interface for reading news and
-managing sources. This RFC describes the essential functionality and
+managing sources. This specification describes the essential functionality and
 implementation patterns for building a CLI-based client.
 
 The CLI client provides direct access to storage layers (metadata and news feed
-stores) using Go packages from RFC 1 and RFC 5.
+stores) using Go packages from Spec 1 and Spec 5.
 
 The client serves two primary purposes:
 
@@ -27,7 +27,7 @@ The client serves two primary purposes:
 
 A command-line interface client provides direct access to newsfed
 functionality by using the storage layer Go packages directly (metadata store
-from RFC 5, news feed from RFC 1). The CLI client runs on the same machine as
+from Spec 5, news feed from Spec 1). The CLI client runs on the same machine as
 the data stores.
 
 **Advantages:**
@@ -70,7 +70,7 @@ client library.
 ## 2.3. Implementation Approach
 
 The CLI client directly accesses the storage layers using the Go packages from
-RFC 1 (news feed storage) and RFC 5 (metadata storage). This approach provides:
+Spec 1 (news feed storage) and Spec 5 (metadata storage). This approach provides:
 
 - No server dependencies for basic usage
 - Single binary deployment
@@ -236,7 +236,7 @@ newsfed sources add \
   --config=scraper-config.json
 ```
 
-The scraper configuration file follows RFC 3 format.
+The scraper configuration file follows Spec 3 format.
 
 ### 3.2.4. Update Sources
 
@@ -633,8 +633,8 @@ The CLI client should handle storage initialization:
 
 1. Load configuration (file, environment, flags)
 2. Validate configuration (check DSN format, types)
-3. Initialize metadata store using factory pattern (RFC 5)
-4. Initialize news feed using factory pattern (RFC 1)
+3. Initialize metadata store using factory pattern (Spec 5)
+4. Initialize news feed using factory pattern (Spec 1)
 5. Verify connectivity (test query or file access)
 6. Handle initialization errors gracefully
 
@@ -642,8 +642,8 @@ The CLI client should handle storage initialization:
 
 The CLI client uses the storage layer directly:
 
-- **News items** -- Call `NewsFeed.List()` with filter criteria (RFC 1)
-- **Sources** -- Call `MetadataStore.ListSources()` with filters (RFC 5)
+- **News items** -- Call `NewsFeed.List()` with filter criteria (Spec 1)
+- **Sources** -- Call `MetadataStore.ListSources()` with filters (Spec 5)
 - **Pagination** -- Implement limit/offset in queries
 - **Sorting** -- Leverage storage layer sorting capabilities
 
@@ -666,10 +666,10 @@ For operations that modify data:
 The client should support multiple storage backends via factory pattern:
 
 ```go
-// Metadata store factory (from RFC 5)
+// Metadata store factory (from Spec 5)
 metadataStore, err := metadata.NewStore(metadataType, metadataDSN)
 
-// News feed factory (from RFC 1)
+// News feed factory (from Spec 1)
 newsFeed, err := newsfeed.NewFeed(feedType, feedDSN)
 ```
 
@@ -910,9 +910,9 @@ Optional enhancements:
 
 # 15. Relationship to Other RFCs
 
-## 15.1. News Feed Storage (RFC 1)
+## 15.1. News Feed Storage (Spec 1)
 
-The CLI client directly uses the `NewsFeed` interface from RFC 1:
+The CLI client directly uses the `NewsFeed` interface from Spec 1:
 
 - `List(filters)` -- Retrieve news items with filtering and sorting
 - `Get(id)` -- Get individual item by ID
@@ -923,9 +923,9 @@ The CLI client directly uses the `NewsFeed` interface from RFC 1:
 The client uses the factory function to initialize the appropriate storage
 backend (file-based, SQLite, etc.).
 
-## 15.2. Metadata Storage (RFC 5)
+## 15.2. Metadata Storage (Spec 5)
 
-The CLI client directly uses the `MetadataStore` interface from RFC 5:
+The CLI client directly uses the `MetadataStore` interface from Spec 5:
 
 - `ListSources(filters)` -- Retrieve source list with filtering
 - `GetSource(id)` -- Get source details including operational metadata
@@ -937,9 +937,9 @@ The CLI client directly uses the `MetadataStore` interface from RFC 5:
 The client uses the factory function to initialize the appropriate storage
 backend (SQLite, PostgreSQL, MySQL).
 
-## 15.3. Web Scraping (RFC 3)
+## 15.3. Web Scraping (Spec 3)
 
-The client needs to understand scraper configuration format from RFC 3 when:
+The client needs to understand scraper configuration format from Spec 3 when:
 
 - Creating website sources (validate `scraper_config` JSON)
 - Updating scraper configuration

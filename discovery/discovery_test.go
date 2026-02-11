@@ -17,7 +17,7 @@ import (
 )
 
 // TestDiscoveryService_filterDueSources verifies source scheduling logic per
-// RFC 7 section 3.2.
+// Spec 7 section 3.2.
 func TestDiscoveryService_filterDueSources(t *testing.T) {
 	// Create temporary storage
 	tempDir := t.TempDir()
@@ -70,7 +70,7 @@ func TestDiscoveryService_filterDueSources(t *testing.T) {
 }
 
 // TestDiscoveryService_getPollingInterval verifies polling interval logic per
-// RFC 7 section 3.1.
+// Spec 7 section 3.1.
 func TestDiscoveryService_getPollingInterval(t *testing.T) {
 	tempDir := t.TempDir()
 	metadataPath := tempDir + "/metadata.db"
@@ -125,7 +125,7 @@ func TestDiscoveryService_getPollingInterval(t *testing.T) {
 	}
 }
 
-// TestDiscoveryService_isSourceDue verifies due checking logic per RFC 7
+// TestDiscoveryService_isSourceDue verifies due checking logic per Spec 7
 // section 3.2 and 3.3.
 func TestDiscoveryService_isSourceDue(t *testing.T) {
 	tempDir := t.TempDir()
@@ -187,7 +187,7 @@ func TestDiscoveryService_isSourceDue(t *testing.T) {
 	}
 }
 
-// TestDiscoveryService_handleFetchError verifies error handling per RFC 7
+// TestDiscoveryService_handleFetchError verifies error handling per Spec 7
 // section 7.
 func TestDiscoveryService_handleFetchError(t *testing.T) {
 	tempDir := t.TempDir()
@@ -235,8 +235,8 @@ func TestDiscoveryService_handleFetchError(t *testing.T) {
 	assert.Nil(t, updated.EnabledAt, "source should be disabled after reaching threshold")
 }
 
-// TestDiscoveryService_handleFetchSuccess verifies success handling per RFC 7
-// section 4.3.
+// TestDiscoveryService_handleFetchSuccess verifies success handling per Spec
+// 7 section 4.3.
 func TestDiscoveryService_handleFetchSuccess(t *testing.T) {
 	tempDir := t.TempDir()
 	metadataPath := tempDir + "/metadata.db"
@@ -279,7 +279,7 @@ func TestDiscoveryService_handleFetchSuccess(t *testing.T) {
 }
 
 // TestDiscoveryService_Run_StartupBehavior verifies that the service fetches
-// sources immediately on startup per RFC 7 section 3.3.
+// sources immediately on startup per Spec 7 section 3.3.
 func TestDiscoveryService_Run_StartupBehavior(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping integration test in CI")
@@ -319,7 +319,7 @@ func TestDiscoveryService_Run_StartupBehavior(t *testing.T) {
 }
 
 // TestDiscoveryService_isPermanentError verifies permanent vs transient error
-// detection per RFC 7 section 7.1 and 7.2.
+// detection per Spec 7 section 7.1 and 7.2.
 func TestDiscoveryService_isPermanentError(t *testing.T) {
 	tempDir := t.TempDir()
 	metadataPath := tempDir + "/metadata.db"
@@ -388,7 +388,7 @@ func TestDiscoveryService_isPermanentError(t *testing.T) {
 }
 
 // TestDiscoveryService_handleFetchError_PermanentError verifies that
-// permanent errors immediately disable the source per RFC 7 section 7.2.
+// permanent errors immediately disable the source per Spec 7 section 7.2.
 func TestDiscoveryService_handleFetchError_PermanentError(t *testing.T) {
 	tempDir := t.TempDir()
 	metadataPath := tempDir + "/metadata.db"
@@ -419,7 +419,7 @@ func TestDiscoveryService_handleFetchError_PermanentError(t *testing.T) {
 	assert.Equal(t, 1, updated.FetchErrorCount, "error count should be incremented")
 }
 
-// TestDiscoveryService_domainRateLimiter verifies rate limiting per RFC 7
+// TestDiscoveryService_domainRateLimiter verifies rate limiting per Spec 7
 // section 8.2.
 func TestDiscoveryService_domainRateLimiter(t *testing.T) {
 	limiter := newDomainRateLimiter(100 * time.Millisecond)
@@ -549,7 +549,7 @@ func TestDiscoveryService_resolveURL(t *testing.T) {
 }
 
 // TestDiscoveryService_extractArticleURLs verifies article link extraction
-// from list pages per RFC 7 section 5.1.2.
+// from list pages per Spec 7 section 5.1.2.
 func TestDiscoveryService_extractArticleURLs(t *testing.T) {
 	tempDir := t.TempDir()
 	metadataPath := tempDir + "/metadata.db"
@@ -658,7 +658,7 @@ func TestDiscoveryService_extractArticleURLs(t *testing.T) {
 }
 
 // TestDiscoveryService_extractNextPageURL verifies pagination link extraction
-// per RFC 7 section 5.1.2.
+// per Spec 7 section 5.1.2.
 func TestDiscoveryService_extractNextPageURL(t *testing.T) {
 	tempDir := t.TempDir()
 	metadataPath := tempDir + "/metadata.db"
@@ -812,7 +812,7 @@ func TestDiscoveryService_fetchWebsite_InvalidConfig(t *testing.T) {
 }
 
 // TestDiscoveryService_Deduplication_WebScraping verifies that web scraping
-// respects URL deduplication per RFC 7 section 6.
+// respects URL deduplication per Spec 7 section 6.
 func TestDiscoveryService_Deduplication_WebScraping(t *testing.T) {
 	if os.Getenv("CI") != "" {
 		t.Skip("Skipping integration test in CI")
@@ -853,7 +853,7 @@ func TestDiscoveryService_Deduplication_WebScraping(t *testing.T) {
 }
 
 // TestDiscoveryMetrics_Recording verifies metrics are recorded correctly per
-// RFC 7 section 10.2.
+// Spec 7 section 10.2.
 func TestDiscoveryMetrics_Recording(t *testing.T) {
 	metrics := newDiscoveryMetrics()
 
@@ -884,7 +884,7 @@ func TestDiscoveryMetrics_Recording(t *testing.T) {
 }
 
 // TestDiscoveryMetrics_DurationLimit verifies duration history is limited per
-// RFC 7 section 10.2.
+// Spec 7 section 10.2.
 func TestDiscoveryMetrics_DurationLimit(t *testing.T) {
 	metrics := newDiscoveryMetrics()
 	metrics.maxDurations = 10 // Set smaller limit for testing
@@ -930,7 +930,7 @@ func TestDiscoveryService_GetMetrics(t *testing.T) {
 }
 
 // TestDiscoveryService_shouldApplyItemLimit verifies the conditional 20-item
-// limit logic per RFC 2 section 2.2.3 and RFC 3 section 3.1.1.
+// limit logic per Spec 2 section 2.2.3 and Spec 3 section 3.1.1.
 func TestDiscoveryService_shouldApplyItemLimit(t *testing.T) {
 	// Create temporary storage
 	tempDir := t.TempDir()

@@ -1,5 +1,5 @@
 ---
-Request For Comments: 1
+Specification: 1
 Title: newsfed: a news feed
 Drafted At: 2026-01-29
 Authors:

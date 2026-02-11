@@ -198,7 +198,7 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 				if *verbose {
 					fmt.Printf("  Permissions: %o\n", perm)
 				}
-				// Check if file is world-readable (per RFC 8 section 8.1)
+				// Check if file is world-readable (per Spec 8 section 8.1)
 				if perm&0o044 != 0 {
 					fmt.Println("  ⚠ Warning: Database file has overly permissive permissions")
 					fmt.Println("    Consider: chmod 600 " + metadataPath)
@@ -247,7 +247,7 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 			if *verbose {
 				fmt.Printf("  Permissions: %o\n", perm)
 			}
-			// Check if directory is world-readable (per RFC 8 section 8.1)
+			// Check if directory is world-readable (per Spec 8 section 8.1)
 			if perm&0o044 != 0 {
 				fmt.Println("  ⚠ Warning: Storage directory has overly permissive permissions")
 				fmt.Println("    Consider: chmod 700 " + feedDir)

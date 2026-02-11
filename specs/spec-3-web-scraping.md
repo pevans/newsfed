@@ -1,5 +1,5 @@
 ---
-Request For Comments: 3
+Specification: 3
 Title: Web Scraping Ingestion
 Drafted At: 2026-01-30
 Authors:
@@ -12,7 +12,7 @@ For publications that do not provide RSS or Atom feeds, newsfed supports web
 scraping as a fallback ingestion method. Web scraping extracts article
 information directly from HTML pages and converts it into NewsItem structures.
 
-This method is inherently more fragile than feed-based ingestion (RFC 2) since
+This method is inherently more fragile than feed-based ingestion (Spec 2) since
 website structure can change without notice. However, it enables newsfed to
 aggregate content from any web publication.
 

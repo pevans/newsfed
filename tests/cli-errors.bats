@@ -164,7 +164,7 @@ teardown_file() {
     skip "Requires specific error scenario setup"
 }
 
-# Error message quality tests (RFC 8 section 6.1)
+# Error message quality tests (Spec 8 section 6.1)
 
 @test "newsfed errors: user-facing messages have no internal Go errors" {
     # Test various error scenarios to ensure clean error messages

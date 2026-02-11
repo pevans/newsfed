@@ -23,7 +23,7 @@ func FetchFeed(url string) (*gofeed.Feed, error) {
 }
 
 // FeedItemToNewsItem converts an RSS or Atom feed item to a
-// newsfeed.NewsItem. Implements RFC 2 section 2.3.1 (RSS) and section 2.4.1
+// newsfeed.NewsItem. Implements Spec 2 section 2.3.1 (RSS) and section 2.4.1
 // (Atom) mappings. The gofeed library normalizes both formats into a common
 // structure, so this function handles both RSS and Atom feeds transparently.
 func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) newsfeed.NewsItem {
@@ -107,8 +107,8 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) newsfeed.NewsItem {
 }
 
 // FeedToNewsItems converts all items in an RSS or Atom feed to
-// newsfeed.NewsItems. Implements RFC 2 section 2.2.3: conditionally limits to
-// 20 most recent items based on published_at timestamp.
+// newsfeed.NewsItems. Implements Spec 2 section 2.2.3: conditionally limits
+// to 20 most recent items based on published_at timestamp.
 //
 // The applyLimit parameter determines whether to apply the 20-item cap:
 //   - true: limit to 20 most recent items (for first-time sync or stale
@@ -127,7 +127,7 @@ func FeedToNewsItems(feed *gofeed.Feed, applyLimit bool) []newsfeed.NewsItem {
 		return items[i].PublishedAt.After(items[j].PublishedAt)
 	})
 
-	// Conditionally limit to 20 most recent items per RFC 2 section 2.2.3
+	// Conditionally limit to 20 most recent items per Spec 2 section 2.2.3
 	// Apply limit only for first-time syncs or stale sources (>15 days)
 	if applyLimit {
 		const maxItems = 20

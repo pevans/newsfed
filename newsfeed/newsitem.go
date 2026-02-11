@@ -6,7 +6,7 @@ import (
 	"github.com/google/uuid"
 )
 
-// NewsItem represents a single news item as defined in RFC 1, section 2.1
+// NewsItem represents a single news item as defined in Spec 1, section 2.1
 type NewsItem struct {
 	ID           uuid.UUID  `json:"id"`
 	Title        string     `json:"title"`

@@ -27,7 +27,7 @@ func NewListConfig(articleSelector string) *scraper.ListConfig {
 }
 
 // ScraperSource represents a web scraping source configuration. Implements
-// RFC 3 section 2.1.
+// Spec 3 section 2.1.
 type ScraperSource struct {
 	SourceID      uuid.UUID              `json:"source_id"`
 	SourceType    string                 `json:"source_type"` // Always "website"
@@ -60,7 +60,7 @@ type ScrapedArticle struct {
 }
 
 // ScrapedArticleToNewsItem converts scraped article data to a NewsItem.
-// Implements RFC 3 section 4.1 field mapping.
+// Implements Spec 3 section 4.1 field mapping.
 func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) newsfeed.NewsItem {
 	// Generate new UUID for the item
 	id := uuid.New()
@@ -71,7 +71,7 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) new
 		title = "(No title)"
 	}
 
-	// Summary: truncate content to reasonable length (500 chars per RFC 3
+	// Summary: truncate content to reasonable length (500 chars per Spec 3
 	// section 3.4)
 	summary := article.Content
 	if len(summary) > 500 {
@@ -121,7 +121,7 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) new
 }
 
 // ParseAuthors splits a single author string into multiple authors if it
-// contains common delimiters. Implements RFC 3 section 3.4.
+// contains common delimiters. Implements Spec 3 section 3.4.
 func ParseAuthors(authorText string) []string {
 	if authorText == "" {
 		return []string{}
@@ -159,7 +159,7 @@ func ParseAuthors(authorText string) []string {
 }
 
 // URLExists checks if a NewsItem with the given URL already exists in the
-// feed. Implements RFC 3 section 4.2 deduplication strategy.
+// feed. Implements Spec 3 section 4.2 deduplication strategy.
 func URLExists(feed *newsfeed.NewsFeed, url string) (bool, error) {
 	items, err := feed.List()
 	if err != nil {
@@ -175,10 +175,10 @@ func URLExists(feed *newsfeed.NewsFeed, url string) (bool, error) {
 	return false, nil
 }
 
-// FetchHTML fetches HTML content from the given URL. Implements RFC 3 section
-// 3.2.
+// FetchHTML fetches HTML content from the given URL. Implements Spec 3
+// section 3.2.
 func FetchHTML(url string) (*goquery.Document, error) {
-	// Create HTTP client with 10 second timeout per RFC 3 section 3.2
+	// Create HTTP client with 10 second timeout per Spec 3 section 3.2
 	client := &http.Client{
 		Timeout: 10 * time.Second,
 	}
@@ -189,7 +189,7 @@ func FetchHTML(url string) (*goquery.Document, error) {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
 
-	// Set User-Agent header identifying newsfed per RFC 3 section 3.2
+	// Set User-Agent header identifying newsfed per Spec 3 section 3.2
 	req.Header.Set("User-Agent", "newsfed/1.0 (RSS/Atom aggregator with web scraping)")
 
 	// Perform the request
@@ -214,7 +214,7 @@ func FetchHTML(url string) (*goquery.Document, error) {
 }
 
 // ExtractArticle extracts article data from HTML using the given selectors.
-// Implements RFC 3 section 3.4.
+// Implements Spec 3 section 3.4.
 func ExtractArticle(doc *goquery.Document, config scraper.ArticleConfig, articleURL string) (*ScrapedArticle, error) {
 	article := &ScrapedArticle{
 		URL: articleURL,
@@ -281,7 +281,7 @@ func ScrapeArticle(url string, config scraper.ArticleConfig) (*ScrapedArticle, e
 }
 
 // ValidateScrapedArticle validates a scraped article before storing.
-// Implements RFC 3 section 6.3.
+// Implements Spec 3 section 6.3.
 func ValidateScrapedArticle(article *ScrapedArticle, sourceURL string) error {
 	// Validate title: must be non-empty and reasonable length
 	if article.Title == "" {
@@ -317,7 +317,7 @@ func ValidateScrapedArticle(article *ScrapedArticle, sourceURL string) error {
 
 	// Validate published date: must be reasonable if present
 	if article.PublishedAt != nil {
-		// Minimum date: 1990-01-01 per RFC 3 section 6.3
+		// Minimum date: 1990-01-01 per Spec 3 section 6.3
 		minDate := time.Date(1990, 1, 1, 0, 0, 0, 0, time.UTC)
 		if article.PublishedAt.Before(minDate) {
 			return fmt.Errorf("published date (%s) is before minimum date (1990-01-01)",

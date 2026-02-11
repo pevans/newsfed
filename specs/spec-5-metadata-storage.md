@@ -1,5 +1,5 @@
 ---
-Request For Comments: 5
+Specification: 5
 Title: Metadata Storage for Sources and Configuration
 Drafted At: 2026-02-01
 Authors:
@@ -12,8 +12,8 @@ newsfed requires persistent storage of configuration metadata to manage its
 news aggregation sources. This includes RSS/Atom feed sources, web scraper
 configurations, and potentially other metadata needed for operation.
 
-This RFC defines the structure and storage mechanism for this metadata. The
-metadata storage system is separate from news item storage (RFC 1) -- metadata
+This specification defines the structure and storage mechanism for this metadata. The
+metadata storage system is separate from news item storage (Spec 1) -- metadata
 describes *where* to find news, while news items are the actual content.
 
 # 2. Metadata Types
@@ -23,8 +23,8 @@ describes *where* to find news, while news items are the actual content.
 Source metadata defines external sources from which newsfed ingests news
 items. Each source represents either:
 
-- An RSS/Atom feed (as defined in RFC 2)
-- A web scraper configuration (as defined in RFC 3)
+- An RSS/Atom feed (as defined in Spec 2)
+- A web scraper configuration (as defined in Spec 3)
 
 All source types share common metadata fields:
 
@@ -53,7 +53,7 @@ include:
 For sources with `source_type` of "website", the configuration includes:
 
 - `scraper_config` -- Object containing scraper-specific configuration as
-  defined in RFC 3, section 2.2
+  defined in Spec 3, section 2.2
 
 Additionally, website sources may include the same operational metadata as
 feed sources (polling_interval, last_fetched_at, etc.).
@@ -110,7 +110,7 @@ CREATE TABLE sources (
 
 Notes:
 - `source_id` is stored as TEXT (UUID string representation)
-- Timestamps are stored as TEXT in RFC 3339 format
+- Timestamps are stored as TEXT in Spec 3339 format
 - `enabled_at` is NULL when source is disabled
 - `scraper_config` stores the entire scraper configuration as JSON for website sources
 
@@ -265,10 +265,10 @@ A news aggregator component (not yet defined in an RFC) would:
 1. Use `ListEnabledSources()` to find active sources
 2. For each source, check its polling_interval and last_fetched_at to determine
    if it should be fetched
-3. Fetch and parse the source according to its type (RFC 2 or RFC 3)
+3. Fetch and parse the source according to its type (Spec 2 or Spec 3)
 4. Update operational metadata (last_fetched_at, etag, etc.) after fetch
    attempts
-5. Store discovered news items in the news feed (RFC 1)
+5. Store discovered news items in the news feed (Spec 1)
 
 ## 5.2. CLI Tools
 

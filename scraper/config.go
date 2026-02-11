@@ -1,7 +1,7 @@
 package scraper
 
 // ScraperConfig defines how to extract articles from a specific website.
-// Implements RFC 3 section 2.2.
+// Implements Spec 3 section 2.2.
 type ScraperConfig struct {
 	DiscoveryMode string        `json:"discovery_mode"` // "list" or "direct"
 	ListConfig    *ListConfig   `json:"list_config,omitempty"`
@@ -9,7 +9,7 @@ type ScraperConfig struct {
 }
 
 // ListConfig defines how to discover articles from listing/index pages. Used
-// when DiscoveryMode is "list". Implements RFC 3 section 2.2.
+// when DiscoveryMode is "list". Implements Spec 3 section 2.2.
 type ListConfig struct {
 	ArticleSelector    string `json:"article_selector"`
 	PaginationSelector string `json:"pagination_selector,omitempty"`
@@ -17,7 +17,7 @@ type ListConfig struct {
 }
 
 // ArticleConfig defines how to extract metadata from individual article
-// pages. Implements RFC 3 section 2.2.
+// pages. Implements Spec 3 section 2.2.
 type ArticleConfig struct {
 	TitleSelector   string `json:"title_selector"`
 	ContentSelector string `json:"content_selector"`
@@ -30,6 +30,6 @@ type ArticleConfig struct {
 func NewListConfig(articleSelector string) *ListConfig {
 	return &ListConfig{
 		ArticleSelector: articleSelector,
-		MaxPages:        1, // Default per RFC 3 section 2.2
+		MaxPages:        1, // Default per Spec 3 section 2.2
 	}
 }

@@ -18,7 +18,7 @@ import (
 )
 
 // DiscoveryService is a background service that automatically discovers and
-// ingests news items from configured sources. Implements RFC 7.
+// ingests news items from configured sources. Implements Spec 7.
 type DiscoveryService struct {
 	sourceStore     *sources.SourceStore
 	newsFeed        *newsfeed.NewsFeed
@@ -31,7 +31,7 @@ type DiscoveryService struct {
 	metrics         *DiscoveryMetrics
 }
 
-// DiscoveryMetrics tracks service metrics per RFC 7 section 10.2.
+// DiscoveryMetrics tracks service metrics per Spec 7 section 10.2.
 type DiscoveryMetrics struct {
 	mu                   sync.Mutex
 	SourcesTotal         int             // Total enabled sources
@@ -90,7 +90,7 @@ func (m *DiscoveryMetrics) GetMetrics() (sourcesTotal, sourcesFetched, sourcesFa
 	return m.SourcesTotal, m.SourcesFetchedTotal, m.SourcesFailedTotal, m.ItemsDiscoveredTotal
 }
 
-// domainRateLimiter implements per-domain rate limiting per RFC 7 section
+// domainRateLimiter implements per-domain rate limiting per Spec 7 section
 // 8.2.
 type domainRateLimiter struct {
 	mu              sync.Mutex
@@ -132,7 +132,7 @@ type DiscoveryConfig struct {
 	DisableThreshold int
 }
 
-// DefaultDiscoveryConfig returns the default configuration per RFC 7 section
+// DefaultDiscoveryConfig returns the default configuration per Spec 7 section
 // 9.1.2.
 func DefaultDiscoveryConfig() *DiscoveryConfig {
 	return &DiscoveryConfig{
@@ -158,11 +158,11 @@ func NewDiscoveryService(
 		newsFeed:    newsFeed,
 		config:      config,
 		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Per RFC 3 section 3.2
+			Timeout: 10 * time.Second, // Per Spec 3 section 3.2
 		},
 		stopChan:        make(chan struct{}),
 		sourceSemaphore: make(chan struct{}, config.Concurrency),
-		rateLimiter:     newDomainRateLimiter(1 * time.Second), // 1 req/sec per domain (RFC 7 section 8.2)
+		rateLimiter:     newDomainRateLimiter(1 * time.Second), // 1 req/sec per domain (Spec 7 section 8.2)
 		metrics:         newDiscoveryMetrics(),
 	}
 }
@@ -177,7 +177,7 @@ func (ds *DiscoveryService) GetMetrics() *DiscoveryMetrics {
 func (ds *DiscoveryService) Run(ctx context.Context) error {
 	log.Println("INFO: Discovery service starting")
 
-	// Fetch sources immediately on startup per RFC 7 section 3.3
+	// Fetch sources immediately on startup per Spec 7 section 3.3
 	if err := ds.fetchSources(ctx); err != nil {
 		log.Printf("ERROR: Initial source fetch failed: %v", err)
 	}
@@ -212,7 +212,7 @@ func (ds *DiscoveryService) Run(ctx context.Context) error {
 	}
 }
 
-// logMetrics logs current metrics per RFC 7 section 10.2.
+// logMetrics logs current metrics per Spec 7 section 10.2.
 func (ds *DiscoveryService) logMetrics() {
 	sourcesTotal, sourcesFetched, sourcesFailed, itemsDiscovered := ds.metrics.GetMetrics()
 	log.Printf("INFO: Metrics - Sources: %d enabled, Fetches: %d success / %d failed, Items discovered: %d",
@@ -271,7 +271,7 @@ func (ds *DiscoveryService) fetchSources(ctx context.Context) error {
 }
 
 // filterDueSources returns sources that are enabled and due for fetching.
-// Implements RFC 7 section 3.2 and 3.3.
+// Implements Spec 7 section 3.2 and 3.3.
 func (ds *DiscoveryService) filterDueSources(sourceList []sources.Source) []sources.Source {
 	now := time.Now()
 	var dueSources []sources.Source
@@ -296,17 +296,17 @@ func (ds *DiscoveryService) filterDueSources(sourceList []sources.Source) []sour
 
 // getPollingInterval returns the polling interval for a source. Uses the
 // source's specific interval if set, otherwise uses the global default.
-// Implements RFC 7 section 3.1.
+// Implements Spec 7 section 3.1.
 func (ds *DiscoveryService) getPollingInterval(source sources.Source) time.Duration {
 	if source.PollingInterval != nil {
 		interval, err := time.ParseDuration(*source.PollingInterval)
 		if err == nil {
-			// Enforce minimum polling interval of 5 minutes per RFC 7 section
-			// 3.1
+			// Enforce minimum polling interval of 5 minutes per Spec 7
+			// section 3.1
 			if interval < 5*time.Minute {
 				interval = 5 * time.Minute
 			}
-			// Enforce maximum polling interval of 24 hours per RFC 7 section
+			// Enforce maximum polling interval of 24 hours per Spec 7 section
 			// 3.1
 			if interval > 24*time.Hour {
 				interval = 24 * time.Hour
@@ -318,9 +318,9 @@ func (ds *DiscoveryService) getPollingInterval(source sources.Source) time.Durat
 }
 
 // isSourceDue checks if a source is due for fetching based on its last fetch
-// time and polling interval. Implements RFC 7 section 3.2 and 3.3.
+// time and polling interval. Implements Spec 7 section 3.2 and 3.3.
 func (ds *DiscoveryService) isSourceDue(source sources.Source, interval time.Duration, now time.Time) bool {
-	// Never fetched -- fetch immediately per RFC 7 section 3.3
+	// Never fetched -- fetch immediately per Spec 7 section 3.3
 	if source.LastFetchedAt == nil {
 		return true
 	}
@@ -368,7 +368,7 @@ func (ds *DiscoveryService) fetchSource(ctx context.Context, source sources.Sour
 	ds.metrics.recordFetchSuccess(duration)
 	ds.metrics.recordItemsDiscovered(newItemCount)
 
-	// Log success per RFC 7 section 10.1
+	// Log success per Spec 7 section 10.1
 	if duration > 30*time.Second {
 		log.Printf("WARN: Slow fetch for %s (%s): %d new items in %v", source.Name, source.URL, newItemCount, duration)
 	} else {
@@ -379,7 +379,7 @@ func (ds *DiscoveryService) fetchSource(ctx context.Context, source sources.Sour
 }
 
 // shouldApplyItemLimit determines whether to apply the 20-item limit based on
-// source staleness. Per RFC 2 section 2.2.3 and RFC 3 section 3.1.1, the
+// source staleness. Per Spec 2 section 2.2.3 and Spec 3 section 3.1.1, the
 // limit applies when:
 // - First-time sync: source has never been fetched (last_fetched_at is nil)
 // - Stale source: source has not been synced for more than 15 days
@@ -400,28 +400,28 @@ func (ds *DiscoveryService) shouldApplyItemLimit(source sources.Source) bool {
 	return false
 }
 
-// fetchRSSFeed fetches and processes an RSS or Atom feed. Implements RFC 7
-// section 4 with conditional 20-item limit per RFC 2 section 2.2.3.
+// fetchRSSFeed fetches and processes an RSS or Atom feed. Implements Spec 7
+// section 4 with conditional 20-item limit per Spec 2 section 2.2.3.
 func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source sources.Source) (int, error) {
-	// Fetch the feed (FetchFeed from RFC 2)
+	// Fetch the feed (FetchFeed from Spec 2)
 	feed, err := FetchFeed(source.URL)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch feed: %w", err)
 	}
 
-	// Determine if we should apply the 20-item limit (RFC 2 section 2.2.3)
+	// Determine if we should apply the 20-item limit (Spec 2 section 2.2.3)
 	// Limit applies for:
 	// 1. First-time sync (last_fetched_at is nil)
 	// 2. Stale sources (not synced for >15 days)
 	applyLimit := ds.shouldApplyItemLimit(source)
 
-	// Convert feed items to NewsItems (FeedToNewsItems from RFC 2)
+	// Convert feed items to NewsItems (FeedToNewsItems from Spec 2)
 	newsItems := FeedToNewsItems(feed, applyLimit)
 
 	// Process each item with deduplication
 	newItemCount := 0
 	for _, item := range newsItems {
-		// Check if URL already exists (RFC 7 section 4.2)
+		// Check if URL already exists (Spec 7 section 4.2)
 		exists, err := URLExists(ds.newsFeed, item.URL)
 		if err != nil {
 			log.Printf("WARN: Failed to check URL existence for %s: %v", item.URL, err)
@@ -445,7 +445,7 @@ func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source sources.Sourc
 	return newItemCount, nil
 }
 
-// fetchWebsite fetches and processes a website source. Implements RFC 7
+// fetchWebsite fetches and processes a website source. Implements Spec 7
 // section 5.
 func (ds *DiscoveryService) fetchWebsite(_ context.Context, source sources.Source) (int, error) {
 	if source.ScraperConfig == nil {
@@ -470,7 +470,7 @@ func (ds *DiscoveryService) fetchWebsite(_ context.Context, source sources.Sourc
 	}
 }
 
-// fetchDirectMode fetches a single article page directly. Implements RFC 7
+// fetchDirectMode fetches a single article page directly. Implements Spec 7
 // section 5.1.1.
 func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *ScraperConfig, domain string) (int, error) {
 	// Rate limit before fetching
@@ -484,7 +484,7 @@ func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *Scrap
 
 	// Validate the article
 	if err := ValidateScrapedArticle(article, source.URL); err != nil {
-		// Validation errors don't count as fetch failures per RFC 7 section
+		// Validation errors don't count as fetch failures per Spec 7 section
 		// 7.4
 		log.Printf("WARN: Validation failed for %s: %v", source.URL, err)
 		return 0, nil
@@ -512,8 +512,8 @@ func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *Scrap
 	return 1, nil
 }
 
-// fetchListMode fetches articles from a list/index page. Implements RFC 7
-// section 5.1.2 with conditional 20-article cap per RFC 3 section 3.1.1.
+// fetchListMode fetches articles from a list/index page. Implements Spec 7
+// section 5.1.2 with conditional 20-article cap per Spec 3 section 3.1.1.
 func (ds *DiscoveryService) fetchListMode(source sources.Source, config *ScraperConfig, domain string) (int, error) {
 	if config.ListConfig == nil {
 		return 0, fmt.Errorf("list_config is required for list mode")
@@ -525,10 +525,10 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 	pagesProcessed := 0
 	articlesCollected := 0 // Track total articles collected across all pages
 
-	// Determine if we should apply the 20-article limit (RFC 3 section 3.1.1)
-	// Limit applies for first-time sync or stale sources (>15 days)
+	// Determine if we should apply the 20-article limit (Spec 3 section
+	// 3.1.1) Limit applies for first-time sync or stale sources (>15 days)
 	applyLimit := ds.shouldApplyItemLimit(source)
-	const maxArticles = 20 // RFC 3 section 3.1.1
+	const maxArticles = 20 // Spec 3 section 3.1.1
 
 	for {
 		// Enforce max pages limit
@@ -536,7 +536,7 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 			break
 		}
 
-		// Conditionally enforce max articles limit per RFC 3 section 3.1.1
+		// Conditionally enforce max articles limit per Spec 3 section 3.1.1
 		// Only apply for first-time syncs or stale sources
 		if applyLimit && articlesCollected >= maxArticles {
 			break
@@ -558,7 +558,7 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 			break
 		}
 
-		// Conditionally limit article URLs to not exceed max (RFC 3 section
+		// Conditionally limit article URLs to not exceed max (Spec 3 section
 		// 3.1.1) Only apply limit for first-time syncs or stale sources
 		if applyLimit {
 			remainingSlots := maxArticles - articlesCollected
@@ -705,7 +705,7 @@ func (ds *DiscoveryService) extractDomain(urlStr string) (string, error) {
 }
 
 // handleFetchSuccess updates source metadata after a successful fetch.
-// Implements RFC 7 section 4.3.
+// Implements Spec 7 section 4.3.
 func (ds *DiscoveryService) handleFetchSuccess(source sources.Source) {
 	now := time.Now()
 	zero := 0
@@ -722,7 +722,7 @@ func (ds *DiscoveryService) handleFetchSuccess(source sources.Source) {
 }
 
 // handleFetchError updates source metadata after a fetch error. Implements
-// RFC 7 section 7 (Error Handling).
+// Spec 7 section 7 (Error Handling).
 func (ds *DiscoveryService) handleFetchError(source sources.Source, fetchErr error) {
 	now := time.Now()
 	errorMsg := fetchErr.Error()
@@ -736,13 +736,13 @@ func (ds *DiscoveryService) handleFetchError(source sources.Source, fetchErr err
 	}
 
 	if isPermanent {
-		// Permanent errors -- disable immediately (RFC 7 section 7.2)
+		// Permanent errors -- disable immediately (Spec 7 section 7.2)
 		log.Printf("ERROR: Disabling source %s (%s) due to permanent error: %v", source.Name, source.URL, fetchErr)
 		update.ClearEnabledAt = true
 		newCount := source.FetchErrorCount + 1
 		update.FetchErrorCount = &newCount
 	} else {
-		// Transient errors -- increment counter and check threshold (RFC 7
+		// Transient errors -- increment counter and check threshold (Spec 7
 		// section 7.1 and 7.3)
 		newErrorCount := source.FetchErrorCount + 1
 		update.FetchErrorCount = &newErrorCount
@@ -759,7 +759,7 @@ func (ds *DiscoveryService) handleFetchError(source sources.Source, fetchErr err
 }
 
 // isPermanentError determines if an error is permanent (requiring immediate
-// disable) or transient (retryable). Implements RFC 7 section 7.1 and 7.2.
+// disable) or transient (retryable). Implements Spec 7 section 7.1 and 7.2.
 func (ds *DiscoveryService) isPermanentError(err error) bool {
 	if err == nil {
 		return false
