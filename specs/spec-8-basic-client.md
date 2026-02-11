@@ -398,25 +398,6 @@ This keeps the CLI interface clean and encourages using configuration files or
 environment variables for deployment-specific settings. Other command-specific
 options (filters, output formats, etc.) are available as CLI flags.
 
-## 4.2. Display Preferences
-
-For CLI clients, users may want to customize output:
-
-```yaml
-display:
-  # Date format for CLI output
-  date_format: "2006-01-02 15:04:05"
-
-  # Truncate long summaries
-  summary_length: 200
-
-  # Items per page for list commands
-  page_size: 20
-
-  # Color output (auto, always, never)
-  color: auto
-```
-
 ## 4.3. Default Browser
 
 For opening URLs from CLI:
