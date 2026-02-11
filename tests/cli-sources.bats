@@ -324,3 +324,188 @@ EOF
 @test "newsfed sources sync: syncs specific source by ID" {
     skip "Requires working feed source or mock server"
 }
+
+# Test: Source status monitoring
+
+@test "newsfed sources status: shows no sources message when empty" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "No sources configured"
+}
+
+@test "newsfed sources status: shows all sources healthy when no issues" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source and mark it as recently fetched
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/healthy.xml --name="Healthy Source")
+    source_id=$(extract_uuid "$output_add")
+
+    # Update last_fetched_at to be recent (1 hour ago)
+    recent_time=$(timestamp_hours_ago 1)
+    exec_sqlite "UPDATE sources SET last_fetched_at = '$recent_time' WHERE source_id = '$source_id'"
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "✓ Healthy:          1"
+    assert_output_contains "⚠ With Errors:      0"
+    assert_output_contains "All sources are healthy!"
+}
+
+@test "newsfed sources status: detects sources with errors" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source and set error count
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/error.xml --name="Error Source")
+    source_id=$(extract_uuid "$output_add")
+
+    # Update to have errors
+    exec_sqlite "UPDATE sources SET fetch_error_count = 3, last_error = 'Connection timeout' WHERE source_id = '$source_id'"
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "⚠ With Errors:      1"
+    assert_output_contains "━━━ Sources with Errors ━━━"
+    assert_output_contains "Error Source"
+    assert_output_contains "Error Count: 3"
+    assert_output_contains "Last Error: Connection timeout"
+}
+
+@test "newsfed sources status: detects never fetched sources" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source (it will have last_fetched_at = NULL by default)
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/never.xml --name="Never Fetched")
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "⚠ Never Fetched:    1"
+    assert_output_contains "━━━ Sources Never Fetched ━━━"
+    assert_output_contains "Never Fetched"
+}
+
+@test "newsfed sources status: detects stale sources (>24h)" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source and set last_fetched_at to 48 hours ago
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/stale.xml --name="Stale Source")
+    source_id=$(extract_uuid "$output_add")
+
+    stale_time=$(timestamp_days_ago 2)
+    exec_sqlite "UPDATE sources SET last_fetched_at = '$stale_time' WHERE source_id = '$source_id'"
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "⚠ Stale (>24h):     1"
+    assert_output_contains "━━━ Stale Sources (>24h since fetch) ━━━"
+    assert_output_contains "Stale Source"
+}
+
+@test "newsfed sources status: detects disabled sources" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source and disable it
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/disabled.xml --name="Disabled Source")
+    source_id=$(extract_uuid "$output_add")
+
+    newsfed sources disable "$source_id" > /dev/null
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "✗ Disabled:         1"
+    assert_output_contains "━━━ Disabled Sources ━━━"
+    assert_output_contains "Disabled Source"
+}
+
+@test "newsfed sources status: verbose mode shows full error messages" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source with a long error message
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/verbose.xml --name="Verbose Test")
+    source_id=$(extract_uuid "$output_add")
+
+    long_error="This is a very long error message that exceeds 80 characters and should be truncated in normal mode but shown in full with verbose"
+    exec_sqlite "UPDATE sources SET fetch_error_count = 1, last_error = '$long_error' WHERE source_id = '$source_id'"
+
+    # Test without verbose (should truncate)
+    run newsfed sources status
+    assert_success
+    # The error should be shown but possibly truncated
+    assert_output_contains "Last Error:"
+
+    # Test with verbose (should show full message)
+    run newsfed sources status --verbose
+    assert_success
+    assert_output_contains "This is a very long error message that exceeds 80 characters"
+}
+
+@test "newsfed sources status: handles mixed health states" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add healthy source
+    output_healthy=$(newsfed sources add --type=rss --url=https://example.com/h.xml --name="Healthy")
+    id_healthy=$(extract_uuid "$output_healthy")
+    recent_time=$(timestamp_hours_ago 1)
+    exec_sqlite "UPDATE sources SET last_fetched_at = '$recent_time' WHERE source_id = '$id_healthy'"
+
+    # Add source with errors
+    output_error=$(newsfed sources add --type=rss --url=https://example.com/e.xml --name="With Errors")
+    id_error=$(extract_uuid "$output_error")
+    exec_sqlite "UPDATE sources SET fetch_error_count = 2 WHERE source_id = '$id_error'"
+
+    # Add never fetched source
+    newsfed sources add --type=rss --url=https://example.com/n.xml --name="Never Fetched" > /dev/null
+
+    # Add stale source
+    output_stale=$(newsfed sources add --type=atom --url=https://example.com/s.xml --name="Stale")
+    id_stale=$(extract_uuid "$output_stale")
+    stale_time=$(timestamp_days_ago 3)
+    exec_sqlite "UPDATE sources SET last_fetched_at = '$stale_time' WHERE source_id = '$id_stale'"
+
+    # Add disabled source
+    output_disabled=$(newsfed sources add --type=rss --url=https://example.com/d.xml --name="Disabled")
+    id_disabled=$(extract_uuid "$output_disabled")
+    newsfed sources disable "$id_disabled" > /dev/null
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "✓ Healthy:          1"
+    assert_output_contains "⚠ With Errors:      1"
+    assert_output_contains "⚠ Never Fetched:    1"
+    assert_output_contains "⚠ Stale (>24h):     1"
+    assert_output_contains "✗ Disabled:         1"
+}
+
+@test "newsfed sources status: provides actionable suggestions" {
+    # Create a fresh database
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    # Add a source with errors
+    output_add=$(newsfed sources add --type=rss --url=https://example.com/suggest.xml --name="Needs Action")
+    source_id=$(extract_uuid "$output_add")
+    exec_sqlite "UPDATE sources SET fetch_error_count = 1 WHERE source_id = '$source_id'"
+
+    run newsfed sources status
+    assert_success
+    assert_output_contains "Suggested Actions:"
+    assert_output_contains "Check source configurations for errors"
+    assert_output_contains "Run 'newsfed sources show <id>' for details"
+}

@@ -88,6 +88,8 @@ func handleSourcesCommand(action, metadataPath string, args []string) {
 		handleSourcesEnable(sourceStore, args)
 	case "disable":
 		handleSourcesDisable(sourceStore, args)
+	case "status":
+		handleSourcesStatus(sourceStore, args)
 	case "help", "--help", "-h":
 		printSourcesUsage()
 	default:

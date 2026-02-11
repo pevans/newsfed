@@ -101,8 +101,22 @@ specs:
         tests:
           - "tests/cli-sources.bats::newsfed sources sync: syncs sources"
 
-      - section: "3.3"
-        title: Source Health Monitoring
+      - section: "3.3.1"
+        title: Check Source Status
+        testable: true
+        tests:
+          - "tests/cli-sources.bats::newsfed sources status: shows no sources message when empty"
+          - "tests/cli-sources.bats::newsfed sources status: shows all sources healthy when no issues"
+          - "tests/cli-sources.bats::newsfed sources status: detects sources with errors"
+          - "tests/cli-sources.bats::newsfed sources status: detects never fetched sources"
+          - "tests/cli-sources.bats::newsfed sources status: detects stale sources (>24h)"
+          - "tests/cli-sources.bats::newsfed sources status: detects disabled sources"
+          - "tests/cli-sources.bats::newsfed sources status: verbose mode shows full error messages"
+          - "tests/cli-sources.bats::newsfed sources status: handles mixed health states"
+          - "tests/cli-sources.bats::newsfed sources status: provides actionable suggestions"
+
+      - section: "3.3.2"
+        title: View Error History
         testable: true
         tests: []
 
@@ -173,34 +187,26 @@ specs:
         title: Future Enhancements
         testable: false
 
-      - section: "8"
+      - section: "7"
         title: Security Considerations
         testable: false
 
+      - section: "8"
+        title: Implementation Considerations
+        testable: false
+
       - section: "9"
-        title: Implementation Notes
+        title: Example Workflows
         testable: false
 
       - section: "10"
-        title: Common Usage Patterns
+        title: Testing
         testable: false
 
       - section: "11"
-        title: Testing Strategy
+        title: Implementation Phases
         testable: false
 
       - section: "12"
-        title: Documentation
-        testable: false
-
-      - section: "13"
-        title: Future Considerations
-        testable: false
-
-      - section: "14"
-        title: Implementation Roadmap
-        testable: false
-
-      - section: "15"
-        title: Related RFCs
+        title: Relationship to Other Specifications
         testable: false
