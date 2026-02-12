@@ -12,6 +12,39 @@
 #           tests: List of test files that cover this section (empty list if not tested)
 
 specs:
+  - spec: spec-1
+    title: "newsfed: a news feed"
+    sections:
+      - section: "1"
+        title: "newsfed: a news feed"
+        testable: false
+
+      - section: "2"
+        title: Storage of the news feed
+        testable: false
+
+      - section: "2.1"
+        title: Structure of a single news item
+        testable: true
+        tests:
+          - "tests/cli-data-model.bats::spec-1 data model: JSON output contains all required fields"
+          - "tests/cli-data-model.bats::spec-1 data model: id field is a valid UUID"
+          - "tests/cli-data-model.bats::spec-1 data model: publisher field is optional and omitted when absent"
+          - "tests/cli-data-model.bats::spec-1 data model: authors field is a list of strings"
+          - "tests/cli-data-model.bats::spec-1 data model: authors supports multiple entries"
+          - "tests/cli-data-model.bats::spec-1 data model: authors can be an empty list"
+          - "tests/cli-data-model.bats::spec-1 data model: pinned_at present when item is pinned"
+          - "tests/cli-data-model.bats::spec-1 data model: pinned_at omitted when item is not pinned"
+          - "tests/cli-data-model.bats::spec-1 data model: timestamps use RFC 3339 format"
+          - "tests/cli-data-model.bats::spec-1 data model: published_at prefers updated date over published date"
+
+      - section: "2.2"
+        title: Structure of a news feed
+        testable: true
+        tests:
+          - "tests/cli-data-model.bats::spec-1 data model: items remain in feed indefinitely"
+          - "tests/cli-data-model.bats::spec-1 data model: client filters items not the feed"
+
   - spec: spec-8
     title: Basic News Feed Client
     sections:
