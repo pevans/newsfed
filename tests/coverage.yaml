@@ -60,6 +60,7 @@ specs:
         testable: true
         tests:
           - "tests/cli-sources.bats::newsfed sources list: shows all sources"
+          - "tests/cli-sources.bats::newsfed sources list: handles empty source list"
 
       - section: "3.2.2"
         title: View Source Details
@@ -99,7 +100,8 @@ specs:
         title: Sync Sources
         testable: true
         tests:
-          - "tests/cli-sources.bats::newsfed sources sync: syncs sources"
+          - "tests/cli-sources.bats::newsfed sources sync: syncs all enabled sources"
+          - "tests/cli-sources.bats::newsfed sources sync: syncs specific source by ID"
 
       - section: "3.3.1"
         title: Check Source Status
@@ -164,6 +166,10 @@ specs:
           - "tests/cli-config.bats::newsfed config: reads from config file"
           - "tests/cli-config.bats::newsfed config: environment overrides config file"
           - "tests/cli-config.bats::newsfed config: supports storage type"
+          - "tests/cli-init.bats::newsfed init: creates default config file"
+          - "tests/cli-init.bats::newsfed init: skips config file if already exists"
+          - "tests/cli-init.bats::newsfed init --force: recreates config file"
+          - "tests/cli-init.bats::newsfed init: creates config file with correct permissions"
 
       - section: "5.1.1"
         title: Table Format (Default)
@@ -210,6 +216,9 @@ specs:
         tests:
           - "tests/cli-init.bats::newsfed init: creates metadata database"
           - "tests/cli-init.bats::newsfed init: creates feed directory"
+          - "tests/cli-init.bats::newsfed init: creates default config file"
+          - "tests/cli-init.bats::newsfed init: skips config file if already exists"
+          - "tests/cli-init.bats::newsfed init --force: recreates config file"
 
       - section: "6.4"
         title: Partial Failures

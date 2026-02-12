@@ -17,6 +17,60 @@ setup() {
     rm -rf "$NEWSFED_METADATA_DSN" "$NEWSFED_FEED_DSN"
 }
 
+# Config file creation tests
+
+@test "newsfed init: creates default config file" {
+    export HOME="$TEST_DIR/fakehome"
+    mkdir -p "$HOME"
+
+    run newsfed init
+    assert_success
+
+    [ -f "$HOME/.newsfed/config.yaml" ]
+    # Verify config contains absolute paths
+    grep -q "$HOME/.newsfed/metadata.db" "$HOME/.newsfed/config.yaml"
+    grep -q "$HOME/.newsfed/feed" "$HOME/.newsfed/config.yaml"
+}
+
+@test "newsfed init: skips config file if already exists" {
+    export HOME="$TEST_DIR/fakehome"
+    mkdir -p "$HOME/.newsfed"
+    echo "original" > "$HOME/.newsfed/config.yaml"
+
+    run newsfed init
+    assert_success
+    assert_output_contains "already exists"
+
+    # Verify original content is preserved
+    content=$(cat "$HOME/.newsfed/config.yaml")
+    [ "$content" = "original" ]
+}
+
+@test "newsfed init --force: recreates config file" {
+    export HOME="$TEST_DIR/fakehome"
+    mkdir -p "$HOME/.newsfed"
+    echo "original" > "$HOME/.newsfed/config.yaml"
+
+    run newsfed init --force
+    assert_success
+
+    # Verify content was overwritten with default config
+    grep -q "metadata" "$HOME/.newsfed/config.yaml"
+    content=$(cat "$HOME/.newsfed/config.yaml")
+    [ "$content" != "original" ]
+}
+
+@test "newsfed init: creates config file with correct permissions" {
+    export HOME="$TEST_DIR/fakehome"
+    mkdir -p "$HOME"
+
+    run newsfed init
+    assert_success
+
+    perm=$(stat -f '%Lp' "$HOME/.newsfed/config.yaml" 2>/dev/null || stat -c '%a' "$HOME/.newsfed/config.yaml" 2>/dev/null)
+    [ "$perm" = "600" ]
+}
+
 # Init command tests
 
 @test "newsfed init: creates metadata database" {

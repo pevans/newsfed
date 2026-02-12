@@ -131,6 +131,74 @@ exec_sqlite() {
     sqlite3 "$NEWSFED_METADATA_DSN" "$sql" 2>/dev/null || true
 }
 
+# Start a mock HTTP server in the background serving files from a directory.
+# Sets MOCK_SERVER_PID and MOCK_SERVER_PORT variables.
+# Usage: start_mock_server "$TEST_DIR/www"
+start_mock_server() {
+    local serve_dir="$1"
+    local port_file="$TEST_DIR/mock_server_port"
+    rm -f "$port_file"
+
+    python3 -c "
+import http.server, socketserver, os, sys
+os.chdir(sys.argv[1])
+handler = http.server.SimpleHTTPRequestHandler
+httpd = socketserver.TCPServer(('127.0.0.1', 0), handler)
+port = httpd.server_address[1]
+with open(sys.argv[2], 'w') as f:
+    f.write(str(port))
+httpd.serve_forever()
+" "$serve_dir" "$port_file" 2>/dev/null &
+    MOCK_SERVER_PID=$!
+
+    wait_for_file "$port_file" 10
+    MOCK_SERVER_PORT=$(cat "$port_file")
+}
+
+# Stop the mock HTTP server.
+stop_mock_server() {
+    if [ -n "${MOCK_SERVER_PID:-}" ]; then
+        kill "$MOCK_SERVER_PID" 2>/dev/null || true
+        wait "$MOCK_SERVER_PID" 2>/dev/null || true
+        unset MOCK_SERVER_PID
+    fi
+    rm -f "$TEST_DIR/mock_server_port"
+}
+
+# Create a minimal valid RSS feed XML file.
+# Usage: create_rss_feed "$path/feed.xml" "Feed Title" 2
+create_rss_feed() {
+    local file="$1"
+    local title="${2:-Test Feed}"
+    local item_count="${3:-2}"
+
+    mkdir -p "$(dirname "$file")"
+
+    cat > "$file" <<RSSEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>$title</title>
+    <link>http://example.com</link>
+    <description>A test RSS feed</description>
+RSSEOF
+
+    for i in $(seq 1 "$item_count"); do
+        cat >> "$file" <<ITEMEOF
+    <item>
+      <title>Article $i</title>
+      <link>http://example.com/article$i</link>
+      <description>Test article $i</description>
+    </item>
+ITEMEOF
+    done
+
+    cat >> "$file" <<RSSEOF
+  </channel>
+</rss>
+RSSEOF
+}
+
 # Get default browser command for current platform
 get_default_browser() {
     case "$(uname -s)" in

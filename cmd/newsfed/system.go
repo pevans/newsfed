@@ -74,6 +74,32 @@ func handleInit(metadataPath, feedDir string, args []string) {
 	initSucceeded := true
 	createdSomething := false
 
+	// Create default config file as the first step
+	created, err := config.WriteDefaultConfigFile(*force)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "  ✗ Failed to create config file: %v\n", err)
+		initSucceeded = false
+	} else if created {
+		configPath, _ := config.ConfigFilePath()
+		fmt.Printf("  ✓ Config file: %s\n", configPath)
+		createdSomething = true
+
+		// Re-resolve storage paths from the new config file so that
+		// subsequent storage creation uses the absolute paths
+		if os.Getenv("NEWSFED_METADATA_DSN") == "" || os.Getenv("NEWSFED_FEED_DSN") == "" {
+			_, newMeta, _, newFeed := loadStorageConfig()
+			if os.Getenv("NEWSFED_METADATA_DSN") == "" {
+				metadataPath = newMeta
+			}
+			if os.Getenv("NEWSFED_FEED_DSN") == "" {
+				feedDir = newFeed
+			}
+		}
+	} else {
+		configPath, _ := config.ConfigFilePath()
+		fmt.Printf("  Config file: %s (already exists)\n", configPath)
+	}
+
 	// Check and create metadata database
 	metadataExists := false
 	if _, err := os.Stat(metadataPath); err == nil {

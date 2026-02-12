@@ -122,8 +122,13 @@ EOF
 }
 
 @test "newsfed sources list: handles empty source list" {
-    # This would require a fresh database, skip for now or implement cleanup
-    skip "Requires fresh database state"
+    # Create a fresh database with no sources
+    rm -f "$NEWSFED_METADATA_DSN"
+    newsfed init > /dev/null
+
+    run newsfed sources list
+    assert_success
+    assert_output_contains "No sources configured."
 }
 
 # Test: Show source details
@@ -317,12 +322,64 @@ EOF
 # Test: Sync sources
 
 @test "newsfed sources sync: syncs all enabled sources" {
-    # This test would require a working feed or mock server
-    skip "Requires working feed source or mock server"
+    # Fresh database and feed directory
+    rm -f "$NEWSFED_METADATA_DSN"
+    rm -rf "$NEWSFED_FEED_DSN"
+    mkdir -p "$NEWSFED_FEED_DSN"
+    newsfed init > /dev/null
+
+    # Create RSS feed and start mock server
+    create_rss_feed "$TEST_DIR/www/feed.xml" "Mock Feed" 2
+    start_mock_server "$TEST_DIR/www"
+
+    # Add a source pointing to mock server
+    newsfed sources add --type=rss \
+        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        --name="Mock RSS" > /dev/null
+
+    # Run sync
+    run newsfed sync
+
+    # Clean up server before assertions
+    stop_mock_server
+
+    assert_success
+    assert_output_contains "Syncing all enabled sources..."
+    assert_output_contains "Sync completed:"
+    assert_output_contains "Sources synced: 1"
+    assert_output_contains "Sources failed: 0"
+    assert_output_contains "Items discovered: 2"
 }
 
 @test "newsfed sources sync: syncs specific source by ID" {
-    skip "Requires working feed source or mock server"
+    # Fresh database and feed directory
+    rm -f "$NEWSFED_METADATA_DSN"
+    rm -rf "$NEWSFED_FEED_DSN"
+    mkdir -p "$NEWSFED_FEED_DSN"
+    newsfed init > /dev/null
+
+    # Create RSS feed and start mock server
+    create_rss_feed "$TEST_DIR/www/feed2.xml" "Specific Feed" 3
+    start_mock_server "$TEST_DIR/www"
+
+    # Add a source and capture its ID
+    output_add=$(newsfed sources add --type=rss \
+        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed2.xml" \
+        --name="Specific Source")
+    source_id=$(extract_uuid "$output_add")
+
+    # Run sync with specific source ID
+    run newsfed sync "$source_id"
+
+    # Clean up server before assertions
+    stop_mock_server
+
+    assert_success
+    assert_output_contains "Syncing source: Specific Source"
+    assert_output_contains "Sync completed:"
+    assert_output_contains "Sources synced: 1"
+    assert_output_contains "Sources failed: 0"
+    assert_output_contains "Items discovered: 3"
 }
 
 # Test: Source status monitoring

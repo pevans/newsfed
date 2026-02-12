@@ -509,6 +509,11 @@ Storage configuration (type and DSN) is loaded in the following order:
 2. Configuration file (`~/.newsfed/config.yaml`)
 3. Default values
 
+**Default Config File Creation:** Running `newsfed init` creates a default
+config file at `~/.newsfed/config.yaml` with absolute paths pointing to
+`~/.newsfed/metadata.db` and `~/.newsfed/feed`. This gives storage a stable
+canonical home regardless of the working directory.
+
 **Note:** Storage DSN configuration is **not** exposed as command-line flags.
 This keeps the CLI interface clean and encourages using configuration files or
 environment variables for deployment-specific settings. Other command-specific
@@ -621,11 +626,48 @@ Validate user input before accessing storage:
 The client should detect uninitialized storage and help users:
 
 ```bash
-# Initialize storage (create databases/directories)
+# Initialize storage (create config file, databases, and directories)
 newsfed init
+
+# Force reinitialize (overwrites config file and recreates storage)
+newsfed init --force
 
 # Check storage health (see Section 3.4 for full specification)
 newsfed doctor
+```
+
+The `init` command performs these steps in order:
+
+1. **Config file** -- Creates `~/.newsfed/config.yaml` with default absolute
+   paths. If the file already exists, it is skipped (unless `--force` is used).
+   After creating the config file, storage paths are re-resolved from the new
+   file so that database and feed creation use the absolute paths.
+2. **Metadata database** -- Creates the SQLite database at the configured path.
+3. **Feed directory** -- Creates the feed storage directory at the configured
+   path.
+
+**Example output (fresh install):**
+
+```
+Initializing newsfed storage...
+
+  ✓ Config file: /Users/username/.newsfed/config.yaml
+  ✓ Metadata database: /Users/username/.newsfed/metadata.db
+  ✓ Feed storage: /Users/username/.newsfed/feed
+
+✓ Storage initialized successfully
+```
+
+**Example output (already initialized):**
+
+```
+Initializing newsfed storage...
+
+  Config file: /Users/username/.newsfed/config.yaml (already exists)
+  Metadata database: /Users/username/.newsfed/metadata.db (already exists)
+  Feed storage: /Users/username/.newsfed/feed (already exists)
+
+✓ Storage already initialized
 ```
 
 ## 6.4. Partial Failures
