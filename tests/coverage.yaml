@@ -45,6 +45,85 @@ specs:
           - "tests/cli-data-model.bats::spec-1 data model: items remain in feed indefinitely"
           - "tests/cli-data-model.bats::spec-1 data model: client filters items not the feed"
 
+  - spec: spec-2
+    title: External News Feed Ingestion
+    sections:
+      - section: "1"
+        title: External News Feed Ingestion
+        testable: false
+
+      - section: "2.1"
+        title: Feed Source Configuration
+        testable: true
+        tests:
+          # Cross-referenced from spec-8 tests that validate source fields
+          - "tests/cli-sources.bats::newsfed sources add: adds RSS source"
+          - "tests/cli-sources.bats::newsfed sources add: adds Atom source"
+          - "tests/cli-sources.bats::newsfed sources show: displays source details"
+
+      - section: "2.2"
+        title: Feed Ingestion Process
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: synced RSS items appear in news feed"
+          # Cross-referenced from spec-8 sync tests
+          - "tests/cli-sources.bats::newsfed sources sync: syncs all enabled sources"
+          - "tests/cli-sources.bats::newsfed sources sync: syncs specific source by ID"
+
+      - section: "2.2.1"
+        title: Feed Fetching
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: handles unreachable feed URL gracefully"
+          - "tests/cli-ingestion.bats::ingestion: handles invalid feed content gracefully"
+
+      - section: "2.2.2"
+        title: Polling Frequency
+        testable: false
+
+      - section: "2.2.3"
+        title: Item Limiting
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: first sync limits to 20 most recent items"
+          - "tests/cli-ingestion.bats::ingestion: regular polling catches items missed by first sync limit"
+          - "tests/cli-ingestion.bats::ingestion: stale source re-applies 20 item limit"
+          - "tests/cli-ingestion.bats::ingestion: source fetched 14 days ago is not considered stale"
+
+      - section: "2.3"
+        title: RSS Feed Support
+        testable: false
+
+      - section: "2.3.1"
+        title: RSS to NewsItem Mapping
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: RSS fields map correctly to NewsItem"
+
+      - section: "2.3.2"
+        title: RSS Deduplication Strategy
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: RSS deduplication prevents duplicate items on re-sync"
+
+      - section: "2.4"
+        title: Atom Feed Support
+        testable: false
+
+      - section: "2.4.1"
+        title: Atom to NewsItem Mapping
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: Atom fields map correctly to NewsItem"
+          # Cross-referenced: tests updated-over-published preference
+          - "tests/cli-data-model.bats::spec-1 data model: published_at prefers updated date over published date"
+
+      - section: "2.4.2"
+        title: Atom Deduplication Strategy
+        testable: true
+        tests:
+          - "tests/cli-ingestion.bats::ingestion: Atom deduplication prevents duplicate items on re-sync"
+
   - spec: spec-8
     title: Basic News Feed Client
     sections:
