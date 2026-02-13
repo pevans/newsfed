@@ -433,3 +433,63 @@ func handleOpen(metadataPath, feedDir string, args []string) {
 
 	fmt.Printf("✓ Opening in browser: %s\n", item.Title)
 }
+
+func handlePrune(feedDir string, args []string) {
+	fs := flag.NewFlagSet("prune", flag.ExitOnError)
+	all := fs.Bool("all", false, "Remove all items, not just those older than 90 days")
+	force := fs.Bool("force", false, "Skip confirmation prompt")
+	fs.Parse(args)
+
+	// Initialize news feed
+	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to open news feed: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Get all items
+	result, err := newsFeed.List()
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "Error: failed to list news items: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Ask for confirmation unless -force
+	if !*force {
+		if *all {
+			fmt.Print("All news items will be removed, but pinned items will remain. Are you certain you want to do this? [y/N]: ")
+		} else {
+			fmt.Print("All news items older than 90 days will be removed, but pinned items will remain. Are you certain you want to do this? [y/N]: ")
+		}
+
+		var response string
+		fmt.Fscanln(os.Stdin, &response)
+		if response != "y" && response != "Y" {
+			fmt.Println("Cancelled.")
+			return
+		}
+	}
+
+	// Filter and delete
+	cutoff := time.Now().Add(-90 * 24 * time.Hour)
+	pruned := 0
+	for _, item := range result.Items {
+		// Never remove pinned items
+		if item.PinnedAt != nil {
+			continue
+		}
+
+		// Without -all, only remove items discovered >90 days ago
+		if !*all && item.DiscoveredAt.After(cutoff) {
+			continue
+		}
+
+		if err := newsFeed.Delete(item.ID); err != nil {
+			fmt.Fprintf(os.Stderr, "Warning: failed to delete item %s: %v\n", item.ID, err)
+			continue
+		}
+		pruned++
+	}
+
+	fmt.Printf("%d items pruned\n", pruned)
+}

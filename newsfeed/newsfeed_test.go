@@ -419,6 +419,58 @@ func TestUpdate_PreservesOtherFields(t *testing.T) {
 	assert.NotNil(t, retrieved.PinnedAt, "pinned status should be preserved")
 }
 
+// TestDelete_Success verifies Delete removes an item
+func TestDelete_Success(t *testing.T) {
+	tempDir := t.TempDir()
+	feed, err := NewNewsFeed(tempDir)
+	require.NoError(t, err)
+
+	item := createTestItem("Article to Delete")
+	err = feed.Add(item)
+	require.NoError(t, err)
+
+	err = feed.Delete(item.ID)
+	require.NoError(t, err, "Delete should succeed")
+
+	// Verify item is gone
+	retrieved, err := feed.Get(item.ID)
+	require.NoError(t, err)
+	assert.Nil(t, retrieved, "Get should return nil after Delete")
+}
+
+// TestDelete_NotFound verifies Delete returns error for non-existent item
+func TestDelete_NotFound(t *testing.T) {
+	tempDir := t.TempDir()
+	feed, err := NewNewsFeed(tempDir)
+	require.NoError(t, err)
+
+	nonExistentID := uuid.New()
+	err = feed.Delete(nonExistentID)
+	assert.Error(t, err, "Delete should error on non-existent item")
+}
+
+// TestDelete_RemovedFromList verifies deleted items no longer appear in List
+func TestDelete_RemovedFromList(t *testing.T) {
+	tempDir := t.TempDir()
+	feed, err := NewNewsFeed(tempDir)
+	require.NoError(t, err)
+
+	item1 := createTestItem("Article 1")
+	item2 := createTestItem("Article 2")
+	err = feed.Add(item1)
+	require.NoError(t, err)
+	err = feed.Add(item2)
+	require.NoError(t, err)
+
+	err = feed.Delete(item1.ID)
+	require.NoError(t, err)
+
+	result, err := feed.List()
+	require.NoError(t, err)
+	assert.Len(t, result.Items, 1, "List should return one item after deleting one")
+	assert.Equal(t, item2.ID, result.Items[0].ID, "remaining item should be the one not deleted")
+}
+
 // Property test: Add and Get are inverse operations
 func TestAddGet_InverseOperations(t *testing.T) {
 	tempDir := t.TempDir()

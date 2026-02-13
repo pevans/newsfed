@@ -170,6 +170,48 @@ newsfed open --echo 550e8400-e29b-41d4-a716-446655440000
   would be executed (including the platform-specific browser command and the
   URL). Useful for testing and debugging.
 
+### 3.1.5. Remove stale news items
+
+Stale news items (things that have been discovered more than 90 days ago) can
+be removed with a CLI command called `prune`. Since those items would not be
+shown by the `list` command, the `prune` command's purpose is rather to keep
+the feed directory from growing too large.
+
+The prune command never removes pinned news items, regardless of their age.
+
+After the prune command runs, it should print `X items pruned`, where `X` is
+the number of news items that were removed.
+
+Flags for `prune`:
+
+- `-all`: remove all news items, not just those older than 90 days. Pinned
+  items will still remain.
+- `-force`: don't ask for confirmation before pruning
+
+The prune command asks for confirmation before removing any news items, unless
+otherwise indicated. The confirmation should look like the following:
+
+```
+All news items older than 90 days will be removed, but pinned items will
+remain. Are you certain you want to do this? [y/N]:
+```
+
+The text `older than 90 days` should not be printed if the `-all` flag is
+passed.
+
+Example:
+
+```bash
+# Removes items >90 days old; asks for your confirmation before doing so
+newsfed prune
+
+# Removes all news items; asks for your confirmation before doing so
+newsfed prune -all
+
+# Removes items >90 days old, does not ask for confirmation
+newsfed prune -force -all
+```
+
 ## 3.2. Source Management
 
 ### 3.2.1. List Sources

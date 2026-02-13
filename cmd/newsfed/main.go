@@ -42,6 +42,8 @@ func main() {
 		handleUnpin(feedDir, os.Args[2:])
 	case "open":
 		handleOpen(metadataPath, feedDir, os.Args[2:])
+	case "prune":
+		handlePrune(feedDir, os.Args[2:])
 	case "sync":
 		handleSync(metadataPath, feedDir, os.Args[2:])
 	case "init":
@@ -113,6 +115,7 @@ func printUsage() {
 	fmt.Println("  pin        Pin a news item for later reference")
 	fmt.Println("  unpin      Unpin a news item")
 	fmt.Println("  open       Open a news item URL in default browser")
+	fmt.Println("  prune      Remove stale news items")
 	fmt.Println("  sync       Manually sync sources to fetch new items")
 	fmt.Println("  init       Initialize storage (create databases/directories)")
 	fmt.Println("  doctor     Check storage health and configuration")

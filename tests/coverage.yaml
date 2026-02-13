@@ -167,6 +167,18 @@ specs:
         tests:
           - "tests/cli-items.bats::newsfed open: opens item in browser"
 
+      - section: "3.1.5"
+        title: Remove Stale News Items
+        testable: true
+        tests:
+          - "tests/cli-prune.bats::newsfed prune -force: removes items older than 90 days"
+          - "tests/cli-prune.bats::newsfed prune -force: preserves pinned items"
+          - "tests/cli-prune.bats::newsfed prune -force -all: removes all unpinned items"
+          - "tests/cli-prune.bats::newsfed prune -force: prints count of pruned items"
+          - "tests/cli-prune.bats::newsfed prune: asks for confirmation and cancels on n"
+          - "tests/cli-prune.bats::newsfed prune: confirmation with y proceeds"
+          - "tests/cli-prune.bats::newsfed prune -force: zero items pruned when nothing is stale"
+
       - section: "3.2.1"
         title: List Sources
         testable: true

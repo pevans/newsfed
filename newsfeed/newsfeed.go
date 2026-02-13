@@ -127,6 +127,15 @@ func (nf *NewsFeed) Get(id uuid.UUID) (*NewsItem, error) {
 	return &item, nil
 }
 
+// Delete removes a news item from the feed by its ID.
+func (nf *NewsFeed) Delete(id uuid.UUID) error {
+	filename := filepath.Join(nf.storageDir, id.String()+".json")
+	if err := os.Remove(filename); err != nil {
+		return fmt.Errorf("failed to delete news item: %w", err)
+	}
+	return nil
+}
+
 // Update updates an existing news item in the feed.
 func (nf *NewsFeed) Update(item NewsItem) error {
 	// Check if the item exists
