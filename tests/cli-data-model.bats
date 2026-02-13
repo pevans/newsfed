@@ -78,7 +78,7 @@ teardown_file() {
 # ── Section 2.1: Structure of a single news item ────────────────────────────
 
 @test "spec-1 data model: JSON output contains all required fields" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -104,7 +104,7 @@ else:
 }
 
 @test "spec-1 data model: id field is a valid UUID" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -125,7 +125,7 @@ print('ALL_VALID')
 }
 
 @test "spec-1 data model: publisher field is optional and omitted when absent" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -149,7 +149,7 @@ else:
 }
 
 @test "spec-1 data model: authors field is a list of strings" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -174,7 +174,7 @@ print('ALL_VALID')
 }
 
 @test "spec-1 data model: authors supports multiple entries" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -199,7 +199,7 @@ else:
 }
 
 @test "spec-1 data model: authors can be an empty list" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -223,7 +223,7 @@ else:
 }
 
 @test "spec-1 data model: pinned_at present when item is pinned" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -247,7 +247,7 @@ else:
 }
 
 @test "spec-1 data model: pinned_at omitted when item is not pinned" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -271,7 +271,7 @@ else:
 }
 
 @test "spec-1 data model: timestamps use RFC 3339 format" {
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -349,16 +349,16 @@ ATOMEOF
     start_mock_server "$www_dir"
 
     run newsfed sources add \
-        --name="Test Atom" \
-        --type=atom \
-        --url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml"
+        -name="Test Atom" \
+        -type=atom \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml"
     assert_success
 
     run newsfed sync
     assert_success
 
     # Verify published_at values
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -399,8 +399,8 @@ else:
 # ── Section 2.2: Structure of a news feed ────────────────────────────────────
 
 @test "spec-1 data model: items remain in feed indefinitely" {
-    # An item from 30 days ago should still be retrievable via --all
-    run newsfed list --all --format=json
+    # An item from 30 days ago should still be retrievable via -all
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -421,14 +421,14 @@ else:
 }
 
 @test "spec-1 data model: client filters items not the feed" {
-    # Default list (without --all) filters by recency, but --all reveals
+    # Default list (without -all) filters by recency, but -all reveals
     # the feed itself retains everything. This verifies that filtering is
     # a client concern, not a feed concern (spec-1 section 2.2).
     run newsfed list
     assert_success
     assert_output_not_contains "Ancient Article"
 
-    run newsfed list --all
+    run newsfed list -all
     assert_success
     assert_output_contains "Ancient Article"
 }

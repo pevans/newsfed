@@ -351,7 +351,7 @@ func handleOpen(metadataPath, feedDir string, args []string) {
 	// Get item ID from remaining args
 	if len(fs.Args()) < 1 {
 		fmt.Fprintf(os.Stderr, "Error: item ID is required\n")
-		fmt.Fprintf(os.Stderr, "Usage: newsfed open [--echo] <item-id>\n")
+		fmt.Fprintf(os.Stderr, "Usage: newsfed open [-echo] <item-id>\n")
 		os.Exit(1)
 	}
 

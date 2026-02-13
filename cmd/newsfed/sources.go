@@ -194,24 +194,24 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 
 	// Validate required flags
 	if *sourceType == "" {
-		fmt.Fprintf(os.Stderr, "Error: --type is required\n")
+		fmt.Fprintf(os.Stderr, "Error: -type is required\n")
 		fs.Usage()
 		os.Exit(1)
 	}
 	if *url == "" {
-		fmt.Fprintf(os.Stderr, "Error: --url is required\n")
+		fmt.Fprintf(os.Stderr, "Error: -url is required\n")
 		fs.Usage()
 		os.Exit(1)
 	}
 	if *name == "" {
-		fmt.Fprintf(os.Stderr, "Error: --name is required\n")
+		fmt.Fprintf(os.Stderr, "Error: -name is required\n")
 		fs.Usage()
 		os.Exit(1)
 	}
 
 	// Validate source type
 	if *sourceType != "rss" && *sourceType != "atom" && *sourceType != "website" {
-		fmt.Fprintf(os.Stderr, "Error: --type must be 'rss', 'atom', or 'website'\n")
+		fmt.Fprintf(os.Stderr, "Error: -type must be 'rss', 'atom', or 'website'\n")
 		os.Exit(1)
 	}
 
@@ -219,7 +219,7 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	var scraperConfig *discovery.ScraperConfig
 	if *sourceType == "website" {
 		if *configFile == "" {
-			fmt.Fprintf(os.Stderr, "Error: --config is required for website sources\n")
+			fmt.Fprintf(os.Stderr, "Error: -config is required for website sources\n")
 			os.Exit(1)
 		}
 
@@ -279,7 +279,7 @@ func handleSourcesUpdate(metadataStore *sources.SourceStore, args []string) {
 
 	// Check if any updates were provided
 	if *name == "" && *interval == "" && *configFile == "" {
-		fmt.Fprintf(os.Stderr, "Error: at least one update flag is required (--name, --interval, or --config)\n")
+		fmt.Fprintf(os.Stderr, "Error: at least one update flag is required (-name, -interval, or -config)\n")
 		os.Exit(1)
 	}
 

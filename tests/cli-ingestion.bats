@@ -40,7 +40,7 @@ teardown() {
 # Count items in the local news feed via JSON output
 count_feed_items() {
     local out
-    out=$(newsfed list --all --format=json --limit=1000)
+    out=$(newsfed list -all -format=json -limit=1000)
     printf '%s' "$out" | python3 -c "
 import json, sys
 data = json.load(sys.stdin)
@@ -95,9 +95,9 @@ RSSEOF
     create_rss_feed "$ISOLATION_DIR/www/feed.xml" "Test Feed" 3
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Test Source" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Test Source" > /dev/null
 
     run newsfed sync
     assert_success
@@ -117,9 +117,9 @@ RSSEOF
     start_mock_server "$ISOLATION_DIR/www"
 
     # Point to a nonexistent file on the server (triggers 404 / parse error)
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/nonexistent.xml" \
-        --name="Bad Source" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/nonexistent.xml" \
+        -name="Bad Source" > /dev/null
 
     run newsfed sync
     assert_failure
@@ -134,9 +134,9 @@ Just plain text that should fail to parse.
 EOF
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/invalid.xml" \
-        --name="Invalid Source" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/invalid.xml" \
+        -name="Invalid Source" > /dev/null
 
     run newsfed sync
     assert_failure
@@ -149,9 +149,9 @@ EOF
     create_dated_rss_feed "$ISOLATION_DIR/www/feed.xml" "Big Feed" 25
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Big Source" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Big Source" > /dev/null
 
     run newsfed sync
     assert_success
@@ -168,9 +168,9 @@ EOF
     create_dated_rss_feed "$ISOLATION_DIR/www/feed.xml" "Big Feed" 25
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Big Source" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Big Source" > /dev/null
 
     # First sync -- limited to 20
     run newsfed sync
@@ -201,9 +201,9 @@ EOF
     start_mock_server "$ISOLATION_DIR/www"
 
     local add_output
-    add_output=$(newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Stale Source")
+    add_output=$(newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Stale Source")
     local source_id
     source_id=$(extract_uuid "$add_output")
 
@@ -245,9 +245,9 @@ EOF
     start_mock_server "$ISOLATION_DIR/www"
 
     local add_output
-    add_output=$(newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Recent Source")
+    add_output=$(newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Recent Source")
     local source_id
     source_id=$(extract_uuid "$add_output")
 
@@ -292,14 +292,14 @@ RSSEOF
 
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Test RSS" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Test RSS" > /dev/null
 
     run newsfed sync
     assert_success
 
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -370,9 +370,9 @@ else:
     create_rss_feed "$ISOLATION_DIR/www/feed.xml" "Dedup Feed" 3
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Dedup Source" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Dedup Source" > /dev/null
 
     # First sync
     run newsfed sync
@@ -417,14 +417,14 @@ ATOMEOF
 
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=atom \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Test Atom" > /dev/null
+    newsfed sources add -type=atom \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Test Atom" > /dev/null
 
     run newsfed sync
     assert_success
 
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     assert_success
 
     local result
@@ -513,9 +513,9 @@ ATOMEOF
 
     start_mock_server "$ISOLATION_DIR/www"
 
-    newsfed sources add --type=atom \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Atom Dedup Source" > /dev/null
+    newsfed sources add -type=atom \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Atom Dedup Source" > /dev/null
 
     # First sync
     run newsfed sync

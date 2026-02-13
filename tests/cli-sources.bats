@@ -29,7 +29,7 @@ setup() {
 # Test: Add sources
 
 @test "newsfed sources add: adds RSS source successfully" {
-    run newsfed sources add --type=rss --url=https://example.com/feed.xml --name="Test RSS Feed"
+    run newsfed sources add -type=rss -url=https://example.com/feed.xml -name="Test RSS Feed"
     assert_success
     assert_output_contains "Created source:"
     assert_output_contains "Type: rss"
@@ -38,7 +38,7 @@ setup() {
 }
 
 @test "newsfed sources add: adds Atom source successfully" {
-    run newsfed sources add --type=atom --url=https://example.com/atom.xml --name="Test Atom Feed"
+    run newsfed sources add -type=atom -url=https://example.com/atom.xml -name="Test Atom Feed"
     assert_success
     assert_output_contains "Created source:"
     assert_output_contains "Type: atom"
@@ -56,44 +56,44 @@ setup() {
 }
 EOF
 
-    run newsfed sources add --type=website --url=https://example.com/articles --name="Test Website" --config="$TEST_DIR/scraper-config.json"
+    run newsfed sources add -type=website -url=https://example.com/articles -name="Test Website" -config="$TEST_DIR/scraper-config.json"
     assert_success
     assert_output_contains "Created source:"
     assert_output_contains "Scraper: Configured"
 }
 
-@test "newsfed sources add: requires --type flag" {
-    run newsfed sources add --url=https://example.com/test.xml --name="Missing Type"
+@test "newsfed sources add: requires -type flag" {
+    run newsfed sources add -url=https://example.com/test.xml -name="Missing Type"
     assert_failure
-    assert_output_contains "Error: --type is required"
+    assert_output_contains "Error: -type is required"
 }
 
-@test "newsfed sources add: requires --url flag" {
-    run newsfed sources add --type=rss --name="Missing URL"
+@test "newsfed sources add: requires -url flag" {
+    run newsfed sources add -type=rss -name="Missing URL"
     assert_failure
-    assert_output_contains "Error: --url is required"
+    assert_output_contains "Error: -url is required"
 }
 
-@test "newsfed sources add: requires --name flag" {
-    run newsfed sources add --type=rss --url=https://example.com/test.xml
+@test "newsfed sources add: requires -name flag" {
+    run newsfed sources add -type=rss -url=https://example.com/test.xml
     assert_failure
-    assert_output_contains "Error: --name is required"
+    assert_output_contains "Error: -name is required"
 }
 
 @test "newsfed sources add: rejects invalid source type" {
-    run newsfed sources add --type=invalid --url=https://example.com/test.xml --name="Invalid Type"
+    run newsfed sources add -type=invalid -url=https://example.com/test.xml -name="Invalid Type"
     assert_failure
-    assert_output_contains "Error: --type must be"
+    assert_output_contains "Error: -type must be"
 }
 
 @test "newsfed sources add: requires config for website sources" {
-    run newsfed sources add --type=website --url=https://example.com/test --name="No Config"
+    run newsfed sources add -type=website -url=https://example.com/test -name="No Config"
     assert_failure
-    assert_output_contains "Error: --config is required for website sources"
+    assert_output_contains "Error: -config is required for website sources"
 }
 
 @test "newsfed sources add: source is enabled by default" {
-    run newsfed sources add --type=rss --url=https://example.com/enabled-test.xml --name="Enabled Test"
+    run newsfed sources add -type=rss -url=https://example.com/enabled-test.xml -name="Enabled Test"
     assert_success
 
     source_id=$(extract_uuid "$output")
@@ -106,8 +106,8 @@ EOF
 
 @test "newsfed sources list: shows all sources" {
     # Add a couple of sources first
-    newsfed sources add --type=rss --url=https://example.com/list-test1.xml --name="List Test 1" > /dev/null
-    newsfed sources add --type=atom --url=https://example.com/list-test2.xml --name="List Test 2" > /dev/null
+    newsfed sources add -type=rss -url=https://example.com/list-test1.xml -name="List Test 1" > /dev/null
+    newsfed sources add -type=atom -url=https://example.com/list-test2.xml -name="List Test 2" > /dev/null
 
     run newsfed sources list
     assert_success
@@ -135,7 +135,7 @@ EOF
 
 @test "newsfed sources show: displays source details" {
     # Add a source first
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/show-test.xml --name="Show Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/show-test.xml -name="Show Test")
     source_id=$(extract_uuid "$output_add")
 
     run newsfed sources show "$source_id"
@@ -158,10 +158,10 @@ EOF
 
 @test "newsfed sources update: updates source name" {
     # Add a source first
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/update-test.xml --name="Update Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/update-test.xml -name="Update Test")
     source_id=$(extract_uuid "$output_add")
 
-    run newsfed sources update "$source_id" --name="Updated Name"
+    run newsfed sources update "$source_id" -name="Updated Name"
     assert_success
     assert_output_contains "Updated source:"
 
@@ -171,10 +171,10 @@ EOF
 }
 
 @test "newsfed sources update: updates polling interval" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/interval-test.xml --name="Interval Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/interval-test.xml -name="Interval Test")
     source_id=$(extract_uuid "$output_add")
 
-    run newsfed sources update "$source_id" --interval=2h
+    run newsfed sources update "$source_id" -interval=2h
     assert_success
     assert_output_contains "Updated source:"
     assert_output_contains "Interval: 2h"
@@ -185,10 +185,10 @@ EOF
 }
 
 @test "newsfed sources update: updates multiple fields at once" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/multi-update.xml --name="Multi Update Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/multi-update.xml -name="Multi Update Test")
     source_id=$(extract_uuid "$output_add")
 
-    run newsfed sources update "$source_id" --name="New Multi Name" --interval=1h
+    run newsfed sources update "$source_id" -name="New Multi Name" -interval=1h
     assert_success
     assert_output_contains "Updated source:"
 
@@ -210,7 +210,7 @@ EOF
 }
 EOF
 
-    output_add=$(newsfed sources add --type=website --url=https://example.com/update-website --name="Website Update Test" --config="$TEST_DIR/initial-config.json")
+    output_add=$(newsfed sources add -type=website -url=https://example.com/update-website -name="Website Update Test" -config="$TEST_DIR/initial-config.json")
     source_id=$(extract_uuid "$output_add")
 
     # Create updated config
@@ -224,7 +224,7 @@ EOF
 }
 EOF
 
-    run newsfed sources update "$source_id" --config="$TEST_DIR/updated-config.json"
+    run newsfed sources update "$source_id" -config="$TEST_DIR/updated-config.json"
     assert_success
     assert_output_contains "Scraper: Updated"
 
@@ -240,7 +240,7 @@ EOF
 }
 
 @test "newsfed sources update: requires at least one update flag" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/no-flags.xml --name="No Flags Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/no-flags.xml -name="No Flags Test")
     source_id=$(extract_uuid "$output_add")
 
     run newsfed sources update "$source_id"
@@ -249,22 +249,22 @@ EOF
 }
 
 @test "newsfed sources update: validates interval format" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/bad-interval.xml --name="Bad Interval Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/bad-interval.xml -name="Bad Interval Test")
     source_id=$(extract_uuid "$output_add")
 
-    run newsfed sources update "$source_id" --interval=invalid
+    run newsfed sources update "$source_id" -interval=invalid
     assert_failure
     assert_output_contains "Error: invalid interval format"
 }
 
 @test "newsfed sources update: validates source ID format" {
-    run newsfed sources update "invalid-uuid" --name="Test"
+    run newsfed sources update "invalid-uuid" -name="Test"
     assert_failure
     assert_output_contains "Error: invalid source ID"
 }
 
 @test "newsfed sources update: handles non-existent source" {
-    run newsfed sources update "00000000-0000-0000-0000-000000000000" --name="New Name"
+    run newsfed sources update "00000000-0000-0000-0000-000000000000" -name="New Name"
     assert_failure
     assert_output_contains "Error:"
 }
@@ -272,7 +272,7 @@ EOF
 # Test: Enable and disable sources
 
 @test "newsfed sources disable: disables a source" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/disable-test.xml --name="Disable Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/disable-test.xml -name="Disable Test")
     source_id=$(extract_uuid "$output_add")
 
     run newsfed sources disable "$source_id"
@@ -285,7 +285,7 @@ EOF
 }
 
 @test "newsfed sources enable: enables a disabled source" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/enable-test.xml --name="Enable Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/enable-test.xml -name="Enable Test")
     source_id=$(extract_uuid "$output_add")
 
     newsfed sources disable "$source_id" > /dev/null
@@ -302,7 +302,7 @@ EOF
 # Test: Delete sources
 
 @test "newsfed sources delete: deletes a source" {
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/delete-test.xml --name="Delete Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/delete-test.xml -name="Delete Test")
     source_id=$(extract_uuid "$output_add")
 
     run newsfed sources delete "$source_id"
@@ -333,9 +333,9 @@ EOF
     start_mock_server "$TEST_DIR/www"
 
     # Add a source pointing to mock server
-    newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
-        --name="Mock RSS" > /dev/null
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed.xml" \
+        -name="Mock RSS" > /dev/null
 
     # Run sync
     run newsfed sync
@@ -363,9 +363,9 @@ EOF
     start_mock_server "$TEST_DIR/www"
 
     # Add a source and capture its ID
-    output_add=$(newsfed sources add --type=rss \
-        --url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed2.xml" \
-        --name="Specific Source")
+    output_add=$(newsfed sources add -type=rss \
+        -url="http://127.0.0.1:${MOCK_SERVER_PORT}/feed2.xml" \
+        -name="Specific Source")
     source_id=$(extract_uuid "$output_add")
 
     # Run sync with specific source ID
@@ -400,7 +400,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source and mark it as recently fetched
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/healthy.xml --name="Healthy Source")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/healthy.xml -name="Healthy Source")
     source_id=$(extract_uuid "$output_add")
 
     # Update last_fetched_at to be recent (1 hour ago)
@@ -420,7 +420,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source and set error count
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/error.xml --name="Error Source")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/error.xml -name="Error Source")
     source_id=$(extract_uuid "$output_add")
 
     # Update to have errors
@@ -441,7 +441,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source (it will have last_fetched_at = NULL by default)
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/never.xml --name="Never Fetched")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/never.xml -name="Never Fetched")
 
     run newsfed sources status
     assert_success
@@ -456,7 +456,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source and set last_fetched_at to 48 hours ago
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/stale.xml --name="Stale Source")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/stale.xml -name="Stale Source")
     source_id=$(extract_uuid "$output_add")
 
     stale_time=$(timestamp_days_ago 2)
@@ -475,7 +475,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source and disable it
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/disabled.xml --name="Disabled Source")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/disabled.xml -name="Disabled Source")
     source_id=$(extract_uuid "$output_add")
 
     newsfed sources disable "$source_id" > /dev/null
@@ -493,7 +493,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source with a long error message
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/verbose.xml --name="Verbose Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/verbose.xml -name="Verbose Test")
     source_id=$(extract_uuid "$output_add")
 
     long_error="This is a very long error message that exceeds 80 characters and should be truncated in normal mode but shown in full with verbose"
@@ -506,7 +506,7 @@ EOF
     assert_output_contains "Last Error:"
 
     # Test with verbose (should show full message)
-    run newsfed sources status --verbose
+    run newsfed sources status -verbose
     assert_success
     assert_output_contains "This is a very long error message that exceeds 80 characters"
 }
@@ -517,27 +517,27 @@ EOF
     newsfed init > /dev/null
 
     # Add healthy source
-    output_healthy=$(newsfed sources add --type=rss --url=https://example.com/h.xml --name="Healthy")
+    output_healthy=$(newsfed sources add -type=rss -url=https://example.com/h.xml -name="Healthy")
     id_healthy=$(extract_uuid "$output_healthy")
     recent_time=$(timestamp_hours_ago 1)
     exec_sqlite "UPDATE sources SET last_fetched_at = '$recent_time' WHERE source_id = '$id_healthy'"
 
     # Add source with errors
-    output_error=$(newsfed sources add --type=rss --url=https://example.com/e.xml --name="With Errors")
+    output_error=$(newsfed sources add -type=rss -url=https://example.com/e.xml -name="With Errors")
     id_error=$(extract_uuid "$output_error")
     exec_sqlite "UPDATE sources SET fetch_error_count = 2 WHERE source_id = '$id_error'"
 
     # Add never fetched source
-    newsfed sources add --type=rss --url=https://example.com/n.xml --name="Never Fetched" > /dev/null
+    newsfed sources add -type=rss -url=https://example.com/n.xml -name="Never Fetched" > /dev/null
 
     # Add stale source
-    output_stale=$(newsfed sources add --type=atom --url=https://example.com/s.xml --name="Stale")
+    output_stale=$(newsfed sources add -type=atom -url=https://example.com/s.xml -name="Stale")
     id_stale=$(extract_uuid "$output_stale")
     stale_time=$(timestamp_days_ago 3)
     exec_sqlite "UPDATE sources SET last_fetched_at = '$stale_time' WHERE source_id = '$id_stale'"
 
     # Add disabled source
-    output_disabled=$(newsfed sources add --type=rss --url=https://example.com/d.xml --name="Disabled")
+    output_disabled=$(newsfed sources add -type=rss -url=https://example.com/d.xml -name="Disabled")
     id_disabled=$(extract_uuid "$output_disabled")
     newsfed sources disable "$id_disabled" > /dev/null
 
@@ -556,7 +556,7 @@ EOF
     newsfed init > /dev/null
 
     # Add a source with errors
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/suggest.xml --name="Needs Action")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/suggest.xml -name="Needs Action")
     source_id=$(extract_uuid "$output_add")
     exec_sqlite "UPDATE sources SET fetch_error_count = 1 WHERE source_id = '$source_id'"
 
@@ -574,7 +574,7 @@ EOF
     rm -f "$NEWSFED_METADATA_DSN"
     newsfed init > /dev/null
 
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/clean.xml --name="Clean Source")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/clean.xml -name="Clean Source")
     source_id=$(extract_uuid "$output_add")
 
     run newsfed sources errors "$source_id"
@@ -588,7 +588,7 @@ EOF
     rm -f "$NEWSFED_METADATA_DSN"
     newsfed init > /dev/null
 
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/errors.xml --name="Error Source")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/errors.xml -name="Error Source")
     source_id=$(extract_uuid "$output_add")
 
     # Insert errors directly into the source_errors table
@@ -607,7 +607,7 @@ EOF
     rm -f "$NEWSFED_METADATA_DSN"
     newsfed init > /dev/null
 
-    output_add=$(newsfed sources add --type=rss --url=https://example.com/order.xml --name="Order Test")
+    output_add=$(newsfed sources add -type=rss -url=https://example.com/order.xml -name="Order Test")
     source_id=$(extract_uuid "$output_add")
 
     exec_sqlite "INSERT INTO source_errors (source_id, error, occurred_at) VALUES ('$source_id', 'First error', '2026-02-10T08:00:00Z')"

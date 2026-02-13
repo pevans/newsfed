@@ -110,15 +110,15 @@ teardown_file() {
 
 # Filter tests
 
-@test "newsfed list --all: shows all items including old ones" {
-    run newsfed list --all
+@test "newsfed list -all: shows all items including old ones" {
+    run newsfed list -all
     assert_success
     assert_output_contains "Old Article from Publisher A"
     assert_output_contains "Recent Article from Publisher A"
 }
 
-@test "newsfed list --publisher: filters by publisher" {
-    run newsfed list --all --publisher="Publisher A"
+@test "newsfed list -publisher: filters by publisher" {
+    run newsfed list -all -publisher="Publisher A"
     assert_success
     assert_output_contains "Recent Article from Publisher A"
     assert_output_contains "Old Article from Publisher A"
@@ -126,8 +126,8 @@ teardown_file() {
     assert_output_not_contains "Publisher C"
 }
 
-@test "newsfed list --pinned: shows only pinned items" {
-    run newsfed list --pinned
+@test "newsfed list -pinned: shows only pinned items" {
+    run newsfed list -pinned
     assert_success
     assert_output_contains "Recent Pinned Article"
     assert_output_contains "Old Pinned Article"
@@ -137,56 +137,56 @@ teardown_file() {
 # Sorting tests
 
 @test "newsfed list: default sort is by published_at descending" {
-    run newsfed list --all
+    run newsfed list -all
     assert_success
     # Should show newest first
     # This is a simplified test - in practice you'd check order
 }
 
-@test "newsfed list --sort=published: sorts by published date" {
-    run newsfed list --all --sort=published
+@test "newsfed list -sort=published: sorts by published date" {
+    run newsfed list -all -sort=published
     assert_success
     # Items should be sorted by published date
 }
 
-@test "newsfed list --sort=discovered: sorts by discovered date" {
-    run newsfed list --all --sort=discovered
+@test "newsfed list -sort=discovered: sorts by discovered date" {
+    run newsfed list -all -sort=discovered
     assert_success
     # Items should be sorted by discovered date
 }
 
 # Pagination tests
 
-@test "newsfed list --limit: limits number of results" {
-    run newsfed list --all --limit=2
+@test "newsfed list -limit: limits number of results" {
+    run newsfed list -all -limit=2
     assert_success
     # Should only show 2 items (harder to test without counting)
 }
 
-@test "newsfed list --offset: skips specified number of items" {
-    run newsfed list --all --offset=3
+@test "newsfed list -offset: skips specified number of items" {
+    run newsfed list -all -offset=3
     assert_success
     # Should skip first 3 items
 }
 
 # Format tests
 
-@test "newsfed list --format=json: outputs valid JSON" {
-    run newsfed list --format=json
+@test "newsfed list -format=json: outputs valid JSON" {
+    run newsfed list -format=json
     assert_success
     # Output should be valid JSON
     run bash -c "echo '$output' | python3 -m json.tool > /dev/null 2>&1"
     assert_success
 }
 
-@test "newsfed list --format=compact: shows compact format" {
-    run newsfed list --format=compact
+@test "newsfed list -format=compact: shows compact format" {
+    run newsfed list -format=compact
     assert_success
     # Compact format should be shorter/different from default
 }
 
-@test "newsfed list --format=table: shows table format (default)" {
-    run newsfed list --format=table
+@test "newsfed list -format=table: shows table format (default)" {
+    run newsfed list -format=table
     assert_success
     # Should show table format
 }

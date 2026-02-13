@@ -101,7 +101,7 @@ setup() {
 @test "newsfed sources add: database retains 0600 permissions after source operations" {
     newsfed init > /dev/null 2>&1
 
-    newsfed sources add --type=rss --url="https://example.com/feed.xml" --name="Test Feed" > /dev/null 2>&1
+    newsfed sources add -type=rss -url="https://example.com/feed.xml" -name="Test Feed" > /dev/null 2>&1
 
     perm=$(stat -f '%Lp' "$NEWSFED_METADATA_DSN" 2>/dev/null || stat -c '%a' "$NEWSFED_METADATA_DSN" 2>/dev/null)
     [ "$perm" = "600" ]
@@ -109,7 +109,7 @@ setup() {
 
 @test "newsfed sources add: implicitly created database gets 0600 permissions" {
     # Don't run init -- let sources add create the database implicitly
-    run newsfed sources add --type=rss --url="https://example.com/feed.xml" --name="Test Feed"
+    run newsfed sources add -type=rss -url="https://example.com/feed.xml" -name="Test Feed"
     assert_success
 
     perm=$(stat -f '%Lp' "$NEWSFED_METADATA_DSN" 2>/dev/null || stat -c '%a' "$NEWSFED_METADATA_DSN" 2>/dev/null)

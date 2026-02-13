@@ -46,12 +46,12 @@ setup() {
     [ "$content" = "original" ]
 }
 
-@test "newsfed init --force: recreates config file" {
+@test "newsfed init -force: recreates config file" {
     export HOME="$TEST_DIR/fakehome"
     mkdir -p "$HOME/.newsfed"
     echo "original" > "$HOME/.newsfed/config.yaml"
 
-    run newsfed init --force
+    run newsfed init -force
     assert_success
 
     # Verify content was overwritten with default config
@@ -165,10 +165,10 @@ setup() {
     assert_output_contains "functional but has warnings"
 }
 
-@test "newsfed doctor --verbose: shows detailed diagnostic information" {
+@test "newsfed doctor -verbose: shows detailed diagnostic information" {
     newsfed init > /dev/null 2>&1
 
-    run newsfed doctor --verbose
+    run newsfed doctor -verbose
     assert_success
     assert_output_contains "Permissions:"
 }

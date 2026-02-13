@@ -137,19 +137,19 @@ teardown_file() {
 }
 
 @test "newsfed errors: validates required flags" {
-    run newsfed sources add --url=https://example.com/feed.xml
+    run newsfed sources add -url=https://example.com/feed.xml
     assert_failure
     assert_output_contains "Error"
 }
 
 @test "newsfed errors: validates URL format" {
-    run newsfed sources add --type=rss --url="not a url" --name="Test"
+    run newsfed sources add -type=rss -url="not a url" -name="Test"
     assert_failure
     assert_output_contains "Error"
 }
 
 @test "newsfed errors: validates enum values" {
-    run newsfed sources add --type=invalid --url=https://example.com/feed.xml --name="Test"
+    run newsfed sources add -type=invalid -url=https://example.com/feed.xml -name="Test"
     assert_failure
     assert_output_contains "Error"
 }
@@ -174,7 +174,7 @@ teardown_file() {
     # Create a corrupted JSON file
     echo "not valid json" > "$NEWSFED_FEED_DSN/cccccccc-cccc-cccc-cccc-cccccccccccc.json"
 
-    run newsfed list --all
+    run newsfed list -all
     assert_success
     # Valid items are displayed
     assert_output_contains "Valid Article One"
@@ -199,7 +199,7 @@ teardown_file() {
     echo "{bad" > "$NEWSFED_FEED_DSN/bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb.json"
     echo "" > "$NEWSFED_FEED_DSN/cccccccc-cccc-cccc-cccc-cccccccccccc.json"
 
-    run newsfed list --all
+    run newsfed list -all
     assert_success
     assert_output_contains "The Good Article"
     assert_output_contains "2 item(s) could not be read"
@@ -227,7 +227,7 @@ teardown_file() {
     assert_output_not_contains "goroutine"
 
     # Test 4: Invalid source type
-    run newsfed sources add --type=invalid --url=https://example.com --name="Test"
+    run newsfed sources add -type=invalid -url=https://example.com -name="Test"
     assert_output_not_contains "panic:"
     assert_output_not_contains "goroutine"
 }

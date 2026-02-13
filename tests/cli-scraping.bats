@@ -62,7 +62,7 @@ teardown() {
 # Count items in the local news feed via JSON output
 count_feed_items() {
     local out
-    out=$(newsfed list --all --format=json --limit=1000)
+    out=$(newsfed list -all -format=json -limit=1000)
     # Handle case when there are no items
     if echo "$out" | grep -q "No items to display"; then
         echo "0"
@@ -84,7 +84,7 @@ add_scraper_source() {
 
     # For now, sources add command may not support scraper_config directly
     # We'll add basic website source and update config via sqlite if needed
-    newsfed sources add --type=website --name="$name" --url="$url"
+    newsfed sources add -type=website -name="$name" -url="$url"
 }
 
 # ── Section 2.1: Scraper Source Definition ───────────────────────────────────
@@ -93,10 +93,10 @@ add_scraper_source() {
     # Create a minimal scraper config
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
-    run newsfed sources add --type=website \
-        --name="Test Scraper" \
-        --url="http://example.com/articles" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Test Scraper" \
+        -url="http://example.com/articles" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     assert_output_contains "Created source"
@@ -141,10 +141,10 @@ add_scraper_source() {
 
 
     # Add website source pointing directly to the article
-    run newsfed sources add --type=website \
-        --name="Direct Article" \
-        --url="${WWW_URL}/article.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Direct Article" \
+        -url="${WWW_URL}/article.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -154,7 +154,7 @@ add_scraper_source() {
     [ "$status" -eq 0 ]
 
     # Verify article appears in feed
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Test Article"
 }
@@ -190,10 +190,10 @@ add_scraper_source() {
         "2006-01-02T15:04:05Z07:00"
 
     # Add website source in list mode
-    run newsfed sources add --type=website \
-        --name="Article List" \
-        --url="${WWW_URL}/index.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Article List" \
+        -url="${WWW_URL}/index.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -208,7 +208,7 @@ add_scraper_source() {
     [ "$count" -eq 3 ]
 
     # Verify individual articles
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Article 1"
     assert_output_contains "Article 2"
@@ -246,10 +246,10 @@ add_scraper_source() {
         ".article-content"
 
     # Add website source
-    run newsfed sources add --type=website \
-        --name="Paginated List" \
-        --url="${WWW_URL}/page1.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Paginated List" \
+        -url="${WWW_URL}/page1.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -296,10 +296,10 @@ add_scraper_source() {
         ".article-content"
 
     # Add website source
-    run newsfed sources add --type=website \
-        --name="Max Pages Test" \
-        --url="${WWW_URL}/page1.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Max Pages Test" \
+        -url="${WWW_URL}/page1.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -345,10 +345,10 @@ EOF
         "2006-01-02T15:04:05Z07:00"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Custom Selectors" \
-        --url="${WWW_URL}/selectors.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Custom Selectors" \
+        -url="${WWW_URL}/selectors.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -357,7 +357,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify fields extracted correctly
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Title from ID selector"
     assert_output_contains "Content from descendant combinator"
@@ -387,10 +387,10 @@ EOF
         ".nonexistent-date"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Missing Selectors" \
-        --url="${WWW_URL}/minimal.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Missing Selectors" \
+        -url="${WWW_URL}/minimal.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -400,7 +400,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Should have used fallbacks (title: "(No title)", content: empty)
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "No title"
 }
@@ -424,10 +424,10 @@ EOF
 
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Complete Test" \
-        --url="${WWW_URL}/full-article.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Complete Test" \
+        -url="${WWW_URL}/full-article.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -436,7 +436,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify all fields extracted correctly
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
 
     # Parse JSON and verify fields
@@ -484,10 +484,10 @@ if len(data['items']) > 0:
         ".article-content"
 
     # Add website source
-    run newsfed sources add --type=website \
-        --name="Many Articles Test" \
-        --url="${WWW_URL}/many-articles.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Many Articles Test" \
+        -url="${WWW_URL}/many-articles.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -523,10 +523,10 @@ if len(data['items']) > 0:
         1
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Regular Polling Test" \
-        --url="${WWW_URL}/articles.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Regular Polling Test" \
+        -url="${WWW_URL}/articles.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -581,10 +581,10 @@ if len(data['items']) > 0:
         ".article-link"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Stale Source Test" \
-        --url="${WWW_URL}/stale-test.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Stale Source Test" \
+        -url="${WWW_URL}/stale-test.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -629,10 +629,10 @@ if len(data['items']) > 0:
         ".article-link"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Not Stale Test" \
-        --url="${WWW_URL}/not-stale.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Not Stale Test" \
+        -url="${WWW_URL}/not-stale.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -703,10 +703,10 @@ if len(data['items']) > 0:
         5
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Pagination Limit Test" \
-        --url="${WWW_URL}/page1.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Pagination Limit Test" \
+        -url="${WWW_URL}/page1.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -727,10 +727,10 @@ if len(data['items']) > 0:
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add source with non-existent URL (port 9999 unlikely to be in use)
-    run newsfed sources add --type=website \
-        --name="404 Source" \
-        --url="http://127.0.0.1:9999/nonexistent.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="404 Source" \
+        -url="http://127.0.0.1:9999/nonexistent.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -770,10 +770,10 @@ if len(data['items']) > 0:
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add source pointing to redirect server
-    run newsfed sources add --type=website \
-        --name="Redirect Test" \
-        --url="http://127.0.0.1:${REDIRECT_MOCK_SERVER_PORT}/redirect" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Redirect Test" \
+        -url="http://127.0.0.1:${REDIRECT_MOCK_SERVER_PORT}/redirect" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -783,7 +783,7 @@ if len(data['items']) > 0:
     [ "$status" -eq 0 ]
 
     # Verify we got the redirected content
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Redirected Article"
 
@@ -809,10 +809,10 @@ if len(data['items']) > 0:
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Redirect Test 2" \
-        --url="http://127.0.0.1:${REDIRECT_MOCK_SERVER_PORT}/" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Redirect Test 2" \
+        -url="http://127.0.0.1:${REDIRECT_MOCK_SERVER_PORT}/" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -821,7 +821,7 @@ if len(data['items']) > 0:
     [ "$status" -eq 0 ]
 
     # Verify content from final URL
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Final Destination"
 
@@ -845,10 +845,10 @@ if len(data['items']) > 0:
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="UA Test" \
-        --url="http://127.0.0.1:${LOGGING_MOCK_SERVER_PORT}/ua-test.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="UA Test" \
+        -url="http://127.0.0.1:${LOGGING_MOCK_SERVER_PORT}/ua-test.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -891,10 +891,10 @@ if len(data['items']) > 0:
         ".article-link"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Rate Limit Test" \
-        --url="${WWW_URL}/rate-limit.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Rate Limit Test" \
+        -url="${WWW_URL}/rate-limit.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -930,10 +930,10 @@ if len(data['items']) > 0:
         ".article-link"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Sequential Test" \
-        --url="${WWW_URL}/sequential.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Sequential Test" \
+        -url="${WWW_URL}/sequential.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -967,10 +967,10 @@ EOF
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Whitespace Test" \
-        --url="${WWW_URL}/whitespace.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Whitespace Test" \
+        -url="${WWW_URL}/whitespace.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -979,7 +979,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify title whitespace was normalized
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Title with extra whitespace"
     # Should NOT have multiple spaces
@@ -1003,10 +1003,10 @@ EOF
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="No Title Test" \
-        --url="${WWW_URL}/no-title.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="No Title Test" \
+        -url="${WWW_URL}/no-title.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1015,7 +1015,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Should use "(No title)" fallback
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "No title"
 }
@@ -1040,10 +1040,10 @@ EOF
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Long Content Test" \
-        --url="${WWW_URL}/long-content.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Long Content Test" \
+        -url="${WWW_URL}/long-content.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1052,7 +1052,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify article exists
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Long Content Article"
 
@@ -1088,10 +1088,10 @@ EOF
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Very Long Test" \
-        --url="${WWW_URL}/very-long.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Very Long Test" \
+        -url="${WWW_URL}/very-long.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1100,7 +1100,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Summary should be truncated
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Very Long Article"
 
@@ -1136,10 +1136,10 @@ EOF
         ".author-name"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Multi-Author Test" \
-        --url="${WWW_URL}/multi-author.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Multi-Author Test" \
+        -url="${WWW_URL}/multi-author.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1148,7 +1148,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify both authors extracted
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Alice Smith"
     assert_output_contains "Bob Jones"
@@ -1175,10 +1175,10 @@ EOF
         ".author-name"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Comma Authors Test" \
-        --url="${WWW_URL}/comma-authors.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Comma Authors Test" \
+        -url="${WWW_URL}/comma-authors.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1187,7 +1187,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify both authors parsed from comma-separated string
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Alice Smith"
     assert_output_contains "Bob Jones"
@@ -1216,10 +1216,10 @@ EOF
         "January 2, 2006"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Custom Date Test" \
-        --url="${WWW_URL}/custom-date.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Custom Date Test" \
+        -url="${WWW_URL}/custom-date.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1228,7 +1228,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify date was parsed correctly
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "2025-01-15"
 }
@@ -1256,10 +1256,10 @@ EOF
         "2006-01-02"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Bad Date Test" \
-        --url="${WWW_URL}/bad-date.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Bad Date Test" \
+        -url="${WWW_URL}/bad-date.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1268,7 +1268,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Should have used current time as fallback
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     # Verify article exists (with fallback date)
     assert_output_contains "Article with Invalid Date"
@@ -1285,10 +1285,10 @@ EOF
         ".content"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Broken HTML Test" \
-        --url="${WWW_URL}/broken.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Broken HTML Test" \
+        -url="${WWW_URL}/broken.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1298,7 +1298,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify article was added (even if fields couldn't be extracted properly)
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     # goquery may not extract text from unclosed tags, so we might get fallback
     local count
@@ -1333,10 +1333,10 @@ EOF
         ".date"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Sparse Test" \
-        --url="${WWW_URL}/sparse.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Sparse Test" \
+        -url="${WWW_URL}/sparse.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1346,7 +1346,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Verify article exists with whatever fields were found
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Title Only Article"
 }
@@ -1370,10 +1370,10 @@ EOF
 
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Field Mapping Test" \
-        --url="${WWW_URL}/mapping-test.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Field Mapping Test" \
+        -url="${WWW_URL}/mapping-test.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1382,7 +1382,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Get the item
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
 
     # Verify spec-3 section 4.1 field mapping:
@@ -1428,10 +1428,10 @@ print('Field mapping verified')
 
 
     # Add website source
-    run newsfed sources add --type=website \
-        --name="Dedup Test" \
-        --url="${WWW_URL}/dedup-test.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Dedup Test" \
+        -url="${WWW_URL}/dedup-test.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1461,7 +1461,7 @@ print('Field mapping verified')
     [ "$count" -eq 1 ]
 
     # Original title should be unchanged (no update on re-sync)
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Deduplication Test"
     assert_output_not_contains "Modified Title"
@@ -1479,10 +1479,10 @@ print('Field mapping verified')
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add website source
-    run newsfed sources add --type=website \
-        --name="URL Dedup Test" \
-        --url="${WWW_URL}/url-dedup.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="URL Dedup Test" \
+        -url="${WWW_URL}/url-dedup.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1510,7 +1510,7 @@ print('Field mapping verified')
     [ "$count" -eq 1 ]
 
     # Original title should remain (URL-based deduplication)
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Original Title"
     assert_output_not_contains "Different Title"
@@ -1530,10 +1530,10 @@ print('Field mapping verified')
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add source
-    run newsfed sources add --type=website \
-        --name="Timestamp Track Test" \
-        --url="${WWW_URL}/track-test.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Timestamp Track Test" \
+        -url="${WWW_URL}/track-test.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1586,10 +1586,10 @@ EOF
     create_scraper_config_direct "$ISOLATION_DIR/scraper-config.json"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="Long Title Test" \
-        --url="${WWW_URL}/long-title.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="Long Title Test" \
+        -url="${WWW_URL}/long-title.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1623,10 +1623,10 @@ EOF
         ".article-content"
 
     # Add and sync source
-    run newsfed sources add --type=website \
-        --name="No Content Test" \
-        --url="${WWW_URL}/no-content.html" \
-        --config="$ISOLATION_DIR/scraper-config.json"
+    run newsfed sources add -type=website \
+        -name="No Content Test" \
+        -url="${WWW_URL}/no-content.html" \
+        -config="$ISOLATION_DIR/scraper-config.json"
 
     [ "$status" -eq 0 ]
     source_id=$(extract_uuid "$output")
@@ -1636,7 +1636,7 @@ EOF
     [ "$status" -eq 0 ]
 
     # Should have article with empty content
-    run newsfed list --all --format=json
+    run newsfed list -all -format=json
     [ "$status" -eq 0 ]
     assert_output_contains "Title Without Content"
 }

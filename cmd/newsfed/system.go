@@ -336,7 +336,7 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 	} else if hasWarnings {
 		fmt.Println("✓ Storage is functional but has warnings")
 		if !*verbose {
-			fmt.Println("  Run 'newsfed doctor --verbose' for more details")
+			fmt.Println("  Run 'newsfed doctor -verbose' for more details")
 		}
 	} else {
 		fmt.Println("✓ All checks passed")

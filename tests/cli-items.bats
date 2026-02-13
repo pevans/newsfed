@@ -218,8 +218,8 @@ teardown_file() {
     # Get platform-specific default browser
     local default_browser=$(get_default_browser)
 
-    # Use --echo to print command instead of executing
-    run newsfed open --echo 11111111-1111-1111-1111-111111111111
+    # Use -echo to print command instead of executing
+    run newsfed open -echo 11111111-1111-1111-1111-111111111111
     assert_success
     assert_output_contains "$default_browser"
     assert_output_contains "https://example.com/test-article"
@@ -230,7 +230,7 @@ teardown_file() {
     exec_sqlite "CREATE TABLE IF NOT EXISTS config (key TEXT PRIMARY KEY, value TEXT NOT NULL);"
     exec_sqlite "INSERT OR REPLACE INTO config (key, value) VALUES ('browser_command', 'firefox');"
 
-    run newsfed open --echo 11111111-1111-1111-1111-111111111111
+    run newsfed open -echo 11111111-1111-1111-1111-111111111111
     assert_success
     assert_output_contains "firefox"
     assert_output_contains "https://example.com/test-article"
@@ -238,7 +238,7 @@ teardown_file() {
 
 @test "newsfed open: custom browser persists across different items" {
     # Browser config should still be firefox from previous test
-    run newsfed open --echo 22222222-2222-2222-2222-222222222222
+    run newsfed open -echo 22222222-2222-2222-2222-222222222222
     assert_success
     assert_output_contains "firefox"
     assert_output_contains "https://example.com/pinned-article"
@@ -248,7 +248,7 @@ teardown_file() {
     # Update to a different browser
     exec_sqlite "INSERT OR REPLACE INTO config (key, value) VALUES ('browser_command', 'chromium');"
 
-    run newsfed open --echo 11111111-1111-1111-1111-111111111111
+    run newsfed open -echo 11111111-1111-1111-1111-111111111111
     assert_success
     assert_output_contains "chromium"
     assert_output_contains "https://example.com/test-article"
@@ -260,7 +260,7 @@ teardown_file() {
 
     local default_browser=$(get_default_browser)
 
-    run newsfed open --echo 11111111-1111-1111-1111-111111111111
+    run newsfed open -echo 11111111-1111-1111-1111-111111111111
     assert_success
     assert_output_contains "$default_browser"
     assert_output_contains "https://example.com/test-article"
