@@ -47,7 +47,13 @@ func handleSync(metadataPath, feedDir string, args []string) {
 
 	// Create discovery service
 	config := &discovery.DiscoveryConfig{
-		FetchTimeout: 60 * time.Second,
+		FetchTimeout:      60 * time.Second,
+		RateLimitInterval: 1 * time.Second,
+	}
+	if envInterval := os.Getenv("NEWSFED_RATE_LIMIT_INTERVAL"); envInterval != "" {
+		if d, err := time.ParseDuration(envInterval); err == nil {
+			config.RateLimitInterval = d
+		}
 	}
 	service := discovery.NewDiscoveryService(sourceStore, newsFeed, config)
 

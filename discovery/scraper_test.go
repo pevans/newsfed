@@ -452,7 +452,7 @@ func TestExtractArticle_MissingElements(t *testing.T) {
 	article, err := ExtractArticle(doc, config, "http://example.com")
 	require.NoError(t, err)
 
-	assert.Empty(t, article.Title, "should have empty title if selector doesn't match")
+	assert.Equal(t, "(No title)", article.Title, "should use fallback title if selector doesn't match")
 	assert.Empty(t, article.Content, "should have empty content if selector doesn't match")
 }
 

@@ -377,3 +377,170 @@ specs:
       - section: "12"
         title: Relationship to Other Specifications
         testable: false
+
+  - spec: spec-3
+    title: Web Scraping Ingestion
+    sections:
+      - section: "1"
+        title: Web Scraping Ingestion
+        testable: false
+
+      - section: "2"
+        title: Scraping Source Configuration
+        testable: false
+
+      - section: "2.1"
+        title: Scraper Source Definition
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: adds website source with scraper config"
+          # Cross-referenced from spec-8 website source tests
+          - "tests/cli-sources.bats::newsfed sources add: adds website source"
+          - "tests/cli-sources.bats::newsfed sources show: displays source details"
+
+      - section: "2.2"
+        title: Scraper Configuration Structure
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: direct mode scrapes single article"
+          - "tests/cli-scraping.bats::scraping: list mode discovers articles from index page"
+          - "tests/cli-scraping.bats::scraping: list mode follows pagination"
+          - "tests/cli-scraping.bats::scraping: list mode respects max_pages limit"
+
+      - section: "2.3"
+        title: Selector Syntax
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: extracts data using CSS selectors"
+          - "tests/cli-scraping.bats::scraping: handles missing selectors gracefully"
+
+      - section: "3"
+        title: Scraping Process
+        testable: false
+
+      - section: "3.1"
+        title: Discovery and Extraction Flow
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: full scraping flow extracts all fields"
+          # Cross-referenced from spec-2 ingestion flow
+          - "tests/cli-ingestion.bats::ingestion: synced RSS items appear in news feed"
+
+      - section: "3.1.1"
+        title: Article Limiting
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: first sync limits to 20 articles"
+          - "tests/cli-scraping.bats::scraping: regular polling catches all new articles"
+          - "tests/cli-scraping.bats::scraping: stale source re-applies 20 article limit"
+          - "tests/cli-scraping.bats::scraping: source fetched 14 days ago is not considered stale"
+          - "tests/cli-scraping.bats::scraping: pagination stops at 20 articles across pages"
+          # Cross-referenced from spec-2 item limiting tests
+          - "tests/cli-ingestion.bats::ingestion: first sync limits to 20 most recent items"
+          - "tests/cli-ingestion.bats::ingestion: regular polling catches items missed by first sync limit"
+          - "tests/cli-ingestion.bats::ingestion: stale source re-applies 20 item limit"
+          - "tests/cli-ingestion.bats::ingestion: source fetched 14 days ago is not considered stale"
+
+      - section: "3.2"
+        title: HTML Fetching
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: handles HTTP errors gracefully"
+          - "tests/cli-scraping.bats::scraping: handles timeouts gracefully"
+          - "tests/cli-scraping.bats::scraping: follows HTTP redirects"
+          - "tests/cli-scraping.bats::scraping: includes User-Agent header"
+          # Cross-referenced from spec-2 feed fetching
+          - "tests/cli-ingestion.bats::ingestion: handles unreachable feed URL gracefully"
+          - "tests/cli-ingestion.bats::ingestion: handles invalid feed content gracefully"
+
+      - section: "3.3"
+        title: Rate Limiting and Politeness
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: respects rate limiting between requests"
+          - "tests/cli-scraping.bats::scraping: makes sequential requests to same domain"
+
+      - section: "3.4"
+        title: Content Extraction
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: extracts and cleans title"
+          - "tests/cli-scraping.bats::scraping: uses (No title) when title missing"
+          - "tests/cli-scraping.bats::scraping: truncates long content for summary"
+          - "tests/cli-scraping.bats::scraping: extracts multiple authors"
+          - "tests/cli-scraping.bats::scraping: splits comma-separated authors"
+          - "tests/cli-scraping.bats::scraping: parses dates with format string"
+          - "tests/cli-scraping.bats::scraping: uses current time when date parsing fails"
+
+      - section: "3.5"
+        title: Error Handling
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: handles malformed HTML"
+          - "tests/cli-scraping.bats::scraping: handles network errors"
+          - "tests/cli-scraping.bats::scraping: handles missing elements"
+          # Cross-referenced from spec-2 error handling
+          - "tests/cli-ingestion.bats::ingestion: handles unreachable feed URL gracefully"
+          - "tests/cli-ingestion.bats::ingestion: handles invalid feed content gracefully"
+
+      - section: "4"
+        title: Scraper to NewsItem Mapping
+        testable: false
+
+      - section: "4.1"
+        title: Field Mapping
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: scraper fields map correctly to NewsItem"
+          # Cross-referenced from spec-1 data model tests
+          - "tests/cli-data-model.bats::spec-1 data model: JSON output contains all required fields"
+          - "tests/cli-data-model.bats::spec-1 data model: id field is a valid UUID"
+          - "tests/cli-data-model.bats::spec-1 data model: publisher field is optional and omitted when absent"
+          - "tests/cli-data-model.bats::spec-1 data model: authors field is a list of strings"
+          - "tests/cli-data-model.bats::spec-1 data model: timestamps use RFC 3339 format"
+          # Cross-referenced from spec-2 field mapping tests
+          - "tests/cli-ingestion.bats::ingestion: RSS fields map correctly to NewsItem"
+          - "tests/cli-ingestion.bats::ingestion: Atom fields map correctly to NewsItem"
+
+      - section: "4.2"
+        title: Deduplication Strategy
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: deduplication prevents duplicate items on re-sync"
+          - "tests/cli-scraping.bats::scraping: deduplication uses URL as unique identifier"
+          # Cross-referenced from spec-2 deduplication tests
+          - "tests/cli-ingestion.bats::ingestion: RSS deduplication prevents duplicate items on re-sync"
+          - "tests/cli-ingestion.bats::ingestion: Atom deduplication prevents duplicate items on re-sync"
+
+      - section: "5"
+        title: Scraper Scheduling
+        testable: false
+
+      - section: "5.1"
+        title: Polling Frequency
+        testable: false
+
+      - section: "5.2"
+        title: Incremental Scraping
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: tracks last successful scrape time"
+
+      - section: "6"
+        title: Implementation Considerations
+        testable: false
+
+      - section: "6.1"
+        title: HTML Parsing Library
+        testable: false
+
+      - section: "6.2"
+        title: JavaScript-Rendered Content
+        testable: false
+
+      - section: "6.3"
+        title: Content Validation
+        testable: true
+        tests:
+          - "tests/cli-scraping.bats::scraping: validates title length"
+          - "tests/cli-scraping.bats::scraping: handles empty content selector result"

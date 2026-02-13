@@ -130,16 +130,19 @@ type DiscoveryConfig struct {
 	FetchTimeout time.Duration
 	// Number of consecutive failures before auto-disabling a source
 	DisableThreshold int
+	// Minimum interval between requests to the same domain
+	RateLimitInterval time.Duration
 }
 
 // DefaultDiscoveryConfig returns the default configuration per Spec 7 section
 // 9.1.2.
 func DefaultDiscoveryConfig() *DiscoveryConfig {
 	return &DiscoveryConfig{
-		PollInterval:     1 * time.Hour,
-		Concurrency:      5,
-		FetchTimeout:     60 * time.Second,
-		DisableThreshold: 10,
+		PollInterval:      1 * time.Hour,
+		Concurrency:       5,
+		FetchTimeout:      60 * time.Second,
+		DisableThreshold:  10,
+		RateLimitInterval: 1 * time.Second,
 	}
 }
 
@@ -162,7 +165,7 @@ func NewDiscoveryService(
 		},
 		stopChan:        make(chan struct{}),
 		sourceSemaphore: make(chan struct{}, config.Concurrency),
-		rateLimiter:     newDomainRateLimiter(1 * time.Second), // 1 req/sec per domain (Spec 7 section 8.2)
+		rateLimiter:     newDomainRateLimiter(config.RateLimitInterval),
 		metrics:         newDiscoveryMetrics(),
 	}
 }

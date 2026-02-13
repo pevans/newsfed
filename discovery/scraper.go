@@ -65,7 +65,7 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) new
 	// Generate new UUID for the item
 	id := uuid.New()
 
-	// Title: use extracted title or fallback
+	// Title: use extracted title, fall back to "(No title)" if empty
 	title := article.Title
 	if title == "" {
 		title = "(No title)"
@@ -221,7 +221,12 @@ func ExtractArticle(doc *goquery.Document, config scraper.ArticleConfig, article
 	}
 
 	// Extract title (required)
-	titleText := strings.TrimSpace(doc.Find(config.TitleSelector).First().Text())
+	titleText := doc.Find(config.TitleSelector).First().Text()
+	// Normalize whitespace: replace multiple spaces/newlines with single space
+	titleText = strings.Join(strings.Fields(titleText), " ")
+	if titleText == "" {
+		titleText = "(No title)"
+	}
 	article.Title = titleText
 
 	// Extract content (required)
