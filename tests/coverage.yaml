@@ -610,6 +610,7 @@ specs:
         testable: true
         tests:
           - "tests/cli-metadata.bats::spec-5 schema: sources table has all expected columns"
+          - "tests/cli-metadata.bats::spec-5 schema: config table exists with key and value columns"
           - "tests/cli-metadata.bats::spec-5 schema: source_errors table exists with expected columns"
           - "tests/cli-metadata.bats::spec-5 schema: source_id column is TEXT type"
           - "tests/cli-metadata.bats::spec-5 schema: source_id is the primary key"

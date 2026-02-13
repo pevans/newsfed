@@ -135,6 +135,17 @@ func handleInit(metadataPath, feedDir string, args []string) {
 				createdSomething = true
 			}
 		}
+
+		// Initialize config table in metadata database
+		if initSucceeded {
+			configStore, err := config.NewConfigStore(metadataPath)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "  ✗ Failed to initialize config table: %v\n", err)
+				initSucceeded = false
+			} else {
+				configStore.Close()
+			}
+		}
 	}
 
 	// Check and create feed storage directory

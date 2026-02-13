@@ -65,6 +65,13 @@ teardown_file() {
     echo "$columns" | grep -q "scraper_config"
 }
 
+@test "spec-5 schema: config table exists with key and value columns" {
+    columns=$(sqlite3 "$NEWSFED_METADATA_DSN" "PRAGMA table_info(config);" 2>/dev/null)
+
+    echo "$columns" | grep -q "key"
+    echo "$columns" | grep -q "value"
+}
+
 @test "spec-5 schema: source_errors table exists with expected columns" {
     columns=$(sqlite3 "$NEWSFED_METADATA_DSN" "PRAGMA table_info(source_errors);" 2>/dev/null)
 
