@@ -544,3 +544,212 @@ specs:
         tests:
           - "tests/cli-scraping.bats::scraping: validates title length"
           - "tests/cli-scraping.bats::scraping: handles empty content selector result"
+
+  - spec: spec-5
+    title: "Metadata Storage for Sources and Configuration"
+    sections:
+      - section: "1"
+        title: "Metadata Storage"
+        testable: false
+
+      - section: "2.1"
+        title: "Source Metadata"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 source metadata: source_id is a valid UUID"
+          - "tests/cli-metadata.bats::spec-5 source metadata: created_at is stored in RFC 3339 format"
+          - "tests/cli-metadata.bats::spec-5 source metadata: updated_at equals created_at on initial creation"
+          - "tests/cli-metadata.bats::spec-5 source metadata: all common fields are stored"
+          - "tests/cli-metadata.bats::spec-5 source metadata: enabled_at is set on creation (source enabled by default)"
+          - "tests/cli-metadata.bats::spec-5 source metadata: enabled_at is NULL when source is disabled"
+          # Cross-referenced from spec-8 source tests
+          - "tests/cli-sources.bats::newsfed sources add: adds RSS source successfully"
+          - "tests/cli-sources.bats::newsfed sources add: adds Atom source successfully"
+          - "tests/cli-sources.bats::newsfed sources add: source is enabled by default"
+          - "tests/cli-sources.bats::newsfed sources show: displays source details"
+
+      - section: "2.2"
+        title: "Feed Source Metadata"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 feed metadata: last_fetched_at updates after successful sync"
+          - "tests/cli-metadata.bats::spec-5 feed metadata: fetch_error_count increments on sync failure"
+          - "tests/cli-metadata.bats::spec-5 feed metadata: last_error records failure message on sync failure"
+          - "tests/cli-metadata.bats::spec-5 feed metadata: fetch_error_count resets after successful sync"
+          # Cross-referenced from spec-8 source management tests
+          - "tests/cli-sources.bats::newsfed sources update: updates polling interval"
+          - "tests/cli-sources.bats::newsfed sources status: detects sources with errors"
+          - "tests/cli-sources.bats::newsfed sources sync: syncs all enabled sources"
+
+      - section: "2.3"
+        title: "Website Source Metadata"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 website metadata: scraper_config is stored as valid JSON"
+          - "tests/cli-metadata.bats::spec-5 website metadata: scraper_config is NULL for non-website sources"
+          # Cross-referenced from spec-8 and spec-3 tests
+          - "tests/cli-sources.bats::newsfed sources add: adds website source with config"
+          - "tests/cli-sources.bats::newsfed sources update: updates scraper config for website source"
+
+      - section: "2.4"
+        title: "User Preferences"
+        testable: false
+        # Config table exists but user preference management is not exposed via CLI
+
+      - section: "3.1"
+        title: "SQLite-Based Storage"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 storage: metadata database is a valid SQLite file"
+          - "tests/cli-metadata.bats::spec-5 storage: metadata is separate from news item storage"
+          # Cross-referenced from spec-8 init tests
+          - "tests/cli-init.bats::newsfed init: creates metadata database"
+
+      - section: "3.1.1"
+        title: "Database Schema"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 schema: sources table has all expected columns"
+          - "tests/cli-metadata.bats::spec-5 schema: source_errors table exists with expected columns"
+          - "tests/cli-metadata.bats::spec-5 schema: source_id column is TEXT type"
+          - "tests/cli-metadata.bats::spec-5 schema: source_id is the primary key"
+          - "tests/cli-metadata.bats::spec-5 schema: fetch_error_count defaults to 0"
+          - "tests/cli-metadata.bats::spec-5 source metadata: created_at is stored in RFC 3339 format"
+
+      - section: "3.1.2"
+        title: "Example Data"
+        testable: false
+
+      - section: "3.2"
+        title: "Alternative Storage Options"
+        testable: false
+
+      - section: "4.1"
+        title: "Source Management"
+        testable: false
+
+      - section: "4.1.1"
+        title: "Create Source"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 create: generates unique UUIDs for different sources"
+          - "tests/cli-metadata.bats::spec-5 create: timestamps are set to approximately current time"
+          - "tests/cli-metadata.bats::spec-5 create: stores correct source_type for each type"
+          - "tests/cli-metadata.bats::spec-5 source metadata: enabled_at is set on creation (source enabled by default)"
+          # Cross-referenced from spec-8 add tests
+          - "tests/cli-sources.bats::newsfed sources add: adds RSS source successfully"
+          - "tests/cli-sources.bats::newsfed sources add: adds Atom source successfully"
+          - "tests/cli-sources.bats::newsfed sources add: adds website source with config"
+          - "tests/cli-sources.bats::newsfed sources add: source is enabled by default"
+
+      - section: "4.1.2"
+        title: "Read Source"
+        testable: true
+        tests:
+          # Cross-referenced from spec-8 show/list tests
+          - "tests/cli-sources.bats::newsfed sources show: displays source details"
+          - "tests/cli-sources.bats::newsfed sources show: handles non-existent source"
+          - "tests/cli-sources.bats::newsfed sources list: shows all sources"
+          - "tests/cli-sources.bats::newsfed sources list: handles empty source list"
+
+      - section: "4.1.3"
+        title: "Update Source"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 update: automatically updates updated_at timestamp"
+          - "tests/cli-metadata.bats::spec-5 update: does not modify created_at"
+          - "tests/cli-metadata.bats::spec-5 update: polling_interval is stored in database"
+          - "tests/cli-metadata.bats::spec-5 enable/disable: updated_at changes when enabling or disabling"
+          # Cross-referenced from spec-8 update tests
+          - "tests/cli-sources.bats::newsfed sources update: updates source name"
+          - "tests/cli-sources.bats::newsfed sources update: updates polling interval"
+          - "tests/cli-sources.bats::newsfed sources update: updates scraper config for website source"
+
+      - section: "4.1.4"
+        title: "Delete Source"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 delete: news items persist after source deletion"
+          - "tests/cli-metadata.bats::spec-5 delete: source row is removed from database"
+          # Cross-referenced from spec-8 delete tests
+          - "tests/cli-sources.bats::newsfed sources delete: deletes a source"
+          - "tests/cli-sources.bats::newsfed sources delete: handles non-existent source"
+
+      - section: "4.2"
+        title: "Configuration Management"
+        testable: false
+        # Config table exists but Get/UpdateConfig not exposed via CLI
+
+      - section: "5.1"
+        title: "News Feed Aggregator"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 aggregator: sync skips disabled sources"
+          - "tests/cli-metadata.bats::spec-5 aggregator: sync updates operational metadata in database"
+          # Cross-referenced from spec-8 sync tests
+          - "tests/cli-sources.bats::newsfed sources sync: syncs all enabled sources"
+          - "tests/cli-sources.bats::newsfed sources sync: syncs specific source by ID"
+
+      - section: "5.2"
+        title: "CLI Tools"
+        testable: true
+        tests:
+          # All spec-8 source management tests validate CLI tools for spec 5
+          - "tests/cli-sources.bats::newsfed sources add: adds RSS source successfully"
+          - "tests/cli-sources.bats::newsfed sources list: shows all sources"
+          - "tests/cli-sources.bats::newsfed sources enable: enables a disabled source"
+          - "tests/cli-sources.bats::newsfed sources disable: disables a source"
+          - "tests/cli-sources.bats::newsfed sources delete: deletes a source"
+          - "tests/cli-sources.bats::newsfed sources show: displays source details"
+
+      - section: "6.1"
+        title: "Validation"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 validation: rejects malformed scraper config JSON"
+          - "tests/cli-metadata.bats::spec-5 validation: rejects nonexistent config file"
+          # Cross-referenced from spec-8 validation tests
+          - "tests/cli-sources.bats::newsfed sources add: requires -type flag"
+          - "tests/cli-sources.bats::newsfed sources add: requires -url flag"
+          - "tests/cli-sources.bats::newsfed sources add: requires -name flag"
+          - "tests/cli-sources.bats::newsfed sources add: rejects invalid source type"
+          - "tests/cli-sources.bats::newsfed sources update: validates interval format"
+          - "tests/cli-errors.bats::newsfed errors: validates UUID format"
+          - "tests/cli-errors.bats::newsfed errors: validates URL format"
+
+      - section: "6.2"
+        title: "Migration and Backup"
+        testable: true
+        tests:
+          - "tests/cli-metadata.bats::spec-5 backup: database file is copyable and backup is usable"
+
+      - section: "6.3"
+        title: "Defaults and Templates"
+        testable: false
+
+      - section: "6.4"
+        title: "Source Groups and Tags"
+        testable: false
+
+      - section: "7.1"
+        title: "URL Validation"
+        testable: true
+        tests:
+          # Cross-referenced from spec-8 validation tests
+          - "tests/cli-errors.bats::newsfed errors: validates URL format"
+          - "tests/cli-sources.bats::newsfed sources add: requires -url flag"
+
+      - section: "7.2"
+        title: "Credential Storage"
+        testable: false
+
+      - section: "7.3"
+        title: "Rate Limiting"
+        testable: true
+        tests:
+          # Cross-referenced from spec-3 scraping tests
+          - "tests/cli-scraping.bats::scraping: respects rate limiting between requests"
+
+      - section: "8"
+        title: "Testing Considerations"
+        testable: false
