@@ -593,7 +593,7 @@ func TestListErrors_RespectsLimit(t *testing.T) {
 	source, err := store.CreateSource("rss", "http://example.com/feed", "Test", nil, &now)
 	require.NoError(t, err)
 
-	for i := 0; i < 5; i++ {
+	for i := range 5 {
 		require.NoError(t, store.RecordError(source.SourceID, "error", now.Add(time.Duration(i)*time.Minute)))
 	}
 
