@@ -8,3 +8,6 @@ btest:
 
 build:
     go build -o dist/newsfed ./cmd/newsfed
+
+install: build
+    mv dist/newsfed ~/bin
