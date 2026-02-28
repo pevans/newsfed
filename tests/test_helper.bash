@@ -658,3 +658,85 @@ restore_permissions() {
         chmod -R 755 "$dir" 2>/dev/null || true
     fi
 }
+
+# ---------------------------------------------------------------------------
+# TUI test helpers (tmux-based)
+# ---------------------------------------------------------------------------
+
+TUI_SESSION=""
+
+# Start the newsfed TUI inside a detached tmux session.
+# Usage: tui_start [width] [height]
+tui_start() {
+    local width="${1:-120}"
+    local height="${2:-30}"
+    TUI_SESSION="newsfed-tui-$$-$RANDOM"
+    tmux new-session -d -s "$TUI_SESSION" -x "$width" -y "$height" \
+        "NEWSFED_METADATA_DSN=$NEWSFED_METADATA_DSN NEWSFED_FEED_DSN=$NEWSFED_FEED_DSN $TEST_DIR/newsfed tui"
+}
+
+# Send keys to the active TUI session.
+# Usage: tui_send_keys "q"
+tui_send_keys() {
+    tmux send-keys -t "$TUI_SESSION" "$1" ""
+}
+
+# Capture the current terminal contents, stripping ANSI escape sequences.
+tui_capture() {
+    tmux capture-pane -t "$TUI_SESSION" -p 2>/dev/null \
+        | sed 's/\x1b\[[0-9;]*[A-Za-z]//g; s/\x1b[()][AB012]//g; s/\x1b[=>]//g'
+}
+
+# Poll until the captured pane contains the expected text, or time out.
+# Returns 0 on success, 1 on timeout.
+# Usage: tui_wait_for "No sources." [timeout_seconds]
+tui_wait_for() {
+    local text="$1"
+    local timeout="${2:-5}"
+    local ticks=$(( timeout * 10 ))
+    local i=0
+    while [ $i -lt $ticks ]; do
+        if tui_capture | grep -qF "$text"; then
+            return 0
+        fi
+        sleep 0.1
+        i=$(( i + 1 ))
+    done
+    return 1
+}
+
+# Kill the active TUI tmux session.
+tui_stop() {
+    if [ -n "$TUI_SESSION" ]; then
+        tmux kill-session -t "$TUI_SESSION" 2>/dev/null || true
+        TUI_SESSION=""
+    fi
+}
+
+# Assert that the current TUI screen contains the given text.
+tui_assert_contains() {
+    local text="$1"
+    local screen
+    screen=$(tui_capture)
+    if ! echo "$screen" | grep -qF "$text"; then
+        echo "TUI screen does not contain: $text"
+        echo "--- screen ---"
+        echo "$screen"
+        echo "--------------"
+        return 1
+    fi
+}
+
+# Assert that the current TUI screen does NOT contain the given text.
+tui_assert_not_contains() {
+    local text="$1"
+    local screen
+    screen=$(tui_capture)
+    if echo "$screen" | grep -qF "$text"; then
+        echo "TUI screen unexpectedly contains: $text"
+        echo "--- screen ---"
+        echo "$screen"
+        echo "--------------"
+        return 1
+    fi
+}

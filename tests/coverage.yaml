@@ -766,3 +766,82 @@ specs:
       - section: "8"
         title: "Testing Considerations"
         testable: false
+
+  - spec: spec-9
+    title: "Text User Interface"
+    sections:
+      - section: "1"
+        title: Overview
+        testable: false
+
+      - section: "2"
+        title: Main wireframe
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: starts and displays source frame"
+
+      - section: "3"
+        title: Source frame
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: shows sources sorted alphabetically"
+          - "tests/tui.bats::tui: source entry shows type in parentheses"
+          - "tests/tui.bats::tui: source entry shows Last updated: Never when never fetched"
+
+      - section: "4"
+        title: News items frame
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: tab switches focus to items frame"
+
+      - section: "5"
+        title: Source management modal
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: enter on source opens source management modal"
+          - "tests/tui.bats::tui: escape closes source management modal"
+
+      - section: "5.1"
+        title: Edit
+        testable: false
+
+      - section: "5.2"
+        title: Delete
+        testable: false
+
+      - section: "6"
+        title: News item detail modal
+        testable: false
+
+      - section: "7"
+        title: Navigation and keybindings
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: q quits the TUI"
+          - "tests/tui.bats::tui: tab switches focus to items frame"
+          - "tests/tui.bats::tui: j and k move cursor through source list"
+
+      - section: "7.1"
+        title: Frame navigation
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: tab switches focus to items frame"
+
+      - section: "7.2"
+        title: Within a frame
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: j and k move cursor through source list"
+          - "tests/tui.bats::tui: enter on source opens source management modal"
+
+      - section: "7.3"
+        title: Global keybindings
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: q quits the TUI"
+
+      - section: "8"
+        title: Date formatting
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: source entry shows Last updated: Never when never fetched"

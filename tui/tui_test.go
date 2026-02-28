@@ -1,0 +1,647 @@
+package tui
+
+import (
+	"fmt"
+	"strings"
+	"testing"
+	"time"
+	"unicode/utf8"
+
+	"github.com/charmbracelet/bubbles/textinput"
+	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
+	"github.com/pevans/newsfed/newsfeed"
+	"github.com/pevans/newsfed/sources"
+	"github.com/stretchr/testify/assert"
+	"github.com/stretchr/testify/require"
+)
+
+// -- Helpers --
+
+func newModel() Model {
+	return Model{
+		width:      80,
+		height:     24,
+		editInputs: [2]textinput.Model{textinput.New(), textinput.New()},
+	}
+}
+
+func makeSource(name, url, typ string, enabled bool) sources.Source {
+	var enabledAt *time.Time
+	if enabled {
+		t := time.Now()
+		enabledAt = &t
+	}
+	return sources.Source{
+		SourceID:   uuid.New(),
+		Name:       name,
+		URL:        url,
+		SourceType: typ,
+		EnabledAt:  enabledAt,
+		CreatedAt:  time.Now(),
+		UpdatedAt:  time.Now(),
+	}
+}
+
+func makeItem(title, publisher string, published time.Time) newsfeed.NewsItem {
+	return newsfeed.NewsItem{
+		ID:          uuid.New(),
+		Title:       title,
+		URL:         "https://example.com/" + title,
+		Publisher:   &publisher,
+		PublishedAt: published,
+	}
+}
+
+func pressKey(m Model, key string) (Model, tea.Cmd) {
+	result, cmd := m.Update(tea.KeyMsg{Type: tea.KeyRunes, Runes: []rune(key)})
+	return result.(Model), cmd
+}
+
+func pressSpecialKey(m Model, key tea.KeyType) (Model, tea.Cmd) {
+	result, cmd := m.Update(tea.KeyMsg{Type: key})
+	return result.(Model), cmd
+}
+
+// -- formatDate --
+
+func TestFormatDate_nilReturnsNever(t *testing.T) {
+	assert.Equal(t, "Never", formatDate(nil))
+}
+
+func TestFormatDate_nonNilReturnsYYYYMMDD(t *testing.T) {
+	cases := []struct {
+		t    time.Time
+		want string
+	}{
+		{time.Date(2024, 1, 5, 12, 0, 0, 0, time.UTC), "2024-01-05"},
+		{time.Date(1999, 12, 31, 0, 0, 0, 0, time.UTC), "1999-12-31"},
+		{time.Date(2000, 6, 15, 23, 59, 59, 0, time.UTC), "2000-06-15"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, formatDate(&c.t))
+	}
+}
+
+func TestFormatDate_omitsTime(t *testing.T) {
+	// Any time within the same day should produce the same date string.
+	day := time.Date(2024, 3, 7, 0, 0, 0, 0, time.UTC)
+	night := time.Date(2024, 3, 7, 23, 59, 59, 0, time.UTC)
+	assert.Equal(t, formatDate(&day), formatDate(&night))
+}
+
+// -- wordWrap / wrapParagraph --
+
+func TestWrapParagraph_allWordsPresent(t *testing.T) {
+	text := "the quick brown fox jumps over the lazy dog"
+	got := wrapParagraph(text, 20)
+	// Every word from the original must appear in the output.
+	for _, word := range strings.Fields(text) {
+		assert.Contains(t, got, word)
+	}
+}
+
+func TestWrapParagraph_noLineExceedsWidth(t *testing.T) {
+	text := "the quick brown fox jumps over the lazy dog"
+	widths := []int{5, 10, 15, 40, 80}
+	for _, w := range widths {
+		got := wrapParagraph(text, w)
+		for _, line := range strings.Split(got, "\n") {
+			assert.LessOrEqual(t, utf8.RuneCountInString(line), w,
+				"width=%d: line %q exceeded limit", w, line)
+		}
+	}
+}
+
+func TestWrapParagraph_emptyStringReturnsEmpty(t *testing.T) {
+	assert.Equal(t, "", wrapParagraph("", 80))
+}
+
+func TestWordWrap_preservesParagraphBreaks(t *testing.T) {
+	text := "first paragraph\n\nsecond paragraph\n\nthird paragraph"
+	got := wordWrap(text, 80)
+	assert.Contains(t, got, "\n\n", "paragraph breaks should be preserved")
+	parts := strings.Split(got, "\n\n")
+	require.Len(t, parts, 3)
+	assert.Contains(t, parts[0], "first")
+	assert.Contains(t, parts[1], "second")
+	assert.Contains(t, parts[2], "third")
+}
+
+func TestWordWrap_zeroWidthReturnsInput(t *testing.T) {
+	text := "some text"
+	assert.Equal(t, text, wordWrap(text, 0))
+}
+
+// -- stripHTML --
+
+func TestStripHTML_plainTextUnchanged(t *testing.T) {
+	text := "just plain text"
+	assert.Equal(t, text, stripHTML(text))
+}
+
+func TestStripHTML_removesTagsPreservesText(t *testing.T) {
+	cases := []struct {
+		html string
+		want string
+	}{
+		{"<p>hello</p>", "hello"},
+		{"<b>bold</b> and <i>italic</i>", "bold and italic"},
+		{"<div><p>nested</p></div>", "nested"},
+	}
+	for _, c := range cases {
+		assert.Equal(t, c.want, stripHTML(c.html), "input: %q", c.html)
+	}
+}
+
+func TestStripHTML_trimsWhitespace(t *testing.T) {
+	got := stripHTML("  <p>  text  </p>  ")
+	assert.Equal(t, "text", got)
+}
+
+// -- Cursor movement --
+
+func TestMoveCursorDown_sourcesFocusWraps(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true), makeSource("B", "u2", "rss", true)}
+	m.sourceCursor = 1
+
+	m = m.moveCursorDown()
+	assert.Equal(t, 0, m.sourceCursor, "cursor should wrap to 0 after last item")
+}
+
+func TestMoveCursorUp_sourcesFocusWraps(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true), makeSource("B", "u2", "rss", true)}
+	m.sourceCursor = 0
+
+	m = m.moveCursorUp()
+	assert.Equal(t, 1, m.sourceCursor, "cursor should wrap to last item from first")
+}
+
+func TestMoveCursorDown_itemsFocusWraps(t *testing.T) {
+	m := newModel()
+	m.focus = focusItems
+	now := time.Now()
+	m.items = []newsfeed.NewsItem{makeItem("A", "src", now), makeItem("B", "src", now)}
+	m.itemCursor = 1
+
+	m = m.moveCursorDown()
+	assert.Equal(t, 0, m.itemCursor)
+}
+
+func TestMoveCursorUp_itemsFocusWraps(t *testing.T) {
+	m := newModel()
+	m.focus = focusItems
+	now := time.Now()
+	m.items = []newsfeed.NewsItem{makeItem("A", "src", now), makeItem("B", "src", now)}
+	m.itemCursor = 0
+
+	m = m.moveCursorUp()
+	assert.Equal(t, 1, m.itemCursor)
+}
+
+func TestMoveCursor_emptyListNoOp(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.sources = nil
+
+	before := m.sourceCursor
+	m = m.moveCursorDown()
+	assert.Equal(t, before, m.sourceCursor)
+	m = m.moveCursorUp()
+	assert.Equal(t, before, m.sourceCursor)
+}
+
+func TestMoveCursorDown_advancesNormally(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.sources = []sources.Source{
+		makeSource("A", "u1", "rss", true),
+		makeSource("B", "u2", "rss", true),
+		makeSource("C", "u3", "rss", true),
+	}
+	m.sourceCursor = 0
+
+	m = m.moveCursorDown()
+	assert.Equal(t, 1, m.sourceCursor)
+	m = m.moveCursorDown()
+	assert.Equal(t, 2, m.sourceCursor)
+}
+
+// -- Update: message handling --
+
+func TestUpdate_windowSizeMsg(t *testing.T) {
+	m := newModel()
+	result, cmd := m.Update(tea.WindowSizeMsg{Width: 120, Height: 40})
+	got := result.(Model)
+	assert.Equal(t, 120, got.width)
+	assert.Equal(t, 40, got.height)
+	assert.Nil(t, cmd)
+}
+
+func TestUpdate_sourcesLoadedMsg_preservesOrder(t *testing.T) {
+	// Update does not re-sort; sorting is done by loadSourcesCmd before the
+	// message is dispatched. Verify that Update stores items in the order
+	// given.
+	m := newModel()
+	msg := sourcesLoadedMsg{
+		items: []sources.Source{
+			makeSource("alpha", "u1", "rss", true),
+			makeSource("Beta", "u2", "rss", true),
+			makeSource("Zeal", "u3", "rss", true),
+		},
+	}
+	result, _ := m.Update(msg)
+	got := result.(Model)
+	require.Len(t, got.sources, 3)
+	assert.Equal(t, "alpha", got.sources[0].Name)
+	assert.Equal(t, "Beta", got.sources[1].Name)
+	assert.Equal(t, "Zeal", got.sources[2].Name)
+}
+
+func TestUpdate_sourcesLoadedMsg_clampsCursor(t *testing.T) {
+	m := newModel()
+	m.sourceCursor = 5
+	msg := sourcesLoadedMsg{items: []sources.Source{makeSource("A", "u1", "rss", true)}}
+	result, _ := m.Update(msg)
+	got := result.(Model)
+	assert.Equal(t, 0, got.sourceCursor)
+}
+
+func TestUpdate_sourcesLoadedMsg_restoresIDCursor(t *testing.T) {
+	m := newModel()
+	srcA := makeSource("alpha", "u1", "rss", true)
+	srcB := makeSource("beta", "u2", "rss", true)
+	srcC := makeSource("gamma", "u3", "rss", true)
+	msg := sourcesLoadedMsg{
+		items:     []sources.Source{srcA, srcB, srcC},
+		restoreID: &srcB.SourceID,
+	}
+	result, _ := m.Update(msg)
+	got := result.(Model)
+	assert.Equal(t, 1, got.sourceCursor, "cursor should point to beta (index 1)")
+}
+
+func TestUpdate_sourcesLoadedMsg_restoreFallsBackToZeroWhenIDMissing(t *testing.T) {
+	m := newModel()
+	missingID := uuid.New()
+	msg := sourcesLoadedMsg{
+		items:     []sources.Source{makeSource("A", "u1", "rss", true)},
+		restoreID: &missingID,
+	}
+	result, _ := m.Update(msg)
+	got := result.(Model)
+	assert.Equal(t, 0, got.sourceCursor)
+}
+
+func TestUpdate_sourcesLoadedMsg_errorSetsStatusMsg(t *testing.T) {
+	m := newModel()
+	msg := sourcesLoadedMsg{err: fmt.Errorf("db unavailable")}
+	result, cmd := m.Update(msg)
+	got := result.(Model)
+	assert.Contains(t, got.statusMsg, "db unavailable")
+	assert.Nil(t, cmd)
+	assert.Nil(t, got.sources)
+}
+
+func TestUpdate_itemsLoadedMsg_setsItems(t *testing.T) {
+	m := newModel()
+	now := time.Now()
+	items := []newsfeed.NewsItem{makeItem("A", "src", now), makeItem("B", "src", now)}
+	result, cmd := m.Update(itemsLoadedMsg{items: items})
+	got := result.(Model)
+	assert.Len(t, got.items, 2)
+	assert.Nil(t, cmd)
+}
+
+func TestUpdate_itemsLoadedMsg_errorSetsStatusMsg(t *testing.T) {
+	m := newModel()
+	result, _ := m.Update(itemsLoadedMsg{err: fmt.Errorf("read error")})
+	got := result.(Model)
+	assert.Contains(t, got.statusMsg, "read error")
+}
+
+func TestUpdate_itemsLoadedMsg_clampsCursor(t *testing.T) {
+	m := newModel()
+	m.itemCursor = 10
+	now := time.Now()
+	result, _ := m.Update(itemsLoadedMsg{items: []newsfeed.NewsItem{makeItem("A", "src", now)}})
+	got := result.(Model)
+	assert.Equal(t, 0, got.itemCursor)
+}
+
+func TestUpdate_fetchDoneMsg_clearsFeching(t *testing.T) {
+	m := newModel()
+	m.fetching = true
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+	result, _ := m.Update(fetchDoneMsg{itemsAdded: 3})
+	got := result.(Model)
+	assert.False(t, got.fetching)
+	assert.Contains(t, got.statusMsg, "3")
+}
+
+func TestUpdate_fetchDoneMsg_error(t *testing.T) {
+	m := newModel()
+	m.fetching = true
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+	result, _ := m.Update(fetchDoneMsg{err: fmt.Errorf("timeout")})
+	got := result.(Model)
+	assert.False(t, got.fetching)
+	assert.Contains(t, got.statusMsg, "timeout")
+}
+
+// -- Key handling: global (no modal) --
+
+func TestKey_qQuitsProgram(t *testing.T) {
+	m := newModel()
+	_, cmd := pressKey(m, "q")
+	require.NotNil(t, cmd)
+	// tea.Quit returns a Msg of type tea.QuitMsg when executed.
+	msg := cmd()
+	assert.IsType(t, tea.QuitMsg{}, msg)
+}
+
+func TestKey_tabTogglesFocus(t *testing.T) {
+	m := newModel()
+	assert.Equal(t, focusSources, m.focus)
+
+	m2, _ := pressKey(m, "tab")
+	assert.Equal(t, focusItems, m2.focus)
+
+	m3, _ := pressKey(m2, "tab")
+	assert.Equal(t, focusSources, m3.focus)
+}
+
+func TestKey_tabClearsStatusMsg(t *testing.T) {
+	m := newModel()
+	m.statusMsg = "some message"
+	m2, _ := pressKey(m, "tab")
+	assert.Empty(t, m2.statusMsg)
+}
+
+func TestKey_upDownSourcesFrame_clearsStatusMsg(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.statusMsg = "stale status"
+	m.sources = []sources.Source{
+		makeSource("A", "u1", "rss", true),
+		makeSource("B", "u2", "rss", true),
+	}
+
+	m2, _ := pressKey(m, "j")
+	assert.Empty(t, m2.statusMsg)
+
+	m2.statusMsg = "stale status"
+	m3, _ := pressKey(m2, "k")
+	assert.Empty(t, m3.statusMsg)
+}
+
+func TestKey_enterSourcesFrame_opensSourceModal(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalSourceManagement, m2.modal)
+}
+
+func TestKey_enterItemsFrame_opensItemDetailModal(t *testing.T) {
+	m := newModel()
+	m.focus = focusItems
+	m.items = []newsfeed.NewsItem{makeItem("A", "src", time.Now())}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalItemDetail, m2.modal)
+}
+
+func TestKey_enterEmptySourcesList_noModal(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.sources = nil
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+func TestKey_rDisabledSource_setsStatusMsg(t *testing.T) {
+	m := newModel()
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", false)}
+
+	m2, cmd := pressKey(m, "r")
+	assert.Contains(t, m2.statusMsg, "disabled")
+	assert.Nil(t, cmd)
+	assert.False(t, m2.fetching)
+}
+
+func TestKey_rEnabledSource_startsFetch(t *testing.T) {
+	m := newModel()
+	// discSvc is nil but we only check that fetching=true and cmd is
+	// returned; the cmd itself is not executed in this unit test.
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, cmd := pressKey(m, "r")
+	assert.True(t, m2.fetching)
+	assert.Equal(t, "Fetching...", m2.statusMsg)
+	assert.NotNil(t, cmd)
+}
+
+func TestKey_rAlreadyFetching_noOp(t *testing.T) {
+	m := newModel()
+	m.fetching = true
+	m.statusMsg = "Fetching..."
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, cmd := pressKey(m, "r")
+	assert.True(t, m2.fetching)
+	assert.Nil(t, cmd)
+}
+
+// -- Key handling: source management modal --
+
+func TestSourceManagementModal_escCloses(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceManagement
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+func TestSourceManagementModal_jkMoveCursor(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceManagement
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+	m.sourceModalCursor = 0
+
+	m2, _ := pressKey(m, "j")
+	assert.Equal(t, 1, m2.sourceModalCursor)
+
+	m3, _ := pressKey(m2, "k")
+	assert.Equal(t, 0, m3.sourceModalCursor)
+}
+
+func TestSourceManagementModal_enterOnEditOpensEditForm(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceManagement
+	m.sourceModalCursor = 0 // Edit
+	src := makeSource("MySrc", "https://feed.example.com", "rss", true)
+	m.sources = []sources.Source{src}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalSourceEdit, m2.modal)
+	assert.Equal(t, "MySrc", m2.editInputs[0].Value())
+	assert.Equal(t, "https://feed.example.com", m2.editInputs[1].Value())
+}
+
+func TestSourceManagementModal_enterOnDeleteOpensDeleteConfirm(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceManagement
+	m.sourceModalCursor = 1 // Delete
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalSourceDeleteConfirm, m2.modal)
+	assert.Equal(t, 1, m2.deleteConfirmCursor, "should default to No")
+}
+
+// -- Key handling: delete confirm modal --
+
+func TestDeleteConfirmModal_escCloses(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceDeleteConfirm
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+func TestDeleteConfirmModal_leftRightMoveCursor(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceDeleteConfirm
+	m.deleteConfirmCursor = 1 // No
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyLeft)
+	assert.Equal(t, 0, m2.deleteConfirmCursor, "left should select Yes")
+
+	m3, _ := pressSpecialKey(m, tea.KeyRight)
+	assert.Equal(t, 1, m3.deleteConfirmCursor, "right should select No")
+}
+
+func TestDeleteConfirmModal_enterNoClosesModal(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceDeleteConfirm
+	m.deleteConfirmCursor = 1 // No
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+// -- Key handling: item detail modal --
+
+func TestItemDetailModal_escCloses(t *testing.T) {
+	m := newModel()
+	m.modal = modalItemDetail
+	m.items = []newsfeed.NewsItem{makeItem("A", "src", time.Now())}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+func TestItemDetailModal_oReturnsCmd(t *testing.T) {
+	m := newModel()
+	m.modal = modalItemDetail
+	m.items = []newsfeed.NewsItem{makeItem("A", "src", time.Now())}
+
+	_, cmd := pressKey(m, "o")
+	assert.NotNil(t, cmd, "pressing o should return a browser-open command")
+}
+
+func TestItemDetailModal_oOnEmptyItemsNoCmd(t *testing.T) {
+	m := newModel()
+	m.modal = modalItemDetail
+	m.items = nil
+
+	_, cmd := pressKey(m, "o")
+	assert.Nil(t, cmd)
+}
+
+// -- Edit form: tab and esc --
+
+func TestEditModal_tabSwitchesField(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceEdit
+	m.editFocus = 0
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyTab)
+	assert.Equal(t, 1, m2.editFocus)
+
+	m3, _ := pressSpecialKey(m2, tea.KeyTab)
+	assert.Equal(t, 0, m3.editFocus)
+}
+
+func TestEditModal_escClosesModal(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceEdit
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+
+	m2, _ := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+// -- renderSourceFields --
+
+func TestRenderSourceFields_includesAllFields(t *testing.T) {
+	last := time.Date(2024, 5, 10, 0, 0, 0, 0, time.UTC)
+	errMsg := "connection refused"
+	interval := "2h"
+	src := sources.Source{
+		SourceID:        uuid.New(),
+		Name:            "Test Source",
+		URL:             "https://example.com/feed",
+		SourceType:      "rss",
+		CreatedAt:       time.Date(2024, 1, 1, 0, 0, 0, 0, time.UTC),
+		UpdatedAt:       time.Date(2024, 2, 1, 0, 0, 0, 0, time.UTC),
+		LastFetchedAt:   &last,
+		PollingInterval: &interval,
+		FetchErrorCount: 3,
+		LastError:       &errMsg,
+	}
+
+	got := renderSourceFields(src)
+	assert.Contains(t, got, "Test Source")
+	assert.Contains(t, got, "https://example.com/feed")
+	assert.Contains(t, got, "rss")
+	assert.Contains(t, got, "2024-01-01")
+	assert.Contains(t, got, "2024-02-01")
+	assert.Contains(t, got, "2024-05-10")
+	assert.Contains(t, got, "2h")
+	assert.Contains(t, got, "3")
+	assert.Contains(t, got, "connection refused")
+}
+
+func TestRenderSourceFields_neverFetchedShowsNever(t *testing.T) {
+	src := makeSource("A", "u", "rss", true)
+	src.LastFetchedAt = nil
+	got := renderSourceFields(src)
+	assert.Contains(t, got, "Never")
+}
+
+func TestRenderSourceFields_datesAreYYYYMMDD(t *testing.T) {
+	fixed := time.Date(2024, 6, 15, 12, 34, 56, 0, time.UTC)
+	src := makeSource("A", "u", "rss", true)
+	src.CreatedAt = fixed
+	src.UpdatedAt = fixed
+	src.LastFetchedAt = &fixed
+
+	got := renderSourceFields(src)
+
+	// The date "2024-06-15" should appear; "12:34:56" must not.
+	assert.Contains(t, got, "2024-06-15", "date value should appear in YYYY-MM-DD format")
+	assert.NotContains(t, got, "12:34:56", "time-of-day component should not appear in date fields")
+}

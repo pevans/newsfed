@@ -50,6 +50,8 @@ func main() {
 		handleInit(metadataPath, feedDir, os.Args[2:])
 	case "doctor":
 		handleDoctor(metadataPath, feedDir, os.Args[2:])
+	case "tui":
+		handleTUI(metadataPath, feedDir)
 	case "sources":
 		if len(os.Args) < 3 {
 			printSourcesUsage()
@@ -120,6 +122,7 @@ func printUsage() {
 	fmt.Println("  init       Initialize storage (create databases/directories)")
 	fmt.Println("  doctor     Check storage health and configuration")
 	fmt.Println("  sources    Manage news sources")
+	fmt.Println("  tui        Launch the text user interface")
 	fmt.Println("  help       Show this help message")
 	fmt.Println()
 	fmt.Println("Environment Variables:")
