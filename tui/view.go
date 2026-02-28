@@ -51,14 +51,15 @@ func (m Model) View() string {
 }
 
 func (m Model) renderMain() string {
-	// Each frame gets roughly half the terminal width, accounting for
-	// borders. Each border takes 2 chars (left + right), so inner width =
-	// (total - 4) / 2.
+	// The left (sources) frame takes 1/3 of the terminal width and the right
+	// (items) frame takes the remaining 2/3. Each border takes 2 chars
+	// (left + right), so total border overhead is 4 chars.
 	totalInner := m.width - 4
 	if totalInner < 4 {
 		totalInner = 4
 	}
-	frameInner := totalInner / 2
+	leftInner := totalInner / 3
+	rightInner := totalInner - leftInner
 
 	// Frame height minus a small margin; inner height subtracts top+bottom
 	// border.
@@ -71,8 +72,8 @@ func (m Model) renderMain() string {
 		innerHeight = 1
 	}
 
-	leftContent := m.renderSourceList(frameInner, innerHeight)
-	rightContent := m.renderItemList(frameInner, innerHeight)
+	leftContent := m.renderSourceList(leftInner, innerHeight)
+	rightContent := m.renderItemList(rightInner, innerHeight)
 
 	var leftStyle, rightStyle lipgloss.Style
 	if m.focus == focusSources {
@@ -83,8 +84,8 @@ func (m Model) renderMain() string {
 		rightStyle = focusedBorderStyle
 	}
 
-	leftFrame := leftStyle.Width(frameInner).Height(innerHeight).Render(leftContent)
-	rightFrame := rightStyle.Width(frameInner).Height(innerHeight).Render(rightContent)
+	leftFrame := leftStyle.Width(leftInner).Height(innerHeight).Render(leftContent)
+	rightFrame := rightStyle.Width(rightInner).Height(innerHeight).Render(rightContent)
 
 	return lipgloss.JoinHorizontal(lipgloss.Top, leftFrame, rightFrame)
 }
@@ -154,10 +155,9 @@ func (m Model) renderItemList(width, height int) string {
 			Render("<No items>")
 	}
 
-	// Each item occupies 3 lines. Determine how many items fit on screen and
+	// Each item occupies 1 line. Determine how many items fit on screen and
 	// which item the viewport starts from so the cursor stays visible.
-	linesPerItem := 3
-	visibleItems := height / linesPerItem
+	visibleItems := height
 	if visibleItems < 1 {
 		visibleItems = 1
 	}
@@ -167,23 +167,40 @@ func (m Model) renderItemList(width, height int) string {
 		startItem = m.itemCursor - visibleItems + 1
 	}
 
+	now := time.Now()
 	var lines []string
 	for i := startItem; i < len(m.items); i++ {
 		if len(lines) >= height {
 			break
 		}
 		item := m.items[i]
-		line1 := ansi.Truncate(fmt.Sprintf("%d. %s", i+1, item.Title), width, "...")
-		line2 := ansi.Truncate(fmt.Sprintf("Authors: %s", strings.Join(item.Authors, ", ")), width, "...")
-		line3 := ansi.Truncate(fmt.Sprintf("Published: %s", item.PublishedAt.Format("2006-01-02")), width, "...")
+		prefix := fmt.Sprintf("%d. ", i+1)
+		rel := relativeDate(item.PublishedAt, now)
+		var date string
+		if rel == "today" {
+			date = "(today)"
+		} else {
+			date = "(" + rel + " ago)"
+		}
+		dateLen := utf8.RuneCountInString(date)
+		prefixLen := len(prefix) // ASCII only
+		titleMaxWidth := width - prefixLen - dateLen - 1
+		if titleMaxWidth < 1 {
+			titleMaxWidth = 1
+		}
+		truncTitle := ansi.Truncate(item.Title, titleMaxWidth, "...")
+		leftPart := prefix + truncTitle
+		padding := width - utf8.RuneCountInString(leftPart) - dateLen
+		if padding < 1 {
+			padding = 1
+		}
+		line := leftPart + strings.Repeat(" ", padding) + date
 
 		if i == m.itemCursor {
-			line1 = selectedStyle.Width(width).Render(line1)
-			line2 = selectedStyle.Width(width).Render(line2)
-			line3 = selectedStyle.Width(width).Render(line3)
+			line = selectedStyle.Width(width).Render(line)
 		}
 
-		lines = append(lines, line1, line2, line3)
+		lines = append(lines, line)
 	}
 
 	return strings.Join(lines, "\n")
@@ -402,4 +419,44 @@ func formatDate(t *time.Time) string {
 		return "Never"
 	}
 	return t.Format("2006-01-02")
+}
+
+// relativeDate returns a compact relative date string such as "1d", "2mo3d",
+// or "1y2mo4d" representing the calendar distance from t to now. If t is not
+// before now, it returns "0d".
+func relativeDate(t time.Time, now time.Time) string {
+	if !t.Before(now) {
+		return "today"
+	}
+
+	cur := t
+	y, mo, d := 0, 0, 0
+
+	for next := cur.AddDate(1, 0, 0); !next.After(now); next = cur.AddDate(1, 0, 0) {
+		y++
+		cur = next
+	}
+	for next := cur.AddDate(0, 1, 0); !next.After(now); next = cur.AddDate(0, 1, 0) {
+		mo++
+		cur = next
+	}
+	for next := cur.AddDate(0, 0, 1); !next.After(now); next = cur.AddDate(0, 0, 1) {
+		d++
+		cur = next
+	}
+
+	var sb strings.Builder
+	if y > 0 {
+		fmt.Fprintf(&sb, "%dy", y)
+	}
+	if mo > 0 {
+		fmt.Fprintf(&sb, "%dmo", mo)
+	}
+	if d > 0 || (y == 0 && mo == 0) {
+		if y == 0 && mo == 0 && d == 0 {
+			return "today"
+		}
+		fmt.Fprintf(&sb, "%dd", d)
+	}
+	return sb.String()
 }

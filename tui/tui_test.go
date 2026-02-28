@@ -90,6 +90,64 @@ func TestFormatDate_omitsTime(t *testing.T) {
 	assert.Equal(t, formatDate(&day), formatDate(&night))
 }
 
+// -- relativeDate --
+
+func TestRelativeDate_futureOrNowReturnsToday(t *testing.T) {
+	now := time.Date(2026, 2, 28, 12, 0, 0, 0, time.UTC)
+	assert.Equal(t, "today", relativeDate(now.Add(time.Hour), now), "future should be today")
+	assert.Equal(t, "today", relativeDate(now, now), "equal time should be today")
+}
+
+func TestRelativeDate_earlierTodayReturnsToday(t *testing.T) {
+	now := time.Date(2026, 2, 28, 20, 0, 0, 0, time.UTC)
+	earlier := time.Date(2026, 2, 28, 6, 0, 0, 0, time.UTC)
+	assert.Equal(t, "today", relativeDate(earlier, now))
+}
+
+func TestRelativeDate_daysOnly(t *testing.T) {
+	now := time.Date(2026, 2, 28, 12, 0, 0, 0, time.UTC)
+	for days := 1; days <= 5; days++ {
+		pub := now.AddDate(0, 0, -days)
+		assert.Equal(t, fmt.Sprintf("%dd", days), relativeDate(pub, now),
+			"exactly %d day(s) ago", days)
+	}
+}
+
+func TestRelativeDate_exactMonthsOmitsDays(t *testing.T) {
+	now := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	pub := now.AddDate(0, -2, 0) // exactly 2 months before
+	assert.Equal(t, "2mo", relativeDate(pub, now))
+}
+
+func TestRelativeDate_monthsAndDays(t *testing.T) {
+	now := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+	pub := time.Date(2026, 1, 26, 0, 0, 0, 0, time.UTC)
+	assert.Equal(t, "1mo2d", relativeDate(pub, now))
+}
+
+func TestRelativeDate_yearsMonthsDays(t *testing.T) {
+	now := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+	pub := time.Date(2022, 12, 27, 0, 0, 0, 0, time.UTC)
+	// Dec 27 + 3y = 2025-12-27, +2mo = 2026-02-27, +1d = 2026-02-28
+	assert.Equal(t, "3y2mo1d", relativeDate(pub, now))
+}
+
+func TestRelativeDate_exactYearOmitsMonthsAndDays(t *testing.T) {
+	now := time.Date(2026, 6, 15, 0, 0, 0, 0, time.UTC)
+	pub := now.AddDate(-1, 0, 0) // exactly 1 year before
+	assert.Equal(t, "1y", relativeDate(pub, now))
+}
+
+func TestRelativeDate_neverEmpty(t *testing.T) {
+	now := time.Date(2026, 2, 28, 0, 0, 0, 0, time.UTC)
+	// Any past date should produce a non-empty string.
+	for daysBack := 1; daysBack <= 365*3; daysBack++ {
+		pub := now.AddDate(0, 0, -daysBack)
+		assert.NotEmpty(t, relativeDate(pub, now),
+			"daysBack=%d should produce a non-empty result", daysBack)
+	}
+}
+
 // -- wordWrap / wrapParagraph --
 
 func TestWrapParagraph_allWordsPresent(t *testing.T) {

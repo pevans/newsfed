@@ -15,17 +15,18 @@ the URL sources in items.
 
 # 2. Main wireframe
 
-When Newsfed's TUI opens, it should be split roughly into halves.
+When Newsfed's TUI opens, it should be split into two frames.
 
-- In the first half, on the left, is a frame that renders a list of all
-  sources.
+- On the left is a sources frame that occupies roughly one third of the
+  terminal width. It renders a list of all sources.
   - Users would be able to select a source to view or manage.
   - There is always one source that is selected; by default, it's the first
     source in the list.
   - Hitting enter opens a floating modal (that takes up the center of the
     screen) with options edit or delete the source.
-- In the final half is a second frame. In this frame is each news item
-  of the selected source.
+- On the right is a news items frame that occupies the remaining two thirds
+  of the terminal width. In this frame is each news item of the selected
+  source.
     - Hitting enter opens a floating modal (that again takes up the center of
       the screen) with the full details of the news item.
 - Each frame should have a single lined border with rounded corners.
@@ -65,25 +66,33 @@ centered vertically and horizontally within the frame.
 # 4. News items frame
 
 The news items frame contains a list of items belonging to the selected source.
-Each item in the frame is rendered using the following form:
+Each item in the frame is rendered on a single line. The title is shown on the
+left and the published date is shown on the right, separated by spaces to fill
+the full width of the frame:
 
-<item number>. <title of item>
-Authors: <authors of the item>
-Published: <published at date>
+<item number>. <title of item>          (<relative date> ago)
 
 Here's a filled-in example:
 
-2. Scientists Discover Talking Badger
-Authors: Dan Serious, Joni Smitchell
-Published: 1999-01-15
+2. Scientists Discover Talking Badger               (3y2mo1d ago)
 
 The item number is the index in the items list; i.e., the first item is 1, the
 second item is 2, and so forth. The items should be sorted in reverse
 chronological order, so that the most recently published item appears first.
 
-Each item therefore comprises three lines of text. The same truncation rules as
-the source frame apply: lines that cannot be rendered fully are truncated with
-"..." appended to the end of what remains.
+The relative date uses calendar years (y), months (mo), and days (d), showing
+only the non-zero components from most to least significant. For example:
+
+- An item published one day ago shows "(1d ago)"
+- An item published two days ago shows "(2d ago)"
+- An item published one month and two days ago shows "(1mo2d ago)"
+- An item published three years, two months, and one day ago shows
+  "(3y2mo1d ago)"
+- An item published today shows "(today)"
+
+If the title is too long to fit alongside the date, it is truncated with "..."
+appended to the end of what remains. Enough text is truncated to leave at
+least one space between the title and the date.
 
 No item has any text that comprises a visual border between it and other items.
 

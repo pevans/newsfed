@@ -373,9 +373,9 @@ RSSEOF
     stop_mock_server
 
     # Use a short terminal so only a few items fit on screen at once.
-    # Height 15 with borders gives ~11 inner rows; at 3 lines per item only
-    # 3-4 items fit.
-    tui_start 80 15
+    # Height 8 with borders gives ~4 inner rows; at 1 line per item only
+    # 4 items fit, ensuring the 10-item list requires scrolling.
+    tui_start 80 8
     tui_wait_for "Scroll Test Source" 5
 
     tui_send_keys "Tab"
