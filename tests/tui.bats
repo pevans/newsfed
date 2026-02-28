@@ -333,3 +333,146 @@ RSSEOF
     tui_assert_contains "Published:"
     tui_assert_contains "URL:"
 }
+
+@test "tui: items frame scrolls viewport to follow cursor" {
+    mkdir -p "$TEST_DIR/www"
+
+    # Create a feed with 10 items (distinct dates) so the list exceeds the
+    # visible height of a small terminal and requires scrolling.  Items are
+    # sorted newest-first, so Juliet (Jan 10) appears at the top and Alpha
+    # (Jan 01) at the bottom.
+    cat > "$TEST_DIR/www/feed.xml" <<'RSSEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Scroll Test Feed</title>
+    <link>http://example.com</link>
+    <description>Feed for scroll testing</description>
+    <item><title>Story Alpha</title><link>http://example.com/alpha</link><pubDate>Thu, 01 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Bravo</title><link>http://example.com/bravo</link><pubDate>Fri, 02 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Charlie</title><link>http://example.com/charlie</link><pubDate>Sat, 03 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Delta</title><link>http://example.com/delta</link><pubDate>Sun, 04 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Echo</title><link>http://example.com/echo</link><pubDate>Mon, 05 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Foxtrot</title><link>http://example.com/foxtrot</link><pubDate>Tue, 06 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Golf</title><link>http://example.com/golf</link><pubDate>Wed, 07 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Hotel</title><link>http://example.com/hotel</link><pubDate>Thu, 08 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story India</title><link>http://example.com/india</link><pubDate>Fri, 09 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+    <item><title>Story Juliet</title><link>http://example.com/juliet</link><pubDate>Sat, 10 Jan 2026 00:00:00 GMT</pubDate><description>desc</description></item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Scroll Test Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    # Use a short terminal so only a few items fit on screen at once.
+    # Height 15 with borders gives ~11 inner rows; at 3 lines per item only
+    # 3-4 items fit.
+    tui_start 80 15
+    tui_wait_for "Scroll Test Source" 5
+
+    tui_send_keys "Tab"
+    sleep 0.3
+
+    # Newest items (Juliet, India, ...) appear at the top; oldest (Alpha) is
+    # off-screen at the bottom.
+    tui_assert_contains "Story Juliet"
+    tui_assert_not_contains "Story Alpha"
+
+    # Press j enough times to move the cursor past the bottom of the
+    # viewport.  The list should scroll so older items become visible.
+    for i in $(seq 1 9); do
+        tui_send_keys "j"
+        sleep 0.05
+    done
+    sleep 0.3
+
+    tui_assert_contains "Story Alpha"
+    tui_assert_not_contains "Story Juliet"
+
+    # Scroll back up to the top.
+    for i in $(seq 1 9); do
+        tui_send_keys "k"
+        sleep 0.05
+    done
+    sleep 0.3
+
+    tui_assert_contains "Story Juliet"
+    tui_assert_not_contains "Story Alpha"
+}
+
+@test "tui: item detail modal scrolls long content with j and k" {
+    mkdir -p "$TEST_DIR/www"
+
+    # Create an item with a long description so the modal content exceeds the
+    # visible height and scrolling is required.  Two unique sentinel words --
+    # ScrollTestTop (at the start) and ScrollTestBottom (at the end) -- let
+    # us confirm that the viewport moves when j/k are pressed.
+    cat > "$TEST_DIR/www/feed.xml" <<'RSSEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Scroll Test Feed</title>
+    <link>http://example.com</link>
+    <description>Feed for scroll testing</description>
+    <item>
+      <title>Long Article</title>
+      <link>http://example.com/long-article</link>
+      <description>ScrollTestTop begins the article body with words that push content across several wrapped lines when displayed inside the narrow modal window. The second sentence adds more prose so the summary occupies additional rows after word-wrapping. A third sentence further pads the content ensuring the opening paragraph alone spans several visible lines. The fourth sentence continues adding filler text that is long enough to wrap onto its own line within the modal. The fifth sentence pushes the bottom sentinel well off the bottom edge of the initial viewport. The sixth sentence ensures a comfortable buffer of lines separates the two markers. The seventh sentence makes certain at least a dozen lines lie between the sentinel words. The eighth sentence adds even more padding so that scrolling a handful of times is definitely required to reach the end. ScrollTestBottom</description>
+    </item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Scroll Test Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    # Use a short terminal (height=10) so the modal viewport is only 6 lines
+    # tall (height minus 4 lines of border/padding overhead), leaving very
+    # little room for the summary after the 4-line header.
+    tui_start 120 10
+    tui_wait_for "Scroll Test Source" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Long Article" 5
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    # Initially, the top of the content is visible; the bottom is not.
+    tui_assert_contains "ScrollTestTop"
+    tui_assert_not_contains "ScrollTestBottom"
+
+    # Scroll down until ScrollTestBottom comes into view.
+    for i in $(seq 1 30); do
+        tui_send_keys "j"
+        sleep 0.03
+    done
+    sleep 0.3
+
+    tui_assert_contains "ScrollTestBottom"
+
+    # Scroll back up; ScrollTestTop should reappear and ScrollTestBottom
+    # should leave the viewport again.
+    for i in $(seq 1 30); do
+        tui_send_keys "k"
+        sleep 0.03
+    done
+    sleep 0.3
+
+    tui_assert_contains "ScrollTestTop"
+    tui_assert_not_contains "ScrollTestBottom"
+}

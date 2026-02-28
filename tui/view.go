@@ -104,11 +104,25 @@ func (m Model) renderSourceList(width, height int) string {
 		listHeight = height - 1
 	}
 
+	// Each source occupies 2 lines. Determine which source the viewport
+	// starts from so the cursor stays visible.
+	linesPerSource := 2
+	visibleSources := listHeight / linesPerSource
+	if visibleSources < 1 {
+		visibleSources = 1
+	}
+
+	startSource := 0
+	if m.sourceCursor >= visibleSources {
+		startSource = m.sourceCursor - visibleSources + 1
+	}
+
 	var lines []string
-	for i, src := range m.sources {
+	for i := startSource; i < len(m.sources); i++ {
 		if len(lines) >= listHeight {
 			break
 		}
+		src := m.sources[i]
 		line1 := ansi.Truncate(fmt.Sprintf("%d. %s (%s)", i+1, src.Name, src.SourceType), width, "...")
 		line2 := ansi.Truncate(fmt.Sprintf("Last updated: %s", formatDate(src.LastFetchedAt)), width, "...")
 
@@ -140,11 +154,25 @@ func (m Model) renderItemList(width, height int) string {
 			Render("<No items>")
 	}
 
+	// Each item occupies 3 lines. Determine how many items fit on screen and
+	// which item the viewport starts from so the cursor stays visible.
+	linesPerItem := 3
+	visibleItems := height / linesPerItem
+	if visibleItems < 1 {
+		visibleItems = 1
+	}
+
+	startItem := 0
+	if m.itemCursor >= visibleItems {
+		startItem = m.itemCursor - visibleItems + 1
+	}
+
 	var lines []string
-	for i, item := range m.items {
+	for i := startItem; i < len(m.items); i++ {
 		if len(lines) >= height {
 			break
 		}
+		item := m.items[i]
 		line1 := ansi.Truncate(fmt.Sprintf("%d. %s", i+1, item.Title), width, "...")
 		line2 := ansi.Truncate(fmt.Sprintf("Authors: %s", strings.Join(item.Authors, ", ")), width, "...")
 		line3 := ansi.Truncate(fmt.Sprintf("Published: %s", item.PublishedAt.Format("2006-01-02")), width, "...")
@@ -291,7 +319,35 @@ func (m Model) renderItemDetailModal() string {
 		}
 	}
 
-	return sb.String()
+	// Apply scroll offset. The modal border and padding consume 4 lines
+	// vertically (1 border + 1 padding on each side), so the visible height
+	// is the terminal height minus that overhead.
+	lines := strings.Split(sb.String(), "\n")
+	// Drop a trailing empty element produced by a final newline.
+	if len(lines) > 0 && lines[len(lines)-1] == "" {
+		lines = lines[:len(lines)-1]
+	}
+
+	visibleHeight := m.height - 4
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
+	scroll := m.itemDetailScroll
+	maxScroll := len(lines) - visibleHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	if scroll > maxScroll {
+		scroll = maxScroll
+	}
+
+	end := scroll + visibleHeight
+	if end > len(lines) {
+		end = len(lines)
+	}
+
+	return strings.Join(lines[scroll:end], "\n")
 }
 
 // stripHTML removes HTML tags from a string using goquery.
@@ -339,7 +395,6 @@ func wrapParagraph(text string, width int) string {
 
 	return strings.Join(lines, "\n")
 }
-
 
 // formatDate renders a *time.Time as YYYY-MM-DD, or "Never" if nil.
 func formatDate(t *time.Time) string {

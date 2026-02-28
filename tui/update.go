@@ -257,6 +257,7 @@ func (m Model) handleEnter() (tea.Model, tea.Cmd) {
 	}
 	if m.focus == focusItems && len(m.items) > 0 {
 		m.modal = modalItemDetail
+		m.itemDetailScroll = 0
 		return m, nil
 	}
 	return m, nil
@@ -384,6 +385,12 @@ func (m Model) handleItemDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if len(m.items) > 0 {
 			return m, openBrowserCmd(m.items[m.itemCursor].URL)
 		}
+	case "up", "k":
+		if m.itemDetailScroll > 0 {
+			m.itemDetailScroll--
+		}
+	case "down", "j":
+		m.itemDetailScroll++
 	}
 	return m, nil
 }

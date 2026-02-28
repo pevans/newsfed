@@ -43,6 +43,9 @@ type Model struct {
 	editInputs [2]textinput.Model // [0]=Name, [1]=URL
 	editFocus  int
 
+	// Item detail modal
+	itemDetailScroll int
+
 	// Status
 	statusMsg string
 	fetching  bool

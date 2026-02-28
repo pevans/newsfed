@@ -793,6 +793,7 @@ specs:
         testable: true
         tests:
           - "tests/tui.bats::tui: tab switches focus to items frame"
+          - "tests/tui.bats::tui: items frame scrolls viewport to follow cursor"
 
       - section: "5"
         title: Source management modal
@@ -811,7 +812,10 @@ specs:
 
       - section: "6"
         title: News item detail modal
-        testable: false
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: enter on item opens item detail modal"
+          - "tests/tui.bats::tui: item detail modal scrolls long content with j and k"
 
       - section: "7"
         title: Navigation and keybindings
