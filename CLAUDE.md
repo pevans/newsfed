@@ -1,7 +1,5 @@
 All specifications are located in the `specs/` directory.
 
-Whenever you have a task you must perform, you must track it with `bd`.
-
 Do not commit files directly into the repository unless given explicit
 permission to do so by the user's own prompt to you.
 
