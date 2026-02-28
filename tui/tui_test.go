@@ -652,6 +652,34 @@ func TestEditModal_escClosesModal(t *testing.T) {
 	assert.Equal(t, modalNone, m2.modal)
 }
 
+// -- renderModeLine --
+
+func TestRenderModeLine_defaultShowsHelp(t *testing.T) {
+	m := newModel()
+	m.statusMsg = ""
+	got := m.renderModeLine()
+	assert.Contains(t, got, "[Q]uit")
+	assert.Contains(t, got, "[R]efresh")
+	assert.Contains(t, got, "[Tab]")
+	assert.Contains(t, got, "[Enter]")
+}
+
+func TestRenderModeLine_statusMsgReplaceHelp(t *testing.T) {
+	m := newModel()
+	m.statusMsg = "Fetching..."
+	got := m.renderModeLine()
+	assert.Contains(t, got, "Fetching...")
+	assert.NotContains(t, got, "[Q]uit")
+}
+
+func TestRenderModeLine_clearedStatusRestoresHelp(t *testing.T) {
+	m := newModel()
+	m.statusMsg = "Fetching..."
+	m.statusMsg = "" // cleared
+	got := m.renderModeLine()
+	assert.Contains(t, got, "[Q]uit")
+}
+
 // -- renderSourceFields --
 
 func TestRenderSourceFields_includesAllFields(t *testing.T) {

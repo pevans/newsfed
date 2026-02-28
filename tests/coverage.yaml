@@ -849,3 +849,9 @@ specs:
         testable: true
         tests:
           - "tests/tui.bats::tui: source entry shows Last updated: Never when never fetched"
+
+      - section: "9"
+        title: Mode line
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: mode line shows keyboard shortcut summary on startup"

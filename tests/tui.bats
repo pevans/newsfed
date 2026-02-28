@@ -408,6 +408,23 @@ RSSEOF
     tui_assert_not_contains "Story Alpha"
 }
 
+# ---------------------------------------------------------------------------
+# Mode line
+# ---------------------------------------------------------------------------
+
+@test "tui: mode line shows keyboard shortcut summary on startup" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    local screen
+    screen=$(tui_capture)
+
+    echo "$screen" | grep -qF "[Q]uit"
+    echo "$screen" | grep -qF "[R]efresh"
+    echo "$screen" | grep -qF "[Tab]"
+    echo "$screen" | grep -qF "[Enter]"
+}
+
 @test "tui: item detail modal scrolls long content with j and k" {
     mkdir -p "$TEST_DIR/www"
 

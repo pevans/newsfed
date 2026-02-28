@@ -61,8 +61,9 @@ func (m Model) renderMain() string {
 	leftInner := totalInner / 3
 	rightInner := totalInner - leftInner
 
-	// Title occupies 1 line; blank separator occupies 1 line = 2 lines total.
-	const titleOverhead = 2
+	// Title occupies 1 line; blank separator occupies 1 line; mode line
+	// occupies 1 line = 3 lines total.
+	const titleOverhead = 3
 
 	// Frame height minus a small margin and the title overhead; inner height
 	// subtracts top+bottom border.
@@ -92,8 +93,20 @@ func (m Model) renderMain() string {
 
 	title := lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render("--=[ newsfed ]=--")
 	frames := lipgloss.JoinHorizontal(lipgloss.Top, leftFrame, rightFrame)
+	modeLine := m.renderModeLine()
 
-	return lipgloss.JoinVertical(lipgloss.Left, title, "", frames)
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", frames, modeLine)
+}
+
+// renderModeLine renders the mode line at the bottom of the screen. It shows
+// the current status message in inverse video when one is set; otherwise it
+// shows a keyboard shortcut summary.
+func (m Model) renderModeLine() string {
+	content := m.statusMsg
+	if content == "" {
+		content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open"
+	}
+	return selectedStyle.Width(m.width).Render(content)
 }
 
 func (m Model) renderSourceList(width, height int) string {
@@ -105,16 +118,10 @@ func (m Model) renderSourceList(width, height int) string {
 			Render("No sources.")
 	}
 
-	// Reserve the last line for the status message so it is always visible.
-	listHeight := height
-	if m.statusMsg != "" {
-		listHeight = height - 1
-	}
-
 	// Each source occupies 2 lines. Determine which source the viewport
 	// starts from so the cursor stays visible.
 	linesPerSource := 2
-	visibleSources := listHeight / linesPerSource
+	visibleSources := height / linesPerSource
 	if visibleSources < 1 {
 		visibleSources = 1
 	}
@@ -126,7 +133,7 @@ func (m Model) renderSourceList(width, height int) string {
 
 	var lines []string
 	for i := startSource; i < len(m.sources); i++ {
-		if len(lines) >= listHeight {
+		if len(lines) >= height {
 			break
 		}
 		src := m.sources[i]
@@ -139,14 +146,6 @@ func (m Model) renderSourceList(width, height int) string {
 		}
 
 		lines = append(lines, line1, line2)
-	}
-
-	if m.statusMsg != "" {
-		// Pad with blank lines to push status to the bottom of the frame.
-		for len(lines) < listHeight {
-			lines = append(lines, "")
-		}
-		lines = append(lines, ansi.Truncate(m.statusMsg, width, "..."))
 	}
 
 	return strings.Join(lines, "\n")

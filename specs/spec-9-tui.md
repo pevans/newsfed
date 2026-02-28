@@ -211,6 +211,22 @@ The following keybindings are active at all times unless a modal is open:
   frame. On completion, the news items frame refreshes to show any new items.
 - q -- quit the TUI and return to the shell.
 
+# 9. Mode line
+
+A mode line is displayed at the bottom of the screen in inverse video. It spans
+the full terminal width.
+
+By default, the mode line shows a keyboard shortcut summary:
+
+```
+[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open
+```
+
+Whenever a status message is active -- for example, while a source is being
+fetched or after a fetch completes -- the mode line displays that message
+instead of the shortcut summary. When the status message clears (for example,
+when the user navigates away), the mode line reverts to the shortcut summary.
+
 # 8. Date formatting
 
 Dates are rendered in the format YYYY-MM-DD. If a source has never been
