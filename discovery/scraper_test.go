@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/PuerkitoBio/goquery"
+	"github.com/google/uuid"
 	"github.com/pevans/newsfed/newsfeed"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -53,7 +54,7 @@ func TestScrapedArticleToNewsItem_Complete(t *testing.T) {
 		PublishedAt: &publishedAt,
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "Example Site")
+	newsItem := ScrapedArticleToNewsItem(article, "Example Site", uuid.New())
 
 	assert.Equal(t, "Test Article", newsItem.Title)
 	assert.Equal(t, "This is the article content", newsItem.Summary)
@@ -73,7 +74,7 @@ func TestScrapedArticleToNewsItem_EmptyTitle(t *testing.T) {
 		URL:     "http://example.com",
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "Site")
+	newsItem := ScrapedArticleToNewsItem(article, "Site", uuid.New())
 
 	assert.Equal(t, "(No title)", newsItem.Title)
 }
@@ -87,7 +88,7 @@ func TestScrapedArticleToNewsItem_LongContent(t *testing.T) {
 		URL:     "http://example.com",
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "Site")
+	newsItem := ScrapedArticleToNewsItem(article, "Site", uuid.New())
 
 	assert.Len(t, newsItem.Summary, 503, "should truncate to 500 chars plus '...'")
 	assert.True(t, strings.HasSuffix(newsItem.Summary, "..."), "should append ellipsis")
@@ -102,7 +103,7 @@ func TestScrapedArticleToNewsItem_ShortContent(t *testing.T) {
 		URL:     "http://example.com",
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "Site")
+	newsItem := ScrapedArticleToNewsItem(article, "Site", uuid.New())
 
 	assert.Equal(t, shortContent, newsItem.Summary, "should not truncate short content")
 }
@@ -115,7 +116,7 @@ func TestScrapedArticleToNewsItem_NoPublisher(t *testing.T) {
 		URL:     "http://example.com",
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "")
+	newsItem := ScrapedArticleToNewsItem(article, "", uuid.New())
 
 	assert.Nil(t, newsItem.Publisher)
 }
@@ -129,7 +130,7 @@ func TestScrapedArticleToNewsItem_NilAuthors(t *testing.T) {
 		Authors: nil,
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "Site")
+	newsItem := ScrapedArticleToNewsItem(article, "Site", uuid.New())
 
 	assert.NotNil(t, newsItem.Authors, "should initialize empty slice")
 	assert.Empty(t, newsItem.Authors)
@@ -146,7 +147,7 @@ func TestScrapedArticleToNewsItem_NoPublishedDate(t *testing.T) {
 		PublishedAt: nil,
 	}
 
-	newsItem := ScrapedArticleToNewsItem(article, "Site")
+	newsItem := ScrapedArticleToNewsItem(article, "Site", uuid.New())
 	after := time.Now()
 
 	assert.True(t, newsItem.PublishedAt.After(before) || newsItem.PublishedAt.Equal(before))
@@ -590,8 +591,8 @@ func TestScrapedArticleToNewsItem_AlwaysGeneratesUUID(t *testing.T) {
 		URL:     "http://example.com",
 	}
 
-	item1 := ScrapedArticleToNewsItem(article, "Site")
-	item2 := ScrapedArticleToNewsItem(article, "Site")
+	item1 := ScrapedArticleToNewsItem(article, "Site", uuid.New())
+	item2 := ScrapedArticleToNewsItem(article, "Site", uuid.New())
 
 	assert.NotEqual(t, item1.ID, item2.ID, "should generate unique UUIDs")
 }

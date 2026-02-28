@@ -419,7 +419,7 @@ func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source sources.Sourc
 	applyLimit := ds.shouldApplyItemLimit(source)
 
 	// Convert feed items to NewsItems (FeedToNewsItems from Spec 2)
-	newsItems := FeedToNewsItems(feed, applyLimit)
+	newsItems := FeedToNewsItems(feed, applyLimit, source.SourceID)
 
 	// Process each item with deduplication
 	newItemCount := 0
@@ -505,7 +505,7 @@ func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *Scrap
 	}
 
 	// Convert to NewsItem
-	newsItem := ScrapedArticleToNewsItem(article, source.Name)
+	newsItem := ScrapedArticleToNewsItem(article, source.Name, source.SourceID)
 
 	// Add to feed
 	if err := ds.newsFeed.Add(newsItem); err != nil {
@@ -606,7 +606,7 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 			}
 
 			// Convert to NewsItem
-			newsItem := ScrapedArticleToNewsItem(article, source.Name)
+			newsItem := ScrapedArticleToNewsItem(article, source.Name, source.SourceID)
 
 			// Add to feed
 			if err := ds.newsFeed.Add(newsItem); err != nil {

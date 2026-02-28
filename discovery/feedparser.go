@@ -26,7 +26,7 @@ func FetchFeed(url string) (*gofeed.Feed, error) {
 // newsfeed.NewsItem. Implements Spec 2 section 2.3.1 (RSS) and section 2.4.1
 // (Atom) mappings. The gofeed library normalizes both formats into a common
 // structure, so this function handles both RSS and Atom feeds transparently.
-func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) newsfeed.NewsItem {
+func FeedItemToNewsItem(item *gofeed.Item, feedTitle string, sourceID uuid.UUID) newsfeed.NewsItem {
 	// Generate new UUID for the item
 	id := uuid.New()
 
@@ -103,6 +103,7 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) newsfeed.NewsItem {
 		PublishedAt:  publishedAt,
 		DiscoveredAt: discoveredAt,
 		PinnedAt:     pinnedAt,
+		SourceID:     &sourceID,
 	}
 }
 
@@ -114,11 +115,11 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string) newsfeed.NewsItem {
 //   - true: limit to 20 most recent items (for first-time sync or stale
 //     sources)
 //   - false: process all items (for regular polling)
-func FeedToNewsItems(feed *gofeed.Feed, applyLimit bool) []newsfeed.NewsItem {
+func FeedToNewsItems(feed *gofeed.Feed, applyLimit bool, sourceID uuid.UUID) []newsfeed.NewsItem {
 	// Convert all items to newsfeed.NewsItems
 	items := make([]newsfeed.NewsItem, 0, len(feed.Items))
 	for _, item := range feed.Items {
-		newsItem := FeedItemToNewsItem(item, feed.Title)
+		newsItem := FeedItemToNewsItem(item, feed.Title, sourceID)
 		items = append(items, newsItem)
 	}
 

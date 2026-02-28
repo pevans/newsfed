@@ -61,7 +61,7 @@ type ScrapedArticle struct {
 
 // ScrapedArticleToNewsItem converts scraped article data to a NewsItem.
 // Implements Spec 3 section 4.1 field mapping.
-func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) newsfeed.NewsItem {
+func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string, sourceID uuid.UUID) newsfeed.NewsItem {
 	// Generate new UUID for the item
 	id := uuid.New()
 
@@ -117,6 +117,7 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string) new
 		PublishedAt:  publishedAt,
 		DiscoveredAt: discoveredAt,
 		PinnedAt:     pinnedAt,
+		SourceID:     &sourceID,
 	}
 }
 

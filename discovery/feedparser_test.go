@@ -5,6 +5,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/google/uuid"
 	"github.com/mmcdole/gofeed"
 	ext "github.com/mmcdole/gofeed/extensions"
 	"github.com/stretchr/testify/assert"
@@ -23,7 +24,7 @@ func TestFeedItemToNewsItem_BasicRSSItem(t *testing.T) {
 	}
 
 	feedTitle := "Example Feed"
-	newsItem := FeedItemToNewsItem(item, feedTitle)
+	newsItem := FeedItemToNewsItem(item, feedTitle, uuid.New())
 
 	assert.Equal(t, "Test Article", newsItem.Title)
 	assert.Equal(t, "This is a test description", newsItem.Summary)
@@ -41,7 +42,7 @@ func TestFeedItemToNewsItem_EmptyTitle(t *testing.T) {
 		Link:  "http://example.com/article",
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Equal(t, "(No title)", newsItem.Title, "should use fallback for empty title")
 }
@@ -53,7 +54,7 @@ func TestFeedItemToNewsItem_NoPublisher(t *testing.T) {
 		Link:  "http://example.com",
 	}
 
-	newsItem := FeedItemToNewsItem(item, "")
+	newsItem := FeedItemToNewsItem(item, "", uuid.New())
 
 	assert.Nil(t, newsItem.Publisher, "empty feed title should result in nil publisher")
 }
@@ -68,7 +69,7 @@ func TestFeedItemToNewsItem_SingleAuthor(t *testing.T) {
 		},
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	require.Len(t, newsItem.Authors, 1)
 	assert.Equal(t, "John Doe", newsItem.Authors[0])
@@ -85,7 +86,7 @@ func TestFeedItemToNewsItem_MultipleAuthors(t *testing.T) {
 		},
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Len(t, newsItem.Authors, 2)
 	assert.Contains(t, newsItem.Authors, "John Doe")
@@ -106,7 +107,7 @@ func TestFeedItemToNewsItem_AuthorDeduplication(t *testing.T) {
 		},
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Len(t, newsItem.Authors, 2, "should deduplicate authors")
 	assert.Contains(t, newsItem.Authors, "John Doe")
@@ -123,7 +124,7 @@ func TestFeedItemToNewsItem_DublinCoreCreator(t *testing.T) {
 		},
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Len(t, newsItem.Authors, 2)
 	assert.Contains(t, newsItem.Authors, "DC Author 1")
@@ -140,7 +141,7 @@ func TestFeedItemToNewsItem_EmptyAuthors(t *testing.T) {
 		},
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Empty(t, newsItem.Authors, "should skip empty author names")
 }
@@ -155,7 +156,7 @@ func TestFeedItemToNewsItem_PublishedDate(t *testing.T) {
 		PublishedParsed: &publishedTime,
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Equal(t, publishedTime, newsItem.PublishedAt)
 }
@@ -173,7 +174,7 @@ func TestFeedItemToNewsItem_UpdatedDatePreferred(t *testing.T) {
 		UpdatedParsed:   &updatedTime,
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Equal(t, updatedTime, newsItem.PublishedAt, "should prefer updated date over published date")
 }
@@ -189,7 +190,7 @@ func TestFeedItemToNewsItem_PublishedDateFallback(t *testing.T) {
 		PublishedParsed: &publishedTime,
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Equal(t, publishedTime, newsItem.PublishedAt, "should use published date if updated is missing")
 }
@@ -203,7 +204,7 @@ func TestFeedItemToNewsItem_NoDateFallback(t *testing.T) {
 		Link:  "http://example.com",
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 	after := time.Now()
 
 	assert.True(t, newsItem.PublishedAt.After(before) || newsItem.PublishedAt.Equal(before))
@@ -220,7 +221,7 @@ func TestFeedItemToNewsItem_DiscoveredAtSet(t *testing.T) {
 		Link:  "http://example.com",
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 	after := time.Now()
 
 	assert.True(t, newsItem.DiscoveredAt.After(before) || newsItem.DiscoveredAt.Equal(before))
@@ -234,7 +235,7 @@ func TestFeedItemToNewsItem_PinnedAtNil(t *testing.T) {
 		Link:  "http://example.com",
 	}
 
-	newsItem := FeedItemToNewsItem(item, "Feed")
+	newsItem := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.Nil(t, newsItem.PinnedAt, "newly created items should not be pinned")
 }
@@ -246,8 +247,8 @@ func TestFeedItemToNewsItem_GeneratesUUID(t *testing.T) {
 		Link:  "http://example.com",
 	}
 
-	newsItem1 := FeedItemToNewsItem(item, "Feed")
-	newsItem2 := FeedItemToNewsItem(item, "Feed")
+	newsItem1 := FeedItemToNewsItem(item, "Feed", uuid.New())
+	newsItem2 := FeedItemToNewsItem(item, "Feed", uuid.New())
 
 	assert.NotEqual(t, newsItem1.ID, newsItem2.ID, "should generate unique UUIDs")
 }
@@ -259,7 +260,7 @@ func TestFeedToNewsItems_EmptyFeed(t *testing.T) {
 		Items: []*gofeed.Item{},
 	}
 
-	items := FeedToNewsItems(feed, false)
+	items := FeedToNewsItems(feed, false, uuid.New())
 
 	assert.Empty(t, items, "should return empty slice for empty feed")
 }
@@ -276,7 +277,7 @@ func TestFeedToNewsItems_SingleItem(t *testing.T) {
 		},
 	}
 
-	items := FeedToNewsItems(feed, false)
+	items := FeedToNewsItems(feed, false, uuid.New())
 
 	require.Len(t, items, 1)
 	assert.Equal(t, "Article 1", items[0].Title)
@@ -299,7 +300,7 @@ func TestFeedToNewsItems_MultipleItems(t *testing.T) {
 		},
 	}
 
-	items := FeedToNewsItems(feed, false)
+	items := FeedToNewsItems(feed, false, uuid.New())
 
 	require.Len(t, items, 3)
 	// Items should be sorted by published_at (most recent first)
@@ -325,7 +326,7 @@ func TestFeedToNewsItems_SortsByPublishedDate(t *testing.T) {
 		},
 	}
 
-	items := FeedToNewsItems(feed, false)
+	items := FeedToNewsItems(feed, false, uuid.New())
 
 	require.Len(t, items, 3)
 	assert.Equal(t, "Newest", items[0].Title, "most recent should be first")
@@ -407,7 +408,7 @@ func TestFeedItemToNewsItem_AlwaysValid(t *testing.T) {
 
 	for _, tc := range testCases {
 		t.Run(tc.name, func(t *testing.T) {
-			newsItem := FeedItemToNewsItem(tc.item, "Feed")
+			newsItem := FeedItemToNewsItem(tc.item, "Feed", uuid.New())
 
 			// Verify required fields are present
 			assert.NotEqual(t, "", newsItem.Title, "title should never be empty")
@@ -449,12 +450,12 @@ func TestFeedToNewsItems_CapsAt20Items(t *testing.T) {
 			}
 
 			// Test with limit applied (first-time sync scenario)
-			itemsWithLimit := FeedToNewsItems(feed, true)
+			itemsWithLimit := FeedToNewsItems(feed, true, uuid.New())
 			assert.Len(t, itemsWithLimit, tc.expectedCount,
 				"output length should be min(input, 20) when limit applied")
 
 			// Test without limit (regular polling scenario)
-			itemsNoLimit := FeedToNewsItems(feed, false)
+			itemsNoLimit := FeedToNewsItems(feed, false, uuid.New())
 			assert.Len(t, itemsNoLimit, tc.inputCount,
 				"output length should match input when no limit applied")
 		})
@@ -482,7 +483,7 @@ func TestFeedToNewsItems_SelectsMostRecent20(t *testing.T) {
 	}
 
 	// Test with limit applied (first-time sync or stale source scenario)
-	items := FeedToNewsItems(feed, true)
+	items := FeedToNewsItems(feed, true, uuid.New())
 
 	// Should return exactly 20 items when limit is applied
 	require.Len(t, items, 20)
