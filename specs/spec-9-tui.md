@@ -15,7 +15,16 @@ the URL sources in items.
 
 # 2. Main wireframe
 
-When Newsfed's TUI opens, it should be split into two frames.
+When Newsfed's TUI opens, a title bar is shown at the top of the screen:
+
+```
+--=[ newsfed ]=--
+```
+
+The title is centered horizontally. One blank line separates the title from the
+frames below.
+
+Below the title, the screen is split into two frames.
 
 - On the left is a sources frame that occupies roughly one third of the
   terminal width. It renders a list of all sources.

@@ -61,9 +61,12 @@ func (m Model) renderMain() string {
 	leftInner := totalInner / 3
 	rightInner := totalInner - leftInner
 
-	// Frame height minus a small margin; inner height subtracts top+bottom
-	// border.
-	frameHeight := m.height - 2
+	// Title occupies 1 line; blank separator occupies 1 line = 2 lines total.
+	const titleOverhead = 2
+
+	// Frame height minus a small margin and the title overhead; inner height
+	// subtracts top+bottom border.
+	frameHeight := m.height - 2 - titleOverhead
 	if frameHeight < 4 {
 		frameHeight = 4
 	}
@@ -87,7 +90,10 @@ func (m Model) renderMain() string {
 	leftFrame := leftStyle.Width(leftInner).Height(innerHeight).Render(leftContent)
 	rightFrame := rightStyle.Width(rightInner).Height(innerHeight).Render(rightContent)
 
-	return lipgloss.JoinHorizontal(lipgloss.Top, leftFrame, rightFrame)
+	title := lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render("--=[ newsfed ]=--")
+	frames := lipgloss.JoinHorizontal(lipgloss.Top, leftFrame, rightFrame)
+
+	return lipgloss.JoinVertical(lipgloss.Left, title, "", frames)
 }
 
 func (m Model) renderSourceList(width, height int) string {
