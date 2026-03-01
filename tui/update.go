@@ -16,6 +16,46 @@ import (
 	"github.com/pevans/newsfed/sources"
 )
 
+type sourceDiscoveredMsg struct {
+	feedURL    string
+	feedType   string
+	feedName   string
+	err        error
+	generation int
+}
+
+type sourceCreatedMsg struct {
+	src *sources.Source
+	err error
+}
+
+func discoverAndAddSourceCmd(name, inputURL string, generation int) tea.Cmd {
+	return func() tea.Msg {
+		result, err := discovery.DiscoverFeed(inputURL)
+		if err != nil {
+			return sourceDiscoveredMsg{err: err, generation: generation}
+		}
+		feedName := name
+		if feedName == "" {
+			feedName = result.Title
+		}
+		return sourceDiscoveredMsg{
+			feedURL:    result.FeedURL,
+			feedType:   result.FeedType,
+			feedName:   feedName,
+			generation: generation,
+		}
+	}
+}
+
+func createSourceCmd(store *sources.SourceStore, feedType, feedURL, feedName string) tea.Cmd {
+	return func() tea.Msg {
+		now := time.Now().UTC()
+		src, err := store.CreateSource(feedType, feedURL, feedName, nil, &now)
+		return sourceCreatedMsg{src: src, err: err}
+	}
+}
+
 // -- Message types --
 
 type sourcesLoadedMsg struct {
@@ -165,6 +205,26 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 			m.statusMsg = fmt.Sprintf("Fetched: %d new item(s)", msg.itemsAdded)
 		}
 		return m, m.loadItemsForCurrent()
+
+	case sourceDiscoveredMsg:
+		// Discard results that belong to a previous discovery session.
+		if msg.generation != m.addGeneration {
+			return m, nil
+		}
+		m.addDiscovering = false
+		if msg.err != nil {
+			m.statusMsg = "No feed found. Check the URL and try again."
+			return m, nil
+		}
+		return m, createSourceCmd(m.sourceStore, msg.feedType, msg.feedURL, msg.feedName)
+
+	case sourceCreatedMsg:
+		if msg.err != nil {
+			m.statusMsg = fmt.Sprintf("Add error: %v", msg.err)
+			return m, nil
+		}
+		m.modal = modalNone
+		return m, loadSourcesAndRestoreCursorCmd(m.sourceStore, msg.src.SourceID)
 
 	case tea.KeyMsg:
 		return m.handleKey(msg)
@@ -385,24 +445,28 @@ func (m Model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 }
 
 func (m Model) handleOpenSourceAdd() (tea.Model, tea.Cmd) {
-	for i := range m.addInputs {
-		m.addInputs[i].SetValue("")
-	}
+	m.addInputs[0].SetValue("")
+	m.addInputs[1].SetValue("")
 	m.addFocus = 0
 	m.addInputs[0].Focus()
 	m.addInputs[1].Blur()
-	m.addInputs[2].Blur()
+	m.addDiscovering = false
+	m.statusMsg = ""
 	m.modal = modalSourceAdd
 	return m, nil
 }
 
 func (m Model) handleSourceAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	if m.addDiscovering {
+		// Ignore all keys while discovery is in progress.
+		return m, nil
+	}
 	switch msg.String() {
 	case "esc":
 		m.modal = modalNone
 		return m, nil
 	case "tab":
-		m.addFocus = (m.addFocus + 1) % 3
+		m.addFocus = (m.addFocus + 1) % 2
 		for i := range m.addInputs {
 			if i == m.addFocus {
 				m.addInputs[i].Focus()
@@ -412,22 +476,16 @@ func (m Model) handleSourceAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 		return m, nil
 	case "enter":
-		name := m.addInputs[0].Value()
 		url := m.addInputs[1].Value()
-		srcType := m.addInputs[2].Value()
-		if name == "" || url == "" || srcType == "" {
-			m.statusMsg = "Name, URL, and type are required"
+		if url == "" {
+			m.statusMsg = "URL is required"
 			return m, nil
 		}
-		now := time.Now().UTC()
-		src, err := m.sourceStore.CreateSource(srcType, url, name, nil, &now)
-		if err != nil {
-			// Keep the modal open so the user can correct the input.
-			m.statusMsg = fmt.Sprintf("Add error: %v", err)
-			return m, nil
-		}
-		m.modal = modalNone
-		return m, loadSourcesAndRestoreCursorCmd(m.sourceStore, src.SourceID)
+		name := m.addInputs[0].Value()
+		m.addGeneration++
+		m.addDiscovering = true
+		m.statusMsg = "Discovering feed..."
+		return m, discoverAndAddSourceCmd(name, url, m.addGeneration)
 	}
 
 	var cmd tea.Cmd

@@ -31,17 +31,14 @@ setup() {
 @test "newsfed sources add: adds RSS source successfully" {
     run newsfed sources add -type=rss -url=https://example.com/feed.xml -name="Test RSS Feed"
     assert_success
-    assert_output_contains "Created source:"
-    assert_output_contains "Type: rss"
-    assert_output_contains "Name: Test RSS Feed"
+    assert_output_contains "Created source: Test RSS Feed (rss)"
     assert_output_contains "URL: https://example.com/feed.xml"
 }
 
 @test "newsfed sources add: adds Atom source successfully" {
     run newsfed sources add -type=atom -url=https://example.com/atom.xml -name="Test Atom Feed"
     assert_success
-    assert_output_contains "Created source:"
-    assert_output_contains "Type: atom"
+    assert_output_contains "Created source: Test Atom Feed (atom)"
 }
 
 @test "newsfed sources add: adds website source with config" {
@@ -62,10 +59,12 @@ EOF
     assert_output_contains "Scraper: Configured"
 }
 
-@test "newsfed sources add: requires -type flag" {
-    run newsfed sources add -url=https://example.com/test.xml -name="Missing Type"
+@test "newsfed sources add: autodiscovers when -type is omitted" {
+    # Without --type, autodiscovery runs. With an unreachable URL it fails with
+    # a descriptive error -- not a "flag required" error.
+    run newsfed sources add -url=http://localhost:19999/no-server -name="Missing Type"
     assert_failure
-    assert_output_contains "Error: -type is required"
+    assert_output_contains "Error: no feed found"
 }
 
 @test "newsfed sources add: requires -url flag" {
@@ -74,10 +73,10 @@ EOF
     assert_output_contains "Error: -url is required"
 }
 
-@test "newsfed sources add: requires -name flag" {
+@test "newsfed sources add: requires -name flag when -type is specified" {
     run newsfed sources add -type=rss -url=https://example.com/test.xml
     assert_failure
-    assert_output_contains "Error: -name is required"
+    assert_output_contains "Error: -name is required when -type is specified"
 }
 
 @test "newsfed sources add: rejects invalid source type" {

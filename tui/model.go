@@ -48,8 +48,10 @@ type Model struct {
 	editFocus  int
 
 	// Add source form
-	addInputs [3]textinput.Model // [0]=Name, [1]=URL, [2]=Type
-	addFocus  int
+	addInputs      [2]textinput.Model // [0]=Name, [1]=URL
+	addFocus       int
+	addDiscovering bool
+	addGeneration  int // incremented each time discovery starts; guards stale msgs
 
 	// Item detail modal
 	itemDetailScroll int
@@ -75,20 +77,17 @@ func Run(sourceStore *sources.SourceStore, newsFeed *newsfeed.NewsFeed, discSvc 
 	urlInput.Placeholder = "Feed URL"
 
 	addNameInput := textinput.New()
-	addNameInput.Placeholder = "Source name"
+	addNameInput.Placeholder = "Source name (optional)"
 
 	addURLInput := textinput.New()
 	addURLInput.Placeholder = "Feed URL"
-
-	addTypeInput := textinput.New()
-	addTypeInput.Placeholder = "rss / atom / website"
 
 	m := Model{
 		sourceStore: sourceStore,
 		newsFeed:    newsFeed,
 		discSvc:     discSvc,
 		editInputs:  [2]textinput.Model{nameInput, urlInput},
-		addInputs:   [3]textinput.Model{addNameInput, addURLInput, addTypeInput},
+		addInputs:   [2]textinput.Model{addNameInput, addURLInput},
 	}
 
 	// Silence the default logger while the TUI is running. The discovery

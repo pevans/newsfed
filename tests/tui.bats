@@ -651,7 +651,6 @@ RSSEOF
     tui_assert_contains "Add Source"
     tui_assert_contains "Name:"
     tui_assert_contains "URL:"
-    tui_assert_contains "Type:"
 }
 
 @test "tui: add source modal escape cancels without creating source" {
@@ -669,24 +668,29 @@ RSSEOF
 }
 
 @test "tui: add source modal creates source and shows it in the list" {
+    local www_dir="$TEST_DIR/www-tui-add"
+    create_rss_feed "$www_dir/feed.xml" "TUI Test Feed"
+    start_mock_server "$www_dir"
+    local feed_url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml"
+
     tui_start
     tui_wait_for "No sources." 5
 
     tui_send_keys "a"
     tui_wait_for "Add Source" 3
 
-    tui_type "NewSource"
+    # Leave Name blank -- autodiscovery will use the feed title.
     tui_send_keys "Tab"
-    tui_type "https://newsource.example.com/feed"
-    tui_send_keys "Tab"
-    tui_type "rss"
+    tui_type "$feed_url"
     tui_send_keys "Enter"
 
-    tui_wait_for "NewSource" 5
+    # Wait for autodiscovery and source creation.
+    tui_wait_for "TUI Test Feed" 10
 
-    tui_assert_contains "NewSource"
-    tui_assert_contains "(rss)"
+    tui_assert_contains "TUI Test Feed"
     tui_assert_not_contains "Add Source"
+
+    stop_mock_server
 }
 
 @test "tui: a has no effect when items frame is focused" {
@@ -701,24 +705,33 @@ RSSEOF
     tui_assert_not_contains "Add Source"
 }
 
-@test "tui: add source modal keeps modal open on invalid type" {
+@test "tui: add source modal keeps modal open when autodiscovery fails" {
+    local www_dir="$TEST_DIR/www-tui-no-feed"
+    mkdir -p "$www_dir"
+    # Serve plain HTML with no feed links and no feed at common probe paths.
+    cat > "$www_dir/index.html" <<'EOF'
+<!DOCTYPE html><html><head><title>No Feed</title></head><body></body></html>
+EOF
+    start_mock_server "$www_dir"
+    local page_url="http://127.0.0.1:$MOCK_SERVER_PORT/"
+
     tui_start
     tui_wait_for "No sources." 5
 
     tui_send_keys "a"
     tui_wait_for "Add Source" 3
 
-    tui_type "BadTypeSource"
     tui_send_keys "Tab"
-    tui_type "https://bad.example.com/feed"
-    tui_send_keys "Tab"
-    tui_type "badtype"
+    tui_type "$page_url"
     tui_send_keys "Enter"
-    sleep 0.3
 
-    # Modal should remain open after invalid type.
+    # Wait for the discovery attempt to finish and the error message to appear.
+    tui_wait_for "No feed found" 10
+
+    # Modal should remain open so the user can correct the URL.
     tui_assert_contains "Add Source"
-    tui_assert_contains "Type:"
+
+    stop_mock_server
 }
 
 @test "tui: add source modal keeps modal open when fields are empty" {

@@ -23,7 +23,7 @@ func newModel() Model {
 		width:      80,
 		height:     24,
 		editInputs: [2]textinput.Model{textinput.New(), textinput.New()},
-		addInputs:  [3]textinput.Model{textinput.New(), textinput.New(), textinput.New()},
+		addInputs:  [2]textinput.Model{textinput.New(), textinput.New()},
 	}
 }
 
@@ -759,12 +759,10 @@ func TestKey_aSourcesFocus_clearsInputs(t *testing.T) {
 	m.focus = focusSources
 	m.addInputs[0].SetValue("leftover")
 	m.addInputs[1].SetValue("leftover")
-	m.addInputs[2].SetValue("leftover")
 
 	m2, _ := pressKey(m, "a")
 	assert.Empty(t, m2.addInputs[0].Value())
 	assert.Empty(t, m2.addInputs[1].Value())
-	assert.Empty(t, m2.addInputs[2].Value())
 }
 
 func TestKey_aItemsFocus_noEffect(t *testing.T) {
@@ -785,7 +783,7 @@ func TestAddModal_escClosesModal(t *testing.T) {
 	assert.Equal(t, modalNone, m2.modal)
 }
 
-func TestAddModal_tabCyclesThreeFields(t *testing.T) {
+func TestAddModal_tabCyclesTwoFields(t *testing.T) {
 	m := newModel()
 	m.modal = modalSourceAdd
 	m.addFocus = 0
@@ -794,10 +792,7 @@ func TestAddModal_tabCyclesThreeFields(t *testing.T) {
 	assert.Equal(t, 1, m2.addFocus)
 
 	m3, _ := pressSpecialKey(m2, tea.KeyTab)
-	assert.Equal(t, 2, m3.addFocus)
-
-	m4, _ := pressSpecialKey(m3, tea.KeyTab)
-	assert.Equal(t, 0, m4.addFocus)
+	assert.Equal(t, 0, m3.addFocus)
 }
 
 func TestAddModal_enterWithAllEmptyKeepsModalOpen(t *testing.T) {
@@ -809,11 +804,11 @@ func TestAddModal_enterWithAllEmptyKeepsModalOpen(t *testing.T) {
 	assert.NotEmpty(t, m2.statusMsg)
 }
 
-func TestAddModal_enterWithPartialFieldsKeepsModalOpen(t *testing.T) {
+func TestAddModal_enterWithEmptyURLKeepsModalOpen(t *testing.T) {
 	m := newModel()
 	m.modal = modalSourceAdd
 	m.addInputs[0].SetValue("My Source")
-	// URL and Type are still empty.
+	// URL is still empty.
 
 	m2, _ := pressSpecialKey(m, tea.KeyEnter)
 	assert.Equal(t, modalSourceAdd, m2.modal)
@@ -828,7 +823,32 @@ func TestRenderSourceAddModal_containsLabels(t *testing.T) {
 	assert.Contains(t, got, "Add Source")
 	assert.Contains(t, got, "Name:")
 	assert.Contains(t, got, "URL:")
-	assert.Contains(t, got, "Type:")
+}
+
+func TestRenderSourceAddModal_showsDiscoveringWhenActive(t *testing.T) {
+	m := newModel()
+	m.addDiscovering = true
+	got := m.renderSourceAddModal()
+	assert.Contains(t, got, "Discovering feed...")
+}
+
+func TestRenderSourceAddModal_showsStatusMsgOnFailure(t *testing.T) {
+	m := newModel()
+	m.addDiscovering = false
+	m.statusMsg = "No feed found. Check the URL and try again."
+	got := m.renderSourceAddModal()
+	assert.Contains(t, got, "No feed found.")
+}
+
+func TestRenderSourceAddModal_statusMsgHiddenWhileDiscovering(t *testing.T) {
+	// During discovery, "Discovering feed..." takes precedence over any
+	// status message that may be set.
+	m := newModel()
+	m.addDiscovering = true
+	m.statusMsg = "stale message"
+	got := m.renderSourceAddModal()
+	assert.Contains(t, got, "Discovering feed...")
+	assert.NotContains(t, got, "stale message")
 }
 
 func TestRenderSourceFields_datesAreYYYYMMDD(t *testing.T) {

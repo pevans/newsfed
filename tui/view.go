@@ -306,8 +306,12 @@ func (m Model) renderSourceAddModal() string {
 	var sb strings.Builder
 	sb.WriteString("Add Source\n\n")
 	sb.WriteString(fmt.Sprintf("Name: %s\n", m.addInputs[0].View()))
-	sb.WriteString(fmt.Sprintf("URL:  %s\n", m.addInputs[1].View()))
-	sb.WriteString(fmt.Sprintf("Type: %s", m.addInputs[2].View()))
+	sb.WriteString(fmt.Sprintf("URL:  %s", m.addInputs[1].View()))
+	if m.addDiscovering {
+		sb.WriteString("\n\nDiscovering feed...")
+	} else if m.statusMsg != "" {
+		sb.WriteString(fmt.Sprintf("\n\n%s", m.statusMsg))
+	}
 	return sb.String()
 }
 

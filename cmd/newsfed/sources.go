@@ -186,54 +186,71 @@ func handleSourcesShow(metadataStore *sources.SourceStore, args []string) {
 func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	// Parse flags for add command
 	fs := flag.NewFlagSet("sources add", flag.ExitOnError)
-	sourceType := fs.String("type", "", "Source type (rss, atom, or website)")
+	sourceType := fs.String("type", "", "Source type (rss, atom, or website); omit to autodiscover")
 	url := fs.String("url", "", "Source URL")
-	name := fs.String("name", "", "Source name")
+	name := fs.String("name", "", "Source name (optional when autodiscovering)")
 	configFile := fs.String("config", "", "Scraper config file (for website sources)")
 	fs.Parse(args)
 
-	// Validate required flags
-	if *sourceType == "" {
-		fmt.Fprintf(os.Stderr, "Error: -type is required\n")
-		fs.Usage()
-		os.Exit(1)
-	}
+	// URL is always required
 	if *url == "" {
 		fmt.Fprintf(os.Stderr, "Error: -url is required\n")
 		fs.Usage()
 		os.Exit(1)
 	}
-	if *name == "" {
-		fmt.Fprintf(os.Stderr, "Error: -name is required\n")
-		fs.Usage()
-		os.Exit(1)
-	}
 
-	// Validate source type
-	if *sourceType != "rss" && *sourceType != "atom" && *sourceType != "website" {
-		fmt.Fprintf(os.Stderr, "Error: -type must be 'rss', 'atom', or 'website'\n")
-		os.Exit(1)
-	}
-
-	// For website sources, config is required
 	var scraperConfig *discovery.ScraperConfig
-	if *sourceType == "website" {
-		if *configFile == "" {
-			fmt.Fprintf(os.Stderr, "Error: -config is required for website sources\n")
-			os.Exit(1)
-		}
 
-		// Read and parse config file
-		data, err := os.ReadFile(*configFile)
+	if *sourceType == "" {
+		// Autodiscovery path
+		originalURL := *url
+		result, err := discovery.DiscoverFeed(*url)
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to read config file: %v\n", err)
+			fmt.Fprintf(os.Stderr, "Error: %s\n\nTo add this URL as a website source using CSS-selector scraping:\n  newsfed sources add --type=website --url=%s --name=<name> --config=<file>\n", err.Error(), *url)
+			os.Exit(1)
+		}
+		*sourceType = result.FeedType
+		*url = result.FeedURL
+		if *name == "" {
+			*name = result.Title
+		}
+		// Show a discovery notice only when the feed was found at a different
+		// URL than the one the user gave (Strategy 2 or 3). When Strategy 1
+		// succeeds -- even through a redirect -- the user's URL is itself a
+		// feed and no notice is needed.
+		if !result.FoundDirect && result.FeedURL != originalURL {
+			fmt.Printf("Discovered %s feed at %s\n", feedTypeName(result.FeedType), result.FeedURL)
+		}
+	} else {
+		// Explicit type path -- validate type and require --name
+		if *sourceType != "rss" && *sourceType != "atom" && *sourceType != "website" {
+			fmt.Fprintf(os.Stderr, "Error: -type must be 'rss', 'atom', or 'website'\n")
+			os.Exit(1)
+		}
+		if *name == "" {
+			fmt.Fprintf(os.Stderr, "Error: -name is required when -type is specified\n")
+			fs.Usage()
 			os.Exit(1)
 		}
 
-		scraperConfig = &discovery.ScraperConfig{}
-		if err := json.Unmarshal(data, scraperConfig); err != nil {
-			fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
-			os.Exit(1)
+		// For website sources, config is required
+		if *sourceType == "website" {
+			if *configFile == "" {
+				fmt.Fprintf(os.Stderr, "Error: -config is required for website sources\n")
+				os.Exit(1)
+			}
+
+			data, err := os.ReadFile(*configFile)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "Error: failed to read config file: %v\n", err)
+				os.Exit(1)
+			}
+
+			scraperConfig = &discovery.ScraperConfig{}
+			if err := json.Unmarshal(data, scraperConfig); err != nil {
+				fmt.Fprintf(os.Stderr, "Error: failed to parse config file: %v\n", err)
+				os.Exit(1)
+			}
 		}
 	}
 
@@ -245,9 +262,8 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 		os.Exit(1)
 	}
 
-	fmt.Printf("✓ Created source: %s\n", source.SourceID.String())
-	fmt.Printf("  Type: %s\n", source.SourceType)
-	fmt.Printf("  Name: %s\n", source.Name)
+	fmt.Printf("Created source: %s (%s)\n", source.Name, source.SourceType)
+	fmt.Printf("  ID: %s\n", source.SourceID.String())
 	fmt.Printf("  URL: %s\n", source.URL)
 	if scraperConfig != nil {
 		fmt.Println("  Scraper: Configured")
@@ -659,6 +675,18 @@ func handleSourcesErrors(metadataStore *sources.SourceStore, args []string) {
 
 	for _, e := range errors {
 		fmt.Printf("[%s] %s\n", e.OccurredAt.Format("2006-01-02 15:04:05"), e.Error)
+	}
+}
+
+// feedTypeName returns the conventional display name for a feed type string.
+func feedTypeName(t string) string {
+	switch t {
+	case "rss":
+		return "RSS"
+	case "atom":
+		return "Atom"
+	default:
+		return t
 	}
 }
 

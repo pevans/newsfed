@@ -327,9 +327,9 @@ specs:
         title: User Input Validation
         testable: true
         tests:
-          - "tests/cli-sources.bats::newsfed sources add: requires --type flag"
-          - "tests/cli-sources.bats::newsfed sources add: requires --url flag"
-          - "tests/cli-sources.bats::newsfed sources add: requires --name flag"
+          - "tests/cli-sources.bats::newsfed sources add: autodiscovers when -type is omitted"
+          - "tests/cli-sources.bats::newsfed sources add: requires -url flag"
+          - "tests/cli-sources.bats::newsfed sources add: requires -name flag when -type is specified"
           - "tests/cli-sources.bats::newsfed sources add: rejects invalid type"
           - "tests/cli-errors.bats::newsfed errors: validates UUID format"
           - "tests/cli-errors.bats::newsfed errors: validates URL format"
@@ -722,9 +722,9 @@ specs:
           - "tests/cli-metadata.bats::spec-5 validation: rejects malformed scraper config JSON"
           - "tests/cli-metadata.bats::spec-5 validation: rejects nonexistent config file"
           # Cross-referenced from spec-8 validation tests
-          - "tests/cli-sources.bats::newsfed sources add: requires -type flag"
+          - "tests/cli-sources.bats::newsfed sources add: autodiscovers when -type is omitted"
           - "tests/cli-sources.bats::newsfed sources add: requires -url flag"
-          - "tests/cli-sources.bats::newsfed sources add: requires -name flag"
+          - "tests/cli-sources.bats::newsfed sources add: requires -name flag when -type is specified"
           - "tests/cli-sources.bats::newsfed sources add: rejects invalid source type"
           - "tests/cli-sources.bats::newsfed sources update: validates interval format"
           - "tests/cli-errors.bats::newsfed errors: validates UUID format"
@@ -869,5 +869,99 @@ specs:
           - "tests/tui.bats::tui: add source modal escape cancels without creating source"
           - "tests/tui.bats::tui: add source modal creates source and shows it in the list"
           - "tests/tui.bats::tui: a has no effect when items frame is focused"
-          - "tests/tui.bats::tui: add source modal keeps modal open on invalid type"
           - "tests/tui.bats::tui: add source modal keeps modal open when fields are empty"
+
+  - spec: spec-10
+    title: "Feed Autodiscovery"
+    sections:
+      - section: "3.1"
+        title: Direct Feed Detection
+        testable: true
+        tests:
+          - "tests/cli-sources.bats::newsfed sources add: autodiscovers when -type is omitted"
+
+      - section: "3.1"
+        title: Direct Feed Detection
+        testable: true
+        tests:
+          - "tests/cli-autodiscovery.bats::autodiscovery: direct feed URL recognised without discovery notice (spec 3.1, 6.3)"
+
+      - section: "3.2"
+        title: HTML Feed Link Detection
+        testable: true
+        tests:
+          - "tests/cli-autodiscovery.bats::autodiscovery: discovers RSS feed via HTML link tag (spec 3.2)"
+          - "tests/cli-autodiscovery.bats::autodiscovery: discovers Atom feed via HTML link tag (spec 3.2)"
+          - "tests/cli-autodiscovery.bats::autodiscovery: uses feed title as source name when --name omitted (spec 5.1, 3.2)"
+
+      - section: "3.3"
+        title: Common Feed URL Probing
+        testable: true
+        tests:
+          - "tests/cli-autodiscovery.bats::autodiscovery: discovers feed at root /index.xml when page has no link tags (spec 3.3)"
+          - "tests/cli-autodiscovery.bats::autodiscovery: discovers feed at /feed.xml when page has no link tags (spec 3.3)"
+
+      - section: "5.1"
+        title: Feed Found
+        testable: true
+        tests:
+          - "tests/cli-autodiscovery.bats::autodiscovery: --name overrides feed title on direct feed (spec 5.1)"
+          - "tests/cli-autodiscovery.bats::autodiscovery: uses feed title as source name when --name omitted (spec 5.1, 3.2)"
+
+      - section: "5.2"
+        title: No Feed Found
+        testable: true
+        tests:
+          - "tests/cli-sources.bats::newsfed sources add: autodiscovers when -type is omitted"
+          - "tests/cli-autodiscovery.bats::autodiscovery: error lists tried URLs when no feed found (spec 5.2, 6.4)"
+
+      - section: "6.1"
+        title: The --type Flag Becomes Optional
+        testable: true
+        tests:
+          - "tests/cli-sources.bats::newsfed sources add: autodiscovers when -type is omitted"
+
+      - section: "6.2"
+        title: The --name Flag Becomes Optional During Autodiscovery
+        testable: true
+        tests:
+          - "tests/cli-sources.bats::newsfed sources add: requires -name flag when -type is specified"
+
+      - section: "6.3"
+        title: Output
+        testable: true
+        tests:
+          - "tests/cli-autodiscovery.bats::autodiscovery: direct feed URL recognised without discovery notice (spec 3.1, 6.3)"
+          - "tests/cli-autodiscovery.bats::autodiscovery: discovers RSS feed via HTML link tag (spec 3.2)"
+
+      - section: "6.4"
+        title: Error Output
+        testable: true
+        tests:
+          - "tests/cli-autodiscovery.bats::autodiscovery: error lists tried URLs when no feed found (spec 5.2, 6.4)"
+          - "tests/cli-autodiscovery.bats::autodiscovery: error output contains no feed links in page note (spec 6.4)"
+
+      - section: "7.1"
+        title: Add Source Modal
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: a opens add source modal"
+          - "tests/tui.bats::tui: add source modal keeps modal open when fields are empty"
+
+      - section: "7.2"
+        title: Discovering State
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: add source modal keeps modal open when autodiscovery fails"
+
+      - section: "7.3"
+        title: Success
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: add source modal creates source and shows it in the list"
+
+      - section: "7.4"
+        title: Failure
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: add source modal keeps modal open when autodiscovery fails"
