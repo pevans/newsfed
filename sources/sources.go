@@ -102,8 +102,8 @@ func NewSourceStore(dbPath string) (*SourceStore, error) {
 
 // SourceError represents a single error event for a source.
 type SourceError struct {
-	SourceID  uuid.UUID `json:"source_id"`
-	Error     string    `json:"error"`
+	SourceID   uuid.UUID `json:"source_id"`
+	Error      string    `json:"error"`
 	OccurredAt time.Time `json:"occurred_at"`
 }
 

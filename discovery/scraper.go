@@ -223,7 +223,8 @@ func ExtractArticle(doc *goquery.Document, config scraper.ArticleConfig, article
 
 	// Extract title (required)
 	titleText := doc.Find(config.TitleSelector).First().Text()
-	// Normalize whitespace: replace multiple spaces/newlines with single space
+	// Normalize whitespace: replace multiple spaces/newlines with single
+	// space
 	titleText = strings.Join(strings.Fields(titleText), " ")
 	if titleText == "" {
 		titleText = "(No title)"

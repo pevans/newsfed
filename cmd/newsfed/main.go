@@ -8,7 +8,8 @@ import (
 )
 
 func main() {
-	// Load storage configuration with precedence: env vars > config file > defaults
+	// Load storage configuration with precedence: env vars > config file >
+	// defaults
 	metadataType, metadataPath, feedType, feedDir := loadStorageConfig()
 
 	// Validate storage types (currently only sqlite and file are supported)

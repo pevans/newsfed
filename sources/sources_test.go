@@ -561,7 +561,8 @@ func TestRecordError_StoresErrorHistory(t *testing.T) {
 	assert.Equal(t, source.SourceID, errors[0].SourceID)
 }
 
-// TestListErrors_OrdersMostRecentFirst verifies descending chronological order
+// TestListErrors_OrdersMostRecentFirst verifies descending chronological
+// order
 func TestListErrors_OrdersMostRecentFirst(t *testing.T) {
 	store := createTestSourceStore(t)
 
@@ -602,8 +603,8 @@ func TestListErrors_RespectsLimit(t *testing.T) {
 	assert.Len(t, errors, 2)
 }
 
-// TestListErrors_EmptyForCleanSource verifies no errors for a source that
-// has never failed
+// TestListErrors_EmptyForCleanSource verifies no errors for a source that has
+// never failed
 func TestListErrors_EmptyForCleanSource(t *testing.T) {
 	store := createTestSourceStore(t)
 
@@ -616,7 +617,8 @@ func TestListErrors_EmptyForCleanSource(t *testing.T) {
 	assert.Empty(t, errors)
 }
 
-// TestListErrors_IsolatedPerSource verifies errors are scoped to the correct source
+// TestListErrors_IsolatedPerSource verifies errors are scoped to the correct
+// source
 func TestListErrors_IsolatedPerSource(t *testing.T) {
 	store := createTestSourceStore(t)
 

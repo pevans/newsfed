@@ -168,8 +168,8 @@ func TestDiscoverFeed_RelativeHrefResolved(t *testing.T) {
 }
 
 func TestGenerateProbeURLs_NoDuplicates(t *testing.T) {
-	// When path is "/", path-relative candidates would duplicate root-relative
-	// ones -- none should appear.
+	// When path is "/", path-relative candidates would duplicate
+	// root-relative ones -- none should appear.
 	urls := generateProbeURLs("http://example.com/")
 	seen := map[string]bool{}
 	for _, u := range urls {
@@ -194,7 +194,8 @@ func TestDiscoverFeed_CrossStrategyDedup(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/index.xml", func(w http.ResponseWriter, r *http.Request) {
 		tries++
-		// Return non-feed content so discovery fails, to exercise the full path.
+		// Return non-feed content so discovery fails, to exercise the full
+		// path.
 		w.Header().Set("Content-Type", "text/plain")
 		w.Write([]byte("not a feed"))
 	})

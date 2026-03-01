@@ -24,8 +24,8 @@ func (e *ReadError) Error() string {
 	return fmt.Sprintf("%s: %v", e.Filename, e.Err)
 }
 
-// ListResult contains the results of listing news items, including
-// any per-file errors that occurred during the operation.
+// ListResult contains the results of listing news items, including any
+// per-file errors that occurred during the operation.
 type ListResult struct {
 	Items  []NewsItem
 	Errors []ReadError
@@ -33,7 +33,8 @@ type ListResult struct {
 
 // NewNewsFeed creates a new news feed with the specified storage directory
 func NewNewsFeed(storageDir string) (*NewsFeed, error) {
-	// Create the storage directory if it doesn't exist (0700: owner-only access)
+	// Create the storage directory if it doesn't exist (0700: owner-only
+	// access)
 	if err := os.MkdirAll(storageDir, 0o700); err != nil {
 		return nil, fmt.Errorf("failed to create storage directory: %w", err)
 	}
@@ -64,8 +65,8 @@ func (nf *NewsFeed) Add(item NewsItem) error {
 
 // List returns all news items in the feed. Corrupted or invalid files are
 // collected in the result's Errors slice rather than causing the entire
-// operation to fail. A non-nil error return indicates a total failure
-// (e.g., the storage directory is unreadable).
+// operation to fail. A non-nil error return indicates a total failure (e.g.,
+// the storage directory is unreadable).
 func (nf *NewsFeed) List() (*ListResult, error) {
 	entries, err := os.ReadDir(nf.storageDir)
 	if err != nil {
