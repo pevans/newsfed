@@ -1306,12 +1306,6 @@ EOF
     [ "$count" -eq 1 ]
 }
 
-@test "scraping: handles network errors" {
-    # This is already tested in "handles HTTP errors gracefully" test
-    # Network errors (connection refused, etc.) are handled the same way
-    skip "Already covered by HTTP error handling test"
-}
-
 @test "scraping: handles missing elements" {
     cat > "$ISOLATION_DIR/www/sparse.html" <<'EOF'
 <!DOCTYPE html>

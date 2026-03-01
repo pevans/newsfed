@@ -495,7 +495,6 @@ specs:
         testable: true
         tests:
           - "tests/cli-scraping.bats::scraping: handles malformed HTML"
-          - "tests/cli-scraping.bats::scraping: handles network errors"
           - "tests/cli-scraping.bats::scraping: handles missing elements"
           # Cross-referenced from spec-2 error handling
           - "tests/cli-ingestion.bats::ingestion: handles unreachable feed URL gracefully"
