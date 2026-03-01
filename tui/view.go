@@ -15,7 +15,7 @@ import (
 var (
 	focusedBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("62"))
+				BorderForeground(lipgloss.Color("117"))
 
 	blurredBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
@@ -27,7 +27,7 @@ var (
 
 	modalBorderStyle = lipgloss.NewStyle().
 				Border(lipgloss.RoundedBorder()).
-				BorderForeground(lipgloss.Color("62")).
+				BorderForeground(lipgloss.Color("117")).
 				Padding(1, 2)
 )
 

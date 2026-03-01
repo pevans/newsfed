@@ -185,7 +185,8 @@ while the modal is open. After launching the browser, the modal remains open.
 ## 7.1. Frame navigation
 
 The two frames are independently focusable. The focused frame is the one whose
-border is highlighted. At startup, the source frame has focus.
+border is highlighted in light blue (xterm-256 color 117). At startup, the
+source frame has focus.
 
 The user moves focus between frames using the tab key.
 
