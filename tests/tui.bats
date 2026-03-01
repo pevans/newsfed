@@ -806,3 +806,11 @@ RSSEOF
 
     tui_assert_not_contains "ScrollTestBottom"
 }
+
+@test "tui: newsfed with no arguments launches the TUI" {
+    TUI_SESSION="newsfed-tui-$$-$RANDOM"
+    tmux new-session -d -s "$TUI_SESSION" -x 120 -y 30 \
+        "NEWSFED_METADATA_DSN=$NEWSFED_METADATA_DSN NEWSFED_FEED_DSN=$NEWSFED_FEED_DSN $TEST_DIR/newsfed"
+    tui_wait_for "No sources." 5
+    tui_assert_contains "No sources."
+}

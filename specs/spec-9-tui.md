@@ -13,6 +13,9 @@ command-line interface. Such an interface would allow users to manage their
 sources, read news items, fetch updates, and launch browser windows to follow
 the URL sources in items.
 
+The TUI is launched by running `newsfed tui` or by running `newsfed` with no
+arguments.
+
 # 2. Main wireframe
 
 When Newsfed's TUI opens, a title bar is shown at the top of the screen:

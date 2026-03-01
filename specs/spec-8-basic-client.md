@@ -78,6 +78,9 @@ Spec 1 (news feed storage) and Spec 5 (metadata storage). This approach provides
 
 # 3. Core Functionality
 
+When invoked without any arguments, the client launches the text user
+interface (see Spec 9) rather than printing a usage message.
+
 ## 3.1. News Reading
 
 ### 3.1.1. List News Items

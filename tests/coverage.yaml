@@ -135,6 +135,12 @@ specs:
         title: Client Architecture
         testable: false
 
+      - section: "3"
+        title: Core Functionality (default invocation)
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: newsfed with no arguments launches the TUI"
+
       - section: "3.1.1"
         title: List News Items
         testable: true
@@ -772,7 +778,9 @@ specs:
     sections:
       - section: "1"
         title: Overview
-        testable: false
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: newsfed with no arguments launches the TUI"
 
       - section: "2"
         title: Main wireframe

@@ -8,11 +8,6 @@ import (
 )
 
 func main() {
-	if len(os.Args) < 2 {
-		printUsage()
-		os.Exit(1)
-	}
-
 	// Load storage configuration with precedence: env vars > config file > defaults
 	metadataType, metadataPath, feedType, feedDir := loadStorageConfig()
 
@@ -26,6 +21,12 @@ func main() {
 		fmt.Fprintf(os.Stderr, "Error: unsupported feed storage type: %s\n", feedType)
 		fmt.Fprintf(os.Stderr, "Supported types: file\n")
 		os.Exit(1)
+	}
+
+	// When run without arguments, launch the TUI
+	if len(os.Args) < 2 {
+		handleTUI(metadataPath, feedDir)
+		return
 	}
 
 	// Get subcommand
