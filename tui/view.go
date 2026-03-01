@@ -52,8 +52,8 @@ func (m Model) View() string {
 
 func (m Model) renderMain() string {
 	// The left (sources) frame takes 1/3 of the terminal width and the right
-	// (items) frame takes the remaining 2/3. Each border takes 2 chars
-	// (left + right), so total border overhead is 4 chars.
+	// (items) frame takes the remaining 2/3. Each border takes 2 chars (left
+	// + right), so total border overhead is 4 chars.
 	totalInner := m.width - 4
 	if totalInner < 4 {
 		totalInner = 4
@@ -318,9 +318,13 @@ func (m Model) renderDeleteConfirmModal() string {
 	return sb.String()
 }
 
-func (m Model) renderItemDetailModal() string {
+// itemDetailLines builds the full content lines for the item detail modal and
+// returns them together with the maximum valid scroll offset. Both the
+// renderer and the key handler use this so they share a single source of
+// truth for the scroll bounds.
+func (m Model) itemDetailLines() (lines []string, maxScroll int) {
 	if len(m.items) == 0 {
-		return ""
+		return nil, 0
 	}
 	item := m.items[m.itemCursor]
 
@@ -344,13 +348,31 @@ func (m Model) renderItemDetailModal() string {
 		}
 	}
 
-	// Apply scroll offset. The modal border and padding consume 4 lines
-	// vertically (1 border + 1 padding on each side), so the visible height
-	// is the terminal height minus that overhead.
-	lines := strings.Split(sb.String(), "\n")
+	lines = strings.Split(sb.String(), "\n")
 	// Drop a trailing empty element produced by a final newline.
 	if len(lines) > 0 && lines[len(lines)-1] == "" {
 		lines = lines[:len(lines)-1]
+	}
+
+	// The modal border and padding consume 4 lines vertically (1 border + 1
+	// padding on each side), so the visible height is the terminal height
+	// minus that overhead.
+	visibleHeight := m.height - 4
+	if visibleHeight < 5 {
+		visibleHeight = 5
+	}
+
+	maxScroll = len(lines) - visibleHeight
+	if maxScroll < 0 {
+		maxScroll = 0
+	}
+	return lines, maxScroll
+}
+
+func (m Model) renderItemDetailModal() string {
+	lines, maxScroll := m.itemDetailLines()
+	if lines == nil {
+		return ""
 	}
 
 	visibleHeight := m.height - 4
@@ -359,10 +381,6 @@ func (m Model) renderItemDetailModal() string {
 	}
 
 	scroll := m.itemDetailScroll
-	maxScroll := len(lines) - visibleHeight
-	if maxScroll < 0 {
-		maxScroll = 0
-	}
 	if scroll > maxScroll {
 		scroll = maxScroll
 	}

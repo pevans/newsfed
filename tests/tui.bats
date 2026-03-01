@@ -493,3 +493,61 @@ RSSEOF
     tui_assert_contains "ScrollTestTop"
     tui_assert_not_contains "ScrollTestBottom"
 }
+
+@test "tui: item detail modal scroll-up works after scrolling past the end" {
+    mkdir -p "$TEST_DIR/www"
+
+    cat > "$TEST_DIR/www/feed.xml" <<'RSSEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Scroll Test Feed</title>
+    <link>http://example.com</link>
+    <description>Feed for scroll testing</description>
+    <item>
+      <title>Long Article</title>
+      <link>http://example.com/long-article</link>
+      <description>ScrollTestTop begins the article body with words that push content across several wrapped lines when displayed inside the narrow modal window. The second sentence adds more prose so the summary occupies additional rows after word-wrapping. A third sentence further pads the content ensuring the opening paragraph alone spans several visible lines. The fourth sentence continues adding filler text that is long enough to wrap onto its own line within the modal. The fifth sentence pushes the bottom sentinel well off the bottom edge of the initial viewport. The sixth sentence ensures a comfortable buffer of lines separates the two markers. The seventh sentence makes certain at least a dozen lines lie between the sentinel words. The eighth sentence adds even more padding so that scrolling a handful of times is definitely required to reach the end. ScrollTestBottom</description>
+    </item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Scroll Test Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    tui_start 120 10
+    tui_wait_for "Scroll Test Source" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Long Article" 5
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    # Scroll down many more times than necessary to reach the bottom. This
+    # overshoots the true maximum scroll offset, which is the condition that
+    # triggered the bug where subsequent k presses had no visible effect.
+    for i in $(seq 1 50); do
+        tui_send_keys "j"
+        sleep 0.03
+    done
+    sleep 0.3
+
+    # Confirm we are sitting at the bottom.
+    tui_assert_contains "ScrollTestBottom"
+
+    # A single k press must move the viewport up by one line. ScrollTestBottom
+    # lives on the very last line of content, so moving up by one should push
+    # it out of the visible area.
+    tui_send_keys "k"
+    sleep 0.3
+
+    tui_assert_not_contains "ScrollTestBottom"
+}

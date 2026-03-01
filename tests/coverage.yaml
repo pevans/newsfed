@@ -816,6 +816,7 @@ specs:
         tests:
           - "tests/tui.bats::tui: enter on item opens item detail modal"
           - "tests/tui.bats::tui: item detail modal scrolls long content with j and k"
+          - "tests/tui.bats::tui: item detail modal scroll-up works after scrolling past the end"
 
       - section: "7"
         title: Navigation and keybindings

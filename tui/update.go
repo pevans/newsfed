@@ -390,7 +390,10 @@ func (m Model) handleItemDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 			m.itemDetailScroll--
 		}
 	case "down", "j":
-		m.itemDetailScroll++
+		_, maxScroll := m.itemDetailLines()
+		if m.itemDetailScroll < maxScroll {
+			m.itemDetailScroll++
+		}
 	}
 	return m, nil
 }
