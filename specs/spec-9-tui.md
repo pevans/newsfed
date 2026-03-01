@@ -259,3 +259,6 @@ with the cursor positioned on it. The source is enabled immediately upon
 creation.
 
 The user dismisses the modal without adding a source by pressing escape.
+
+> **Note:** Spec 10 (Feed Auto-Discovery), Section 7.1 updates this modal to
+> remove the Type field and add auto-discovery behavior.
