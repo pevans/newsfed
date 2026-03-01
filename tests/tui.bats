@@ -620,6 +620,122 @@ RSSEOF
     tui_assert_contains "TitleSentinel"
 }
 
+# ---------------------------------------------------------------------------
+# Add source modal (spec-9 section 10)
+# ---------------------------------------------------------------------------
+
+@test "tui: mode line shows [A]dd source when source frame is focused" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_assert_contains "[A]dd source"
+}
+
+@test "tui: mode line hides [A]dd source when items frame is focused" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "Tab"
+    sleep 0.2
+
+    tui_assert_not_contains "[A]dd source"
+}
+
+@test "tui: a opens add source modal" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "a"
+    tui_wait_for "Add Source" 3
+
+    tui_assert_contains "Add Source"
+    tui_assert_contains "Name:"
+    tui_assert_contains "URL:"
+    tui_assert_contains "Type:"
+}
+
+@test "tui: add source modal escape cancels without creating source" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "a"
+    tui_wait_for "Add Source" 3
+
+    tui_send_keys "Escape"
+    sleep 0.2
+
+    tui_assert_not_contains "Add Source"
+    tui_assert_contains "No sources."
+}
+
+@test "tui: add source modal creates source and shows it in the list" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "a"
+    tui_wait_for "Add Source" 3
+
+    tui_type "NewSource"
+    tui_send_keys "Tab"
+    tui_type "https://newsource.example.com/feed"
+    tui_send_keys "Tab"
+    tui_type "rss"
+    tui_send_keys "Enter"
+
+    tui_wait_for "NewSource" 5
+
+    tui_assert_contains "NewSource"
+    tui_assert_contains "(rss)"
+    tui_assert_not_contains "Add Source"
+}
+
+@test "tui: a has no effect when items frame is focused" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "Tab"   # move focus to items frame
+    sleep 0.2
+    tui_send_keys "a"
+    sleep 0.3
+
+    tui_assert_not_contains "Add Source"
+}
+
+@test "tui: add source modal keeps modal open on invalid type" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "a"
+    tui_wait_for "Add Source" 3
+
+    tui_type "BadTypeSource"
+    tui_send_keys "Tab"
+    tui_type "https://bad.example.com/feed"
+    tui_send_keys "Tab"
+    tui_type "badtype"
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    # Modal should remain open after invalid type.
+    tui_assert_contains "Add Source"
+    tui_assert_contains "Type:"
+}
+
+@test "tui: add source modal keeps modal open when fields are empty" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "a"
+    tui_wait_for "Add Source" 3
+
+    # Press Enter without filling in any fields.
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    # Modal should remain open.
+    tui_assert_contains "Add Source"
+}
+
 @test "tui: item detail modal scroll-up works after scrolling past the end" {
     mkdir -p "$TEST_DIR/www"
 

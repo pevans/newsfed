@@ -231,3 +231,30 @@ when the user navigates away), the mode line reverts to the shortcut summary.
 
 Dates are rendered in the format YYYY-MM-DD. If a source has never been
 fetched, its "Last updated" field displays "Never" in place of a date.
+
+# 10. Add Source
+
+When the source frame is focused, the mode line includes an `[A]dd source`
+entry in the keyboard shortcut summary.
+
+Pressing `a` while the source frame is focused opens an "Add Source" modal.
+Pressing `a` while the news items frame is focused has no effect.
+
+The modal presents three labeled fields:
+
+- Name: \<input\>
+- URL:  \<input\>
+- Type: \<input\>
+
+The cursor begins in the Name field. The user moves between fields using tab.
+
+The user creates the source by pressing enter. All three fields are required;
+if any are empty when enter is pressed, a status message is displayed and the
+modal remains open. If the type value is not one of `rss`, `atom`, or
+`website`, an error is shown and the modal remains open.
+
+On success, the modal closes and the new source appears in the source list
+with the cursor positioned on it. The source is enabled immediately upon
+creation.
+
+The user dismisses the modal without adding a source by pressing escape.

@@ -23,6 +23,7 @@ func newModel() Model {
 		width:      80,
 		height:     24,
 		editInputs: [2]textinput.Model{textinput.New(), textinput.New()},
+		addInputs:  [3]textinput.Model{textinput.New(), textinput.New(), textinput.New()},
 	}
 }
 
@@ -716,6 +717,118 @@ func TestRenderSourceFields_neverFetchedShowsNever(t *testing.T) {
 	src.LastFetchedAt = nil
 	got := renderSourceFields(src)
 	assert.Contains(t, got, "Never")
+}
+
+// -- renderModeLine: [A]dd source hint --
+
+func TestRenderModeLine_sourcesFrameIncludesAddHint(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	got := m.renderModeLine()
+	assert.Contains(t, got, "[A]dd source")
+}
+
+func TestRenderModeLine_itemsFrameOmitsAddHint(t *testing.T) {
+	m := newModel()
+	m.focus = focusItems
+	got := m.renderModeLine()
+	assert.NotContains(t, got, "[A]dd source")
+}
+
+func TestRenderModeLine_statusMsgSuppressesAddHint(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.statusMsg = "Fetching..."
+	got := m.renderModeLine()
+	assert.NotContains(t, got, "[A]dd source")
+}
+
+// -- Key handling: 'a' --
+
+func TestKey_aSourcesFocus_opensAddModal(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+
+	m2, _ := pressKey(m, "a")
+	assert.Equal(t, modalSourceAdd, m2.modal)
+	assert.Equal(t, 0, m2.addFocus)
+}
+
+func TestKey_aSourcesFocus_clearsInputs(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	m.addInputs[0].SetValue("leftover")
+	m.addInputs[1].SetValue("leftover")
+	m.addInputs[2].SetValue("leftover")
+
+	m2, _ := pressKey(m, "a")
+	assert.Empty(t, m2.addInputs[0].Value())
+	assert.Empty(t, m2.addInputs[1].Value())
+	assert.Empty(t, m2.addInputs[2].Value())
+}
+
+func TestKey_aItemsFocus_noEffect(t *testing.T) {
+	m := newModel()
+	m.focus = focusItems
+
+	m2, _ := pressKey(m, "a")
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+// -- Key handling: add source modal --
+
+func TestAddModal_escClosesModal(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceAdd
+
+	m2, _ := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+func TestAddModal_tabCyclesThreeFields(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceAdd
+	m.addFocus = 0
+
+	m2, _ := pressSpecialKey(m, tea.KeyTab)
+	assert.Equal(t, 1, m2.addFocus)
+
+	m3, _ := pressSpecialKey(m2, tea.KeyTab)
+	assert.Equal(t, 2, m3.addFocus)
+
+	m4, _ := pressSpecialKey(m3, tea.KeyTab)
+	assert.Equal(t, 0, m4.addFocus)
+}
+
+func TestAddModal_enterWithAllEmptyKeepsModalOpen(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceAdd
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalSourceAdd, m2.modal)
+	assert.NotEmpty(t, m2.statusMsg)
+}
+
+func TestAddModal_enterWithPartialFieldsKeepsModalOpen(t *testing.T) {
+	m := newModel()
+	m.modal = modalSourceAdd
+	m.addInputs[0].SetValue("My Source")
+	// URL and Type are still empty.
+
+	m2, _ := pressSpecialKey(m, tea.KeyEnter)
+	assert.Equal(t, modalSourceAdd, m2.modal)
+	assert.NotEmpty(t, m2.statusMsg)
+}
+
+// -- renderSourceAddModal --
+
+func TestRenderSourceAddModal_containsLabels(t *testing.T) {
+	m := newModel()
+	got := m.renderSourceAddModal()
+	assert.Contains(t, got, "Add Source")
+	assert.Contains(t, got, "Name:")
+	assert.Contains(t, got, "URL:")
+	assert.Contains(t, got, "Type:")
 }
 
 func TestRenderSourceFields_datesAreYYYYMMDD(t *testing.T) {

@@ -104,7 +104,11 @@ func (m Model) renderMain() string {
 func (m Model) renderModeLine() string {
 	content := m.statusMsg
 	if content == "" {
-		content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open"
+		if m.focus == focusSources {
+			content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open  [A]dd source"
+		} else {
+			content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open"
+		}
 	}
 	if m.width > 0 {
 		content = ansi.Truncate(content, m.width, "")
@@ -225,6 +229,8 @@ func (m Model) renderWithModal(background string) string {
 		modalContent = m.renderDeleteConfirmModal()
 	case modalItemDetail:
 		modalContent = m.renderItemDetailModal()
+	case modalSourceAdd:
+		modalContent = m.renderSourceAddModal()
 	}
 
 	modal := modalBorderStyle.Render(modalContent)
@@ -293,6 +299,15 @@ func (m Model) renderSourceEditModal() string {
 	var sb strings.Builder
 	sb.WriteString(fmt.Sprintf("Name: %s\n", m.editInputs[0].View()))
 	sb.WriteString(fmt.Sprintf("URL:  %s", m.editInputs[1].View()))
+	return sb.String()
+}
+
+func (m Model) renderSourceAddModal() string {
+	var sb strings.Builder
+	sb.WriteString("Add Source\n\n")
+	sb.WriteString(fmt.Sprintf("Name: %s\n", m.addInputs[0].View()))
+	sb.WriteString(fmt.Sprintf("URL:  %s\n", m.addInputs[1].View()))
+	sb.WriteString(fmt.Sprintf("Type: %s", m.addInputs[2].View()))
 	return sb.String()
 }
 

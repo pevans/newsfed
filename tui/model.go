@@ -26,6 +26,7 @@ const (
 	modalSourceEdit
 	modalSourceDeleteConfirm
 	modalItemDetail
+	modalSourceAdd
 )
 
 // Model is the Bubble Tea model for the TUI.
@@ -45,6 +46,10 @@ type Model struct {
 	// Edit form
 	editInputs [2]textinput.Model // [0]=Name, [1]=URL
 	editFocus  int
+
+	// Add source form
+	addInputs [3]textinput.Model // [0]=Name, [1]=URL, [2]=Type
+	addFocus  int
 
 	// Item detail modal
 	itemDetailScroll int
@@ -69,11 +74,21 @@ func Run(sourceStore *sources.SourceStore, newsFeed *newsfeed.NewsFeed, discSvc 
 	urlInput := textinput.New()
 	urlInput.Placeholder = "Feed URL"
 
+	addNameInput := textinput.New()
+	addNameInput.Placeholder = "Source name"
+
+	addURLInput := textinput.New()
+	addURLInput.Placeholder = "Feed URL"
+
+	addTypeInput := textinput.New()
+	addTypeInput.Placeholder = "rss / atom / website"
+
 	m := Model{
 		sourceStore: sourceStore,
 		newsFeed:    newsFeed,
 		discSvc:     discSvc,
 		editInputs:  [2]textinput.Model{nameInput, urlInput},
+		addInputs:   [3]textinput.Model{addNameInput, addURLInput, addTypeInput},
 	}
 
 	// Silence the default logger while the TUI is running. The discovery

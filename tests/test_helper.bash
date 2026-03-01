@@ -727,6 +727,14 @@ tui_assert_contains() {
     fi
 }
 
+# Type literal text into the active TUI session (for form fields).
+# Unlike tui_send_keys, this sends characters literally so spaces and
+# other characters are not interpreted as key names.
+# Usage: tui_type "hello world"
+tui_type() {
+    tmux send-keys -l -t "$TUI_SESSION" "$1"
+}
+
 # Assert that the current TUI screen does NOT contain the given text.
 tui_assert_not_contains() {
     local text="$1"

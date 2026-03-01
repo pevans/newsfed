@@ -858,3 +858,16 @@ specs:
         testable: true
         tests:
           - "tests/tui.bats::tui: mode line shows keyboard shortcut summary on startup"
+
+      - section: "10"
+        title: Add Source
+        testable: true
+        tests:
+          - "tests/tui.bats::tui: mode line shows [A]dd source when source frame is focused"
+          - "tests/tui.bats::tui: mode line hides [A]dd source when items frame is focused"
+          - "tests/tui.bats::tui: a opens add source modal"
+          - "tests/tui.bats::tui: add source modal escape cancels without creating source"
+          - "tests/tui.bats::tui: add source modal creates source and shows it in the list"
+          - "tests/tui.bats::tui: a has no effect when items frame is focused"
+          - "tests/tui.bats::tui: add source modal keeps modal open on invalid type"
+          - "tests/tui.bats::tui: add source modal keeps modal open when fields are empty"

@@ -7,6 +7,7 @@ import (
 	"runtime"
 	"sort"
 	"strings"
+	"time"
 
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
@@ -182,6 +183,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleDeleteConfirmKey(msg)
 	case modalItemDetail:
 		return m.handleItemDetailKey(msg)
+	case modalSourceAdd:
+		return m.handleSourceAddKey(msg)
 	}
 
 	// Global keys (no modal open)
@@ -214,6 +217,10 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleEnter()
 	case "r":
 		return m.handleFetch()
+	case "a":
+		if m.focus == focusSources {
+			return m.handleOpenSourceAdd()
+		}
 	}
 
 	return m, nil
@@ -375,6 +382,57 @@ func (m Model) handleDeleteConfirmKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m, loadSourcesCmd(m.sourceStore)
 	}
 	return m, nil
+}
+
+func (m Model) handleOpenSourceAdd() (tea.Model, tea.Cmd) {
+	for i := range m.addInputs {
+		m.addInputs[i].SetValue("")
+	}
+	m.addFocus = 0
+	m.addInputs[0].Focus()
+	m.addInputs[1].Blur()
+	m.addInputs[2].Blur()
+	m.modal = modalSourceAdd
+	return m, nil
+}
+
+func (m Model) handleSourceAddKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc":
+		m.modal = modalNone
+		return m, nil
+	case "tab":
+		m.addFocus = (m.addFocus + 1) % 3
+		for i := range m.addInputs {
+			if i == m.addFocus {
+				m.addInputs[i].Focus()
+			} else {
+				m.addInputs[i].Blur()
+			}
+		}
+		return m, nil
+	case "enter":
+		name := m.addInputs[0].Value()
+		url := m.addInputs[1].Value()
+		srcType := m.addInputs[2].Value()
+		if name == "" || url == "" || srcType == "" {
+			m.statusMsg = "Name, URL, and type are required"
+			return m, nil
+		}
+		now := time.Now().UTC()
+		src, err := m.sourceStore.CreateSource(srcType, url, name, nil, &now)
+		if err != nil {
+			// Keep the modal open so the user can correct the input.
+			m.statusMsg = fmt.Sprintf("Add error: %v", err)
+			return m, nil
+		}
+		m.modal = modalNone
+		return m, loadSourcesAndRestoreCursorCmd(m.sourceStore, src.SourceID)
+	}
+
+	var cmd tea.Cmd
+	m.addInputs[m.addFocus], cmd = m.addInputs[m.addFocus].Update(msg)
+	return m, cmd
 }
 
 func (m Model) handleItemDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
