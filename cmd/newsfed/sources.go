@@ -238,7 +238,7 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	}
 
 	// Create the source (enabled by default)
-	now := time.Now()
+	now := time.Now().UTC()
 	source, err := metadataStore.CreateSource(*sourceType, *url, *name, scraperConfig, &now)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: failed to create source: %v\n", err)
@@ -391,7 +391,7 @@ func handleSourcesEnable(metadataStore *sources.SourceStore, args []string) {
 	}
 
 	// Enable the source
-	now := time.Now()
+	now := time.Now().UTC()
 	update := sources.SourceUpdate{
 		EnabledAt: &now,
 	}

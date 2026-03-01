@@ -84,11 +84,11 @@ func FeedItemToNewsItem(item *gofeed.Item, feedTitle string, sourceID uuid.UUID)
 		publishedAt = *item.PublishedParsed
 	} else {
 		// If no date available, use current time
-		publishedAt = time.Now()
+		publishedAt = time.Now().UTC()
 	}
 
 	// Discovered_at: set to current time when ingesting
-	discoveredAt := time.Now()
+	discoveredAt := time.Now().UTC()
 
 	// Pinned_at: set to nil (not yet pinned)
 	var pinnedAt *time.Time

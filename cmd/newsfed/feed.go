@@ -277,7 +277,7 @@ func handlePin(feedDir string, args []string) {
 	}
 
 	// Pin the item
-	now := time.Now()
+	now := time.Now().UTC()
 	item.PinnedAt = &now
 
 	err = newsFeed.Update(*item)

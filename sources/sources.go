@@ -156,7 +156,7 @@ func (s *SourceStore) CreateSource(
 		return nil, ErrInvalidSourceType
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 
 	source := &Source{
 		SourceID:        uuid.New(),
@@ -327,7 +327,7 @@ func (s *SourceStore) ListSources(filter SourceFilter) ([]Source, error) {
 func (s *SourceStore) UpdateSource(sourceID uuid.UUID, update SourceUpdate) error {
 	// Build dynamic UPDATE query based on provided fields
 	setClauses := []string{"updated_at = ?"}
-	now := time.Now()
+	now := time.Now().UTC()
 	args := []any{formatTime(&now)}
 
 	if update.Name != nil {

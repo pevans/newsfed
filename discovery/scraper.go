@@ -98,11 +98,11 @@ func ScrapedArticleToNewsItem(article *ScrapedArticle, publisherName string, sou
 	if article.PublishedAt != nil {
 		publishedAt = *article.PublishedAt
 	} else {
-		publishedAt = time.Now()
+		publishedAt = time.Now().UTC()
 	}
 
 	// Discovered_at: set to current time when ingesting
-	discoveredAt := time.Now()
+	discoveredAt := time.Now().UTC()
 
 	// Pinned_at: set to nil (not yet pinned)
 	var pinnedAt *time.Time

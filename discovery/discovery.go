@@ -710,7 +710,7 @@ func (ds *DiscoveryService) extractDomain(urlStr string) (string, error) {
 // handleFetchSuccess updates source metadata after a successful fetch.
 // Implements Spec 7 section 4.3.
 func (ds *DiscoveryService) handleFetchSuccess(source sources.Source) {
-	now := time.Now()
+	now := time.Now().UTC()
 	zero := 0
 	var nilStr *string
 	update := sources.SourceUpdate{
@@ -727,7 +727,7 @@ func (ds *DiscoveryService) handleFetchSuccess(source sources.Source) {
 // handleFetchError updates source metadata after a fetch error. Implements
 // Spec 7 section 7 (Error Handling).
 func (ds *DiscoveryService) handleFetchError(source sources.Source, fetchErr error) {
-	now := time.Now()
+	now := time.Now().UTC()
 	errorMsg := fetchErr.Error()
 
 	// Determine if error is permanent or transient
