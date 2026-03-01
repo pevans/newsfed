@@ -336,9 +336,9 @@ func (m Model) itemDetailLines() (lines []string, maxScroll int) {
 	}
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Title:     %s\n", item.Title))
+	sb.WriteString(wrapField("Title:     ", item.Title, modalWidth) + "\n")
 	sb.WriteString(fmt.Sprintf("Published: %s\n", item.PublishedAt.Format("2006-01-02")))
-	sb.WriteString(fmt.Sprintf("URL:       %s\n", item.URL))
+	sb.WriteString(wrapField("URL:       ", item.URL, modalWidth) + "\n")
 
 	if item.Summary != "" {
 		plain := stripHTML(item.Summary)
@@ -423,20 +423,78 @@ func wrapParagraph(text string, width int) string {
 		return ""
 	}
 
-	var lines []string
-	current := words[0]
+	// Hard-break any word that is wider than the wrap column so it never
+	// produces a line that exceeds width (e.g. a long URL with no spaces).
+	var tokens []string
+	for _, w := range words {
+		runes := []rune(w)
+		for len(runes) > width {
+			tokens = append(tokens, string(runes[:width]))
+			runes = runes[width:]
+		}
+		tokens = append(tokens, string(runes))
+	}
 
-	for _, word := range words[1:] {
-		if utf8.RuneCountInString(current)+1+utf8.RuneCountInString(word) <= width {
-			current += " " + word
+	var lines []string
+	current := tokens[0]
+
+	for _, tok := range tokens[1:] {
+		if utf8.RuneCountInString(current)+1+utf8.RuneCountInString(tok) <= width {
+			current += " " + tok
 		} else {
 			lines = append(lines, current)
-			current = word
+			current = tok
 		}
 	}
 	lines = append(lines, current)
 
 	return strings.Join(lines, "\n")
+}
+
+// wrapField formats a labeled field line, hard-wrapping the value so that the
+// combined label+value never exceeds width runes. Continuation lines are
+// indented to align under the start of the value. This handles values with no
+// whitespace (e.g. long URLs) by breaking mid-token at the width boundary.
+func wrapField(label, value string, width int) string {
+	labelWidth := utf8.RuneCountInString(label)
+	indent := strings.Repeat(" ", labelWidth)
+	valueWidth := width - labelWidth
+	if valueWidth < 10 {
+		valueWidth = 10
+	}
+
+	runes := []rune(value)
+	var chunks []string
+	for len(runes) > 0 {
+		if len(runes) <= valueWidth {
+			chunks = append(chunks, string(runes))
+			break
+		}
+		// Prefer to break at the last space within valueWidth.
+		breakAt := valueWidth
+		for i := valueWidth - 1; i > 0; i-- {
+			if runes[i] == ' ' {
+				breakAt = i
+				break
+			}
+		}
+		chunks = append(chunks, string(runes[:breakAt]))
+		// Skip a space we broke on so it doesn't appear at line start.
+		if runes[breakAt] == ' ' {
+			runes = runes[breakAt+1:]
+		} else {
+			runes = runes[breakAt:]
+		}
+	}
+
+	if len(chunks) == 0 {
+		return label
+	}
+	result := label + chunks[0]
+	for _, chunk := range chunks[1:] {
+		result += "\n" + indent + chunk
+	}
+	return result
 }
 
 // formatDate renders a *time.Time as YYYY-MM-DD, or "Never" if nil.

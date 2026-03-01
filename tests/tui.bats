@@ -494,6 +494,132 @@ RSSEOF
     tui_assert_not_contains "ScrollTestBottom"
 }
 
+@test "tui: item detail modal hard-wraps long token in description to fit terminal width" {
+    mkdir -p "$TEST_DIR/www"
+
+    # Modal content width on an 80-column terminal:
+    #   modalWidth = floor(80*60/100) - 6 = 42
+    #
+    # We embed a space-free token (a long URL) in the description whose
+    # length is 121 chars.  Without hard-breaking, the modal tries to render
+    # a line 127 chars wide (121 + 6 border overhead).  In an 80-column
+    # terminal lipgloss clips the line at col 80, placing "DescSentinel" at
+    # col ~112 -- well past the clip point, not visible in the tmux capture.
+    # With hard-breaking the token is split into chunks of 42 chars;
+    # "DescSentinel" lands on the third chunk at col ~28 and is fully visible.
+    local long_token
+    long_token="http://example.com/$(printf 'a%.0s' $(seq 1 90))DescSentinel"
+
+    cat > "$TEST_DIR/www/feed.xml" <<RSSEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Desc Wrap Test Feed</title>
+    <link>http://example.com</link>
+    <description>Feed for description wrap testing</description>
+    <item>
+      <title>Desc Wrap Article</title>
+      <link>http://example.com/article</link>
+      <description>Reference: $long_token for details.</description>
+    </item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Desc Wrap Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    # 80-column terminal -- narrow enough to trigger the overflow bug.
+    tui_start 80 24
+    tui_wait_for "Desc Wrap Source" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Desc Wrap Article" 5
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    tui_assert_contains "Title:"
+
+    # Without hard-wrapping the long description token overflows the modal
+    # past the terminal edge, clipping "DescSentinel".  With the fix it wraps
+    # onto a continuation line within the modal width and is visible.
+    tui_assert_contains "DescSentinel"
+}
+
+@test "tui: item detail modal hard-wraps long URL and title to fit terminal width" {
+    mkdir -p "$TEST_DIR/www"
+
+    # Modal content width on an 80-column terminal:
+    #   modalWidth  = floor(80 * 60/100) - 6  = 48 - 6 = 42
+    #   valueWidth  = 42 - 11 (label width)   = 31
+    #
+    # We build a URL whose tail "/WrapSentinel" falls beyond column 80 when
+    # printed as a single unwrapped line, but lands on a new wrapped line --
+    # and is therefore fully visible -- after the fix is applied.
+    #
+    # URL layout: 19-char prefix + 12 'a's fills the first 31-char chunk
+    # exactly; 31 more 'a's fill the second chunk; "/WrapSentinel" is the
+    # third chunk (13 chars).  Total URL = 75 chars.  Without wrapping the
+    # line would start at approx column 30 and extend to column 104, placing
+    # "WrapSentinel" well past the 80-column clip point.
+    local long_url
+    long_url="http://example.com/$(printf 'a%.0s' $(seq 1 43))/WrapSentinel"
+
+    # Similarly, a title whose last word "TitleSentinel" ends up beyond
+    # column 80 unless the title is word-wrapped.
+    local long_title="Article with filler words to exceed the terminal width TitleSentinel"
+
+    cat > "$TEST_DIR/www/feed.xml" <<RSSEOF
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Wrap Test Feed</title>
+    <link>http://example.com</link>
+    <description>Feed for wrap testing</description>
+    <item>
+      <title>$long_title</title>
+      <link>$long_url</link>
+      <description>Short summary.</description>
+    </item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Wrap Test Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    # 80-column terminal -- narrow enough to trigger the overflow bug.
+    tui_start 80 24
+    tui_wait_for "Wrap Test Source" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Wrap Test" 5
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    tui_assert_contains "Title:"
+
+    # Without wrapping, both sentinels are clipped past column 80 and are not
+    # visible in the tmux capture.  With wrapping they land on continuation
+    # lines that fit within the terminal width and are therefore visible.
+    tui_assert_contains "WrapSentinel"
+    tui_assert_contains "TitleSentinel"
+}
+
 @test "tui: item detail modal scroll-up works after scrolling past the end" {
     mkdir -p "$TEST_DIR/www"
 
