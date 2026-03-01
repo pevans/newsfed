@@ -1,6 +1,9 @@
 package tui
 
 import (
+	"io"
+	"log"
+
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/pevans/newsfed/discovery"
@@ -72,6 +75,12 @@ func Run(sourceStore *sources.SourceStore, newsFeed *newsfeed.NewsFeed, discSvc 
 		discSvc:     discSvc,
 		editInputs:  [2]textinput.Model{nameInput, urlInput},
 	}
+
+	// Silence the default logger while the TUI is running. The discovery
+	// service emits log.Printf lines that would corrupt the display.
+	prev := log.Writer()
+	log.SetOutput(io.Discard)
+	defer log.SetOutput(prev)
 
 	p := tea.NewProgram(m, tea.WithAltScreen())
 	_, err := p.Run()

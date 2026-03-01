@@ -106,6 +106,9 @@ func (m Model) renderModeLine() string {
 	if content == "" {
 		content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open"
 	}
+	if m.width > 0 {
+		content = ansi.Truncate(content, m.width, "")
+	}
 	return selectedStyle.Width(m.width).Render(content)
 }
 
