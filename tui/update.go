@@ -203,7 +203,14 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMsg = fmt.Sprintf("Fetched: %d new item(s)", msg.itemsAdded)
 		}
-		return m, m.loadItemsForCurrent()
+		var restoreID uuid.UUID
+		if m.sourceCursor < len(m.sources) {
+			restoreID = m.sources[m.sourceCursor].SourceID
+		}
+		return m, tea.Batch(
+			m.loadItemsForCurrent(),
+			loadSourcesAndRestoreCursorCmd(m.sourceStore, restoreID),
+		)
 
 	case sourceDiscoveredMsg:
 		// Discard results that belong to a previous discovery session.

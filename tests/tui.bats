@@ -807,6 +807,35 @@ RSSEOF
     tui_assert_not_contains "ScrollTestBottom"
 }
 
+@test "tui: r key refreshes source and updates Last updated date" {
+    mkdir -p "$TEST_DIR/www"
+    create_rss_feed "$TEST_DIR/www/feed.xml" "Refresh Test Feed" 1
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Refresh Test Source"
+
+    tui_start
+    tui_wait_for "Refresh Test Source" 5
+
+    # Before any fetch, "Last updated" should display "Never".
+    tui_assert_contains "Never"
+
+    # Press r to trigger a refresh of the selected source.
+    tui_send_keys "r"
+
+    # Wait for the fetch to complete -- the mode line shows "Fetched: N new item(s)".
+    tui_wait_for "Fetched:" 10
+
+    stop_mock_server
+
+    # The "Last updated" line should now display today's date in YYYY-MM-DD format.
+    local today
+    today=$(date +%Y-%m-%d)
+    tui_assert_contains "$today"
+}
+
 @test "tui: newsfed with no arguments launches the TUI" {
     TUI_SESSION="newsfed-tui-$$-$RANDOM"
     tmux new-session -d -s "$TUI_SESSION" -x 120 -y 30 \

@@ -853,12 +853,14 @@ specs:
         testable: true
         tests:
           - "tests/tui.bats::tui: q quits the TUI"
+          - "tests/tui.bats::tui: r key refreshes source and updates Last updated date"
 
       - section: "8"
         title: Date formatting
         testable: true
         tests:
           - "tests/tui.bats::tui: source entry shows Last updated: Never when never fetched"
+          - "tests/tui.bats::tui: r key refreshes source and updates Last updated date"
 
       - section: "9"
         title: Mode line
