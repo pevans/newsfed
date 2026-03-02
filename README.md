@@ -19,7 +19,7 @@ just build
 go build -o dist/newsfed ./cmd/newsfed
 ```
 
-Before you can use newsfed's CLI, you must first initialize it:
+Before you can use newsfed, you must first initialize it:
 
 ```bash
 newsfed init
