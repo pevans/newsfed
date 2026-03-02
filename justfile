@@ -12,7 +12,9 @@ lint:
     golangci-lint run ./...
 
 format-list:
-    gofmt -l .
+    @# Note that gofmt -l does not return an error code even if it finds
+    @# differences; thus we also assert that the results are an empty string
+    gofmt -l . && test -z "$(gofmt -l .)"
     gocomments -l .
 
 format:
