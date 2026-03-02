@@ -1,13 +1,11 @@
 # newsfed
 
-newsfed is a small, terminal-based tool that tracks news feeds (RSS and Atom)
+Newsfed is a small, terminal-based tool that tracks news feeds (RSS and Atom)
 or websites-that-look-like-news-feeds for updates. All of its metadata and
 news items are saved to the computer that runs newsfed.
 
-newsfed is designed initially with a command-line interface. While that works
-well as a proof of concept -- and, theoretically, for automation -- it's not
-the most usable tool for human beings. I plan to build out a terminal user
-interface shortly.
+Newsfed offers both a text user interface (TUI) and plain command-line
+interface (CLI). You should most likely use the TUI.
 
 ## Installation
 
@@ -20,8 +18,6 @@ just build
 # If you don't have `just` installed
 go build -o dist/newsfed ./cmd/newsfed
 ```
-
-## CLI Usage
 
 Before you can use newsfed's CLI, you must first initialize it:
 
@@ -37,6 +33,13 @@ This command will create:
 - `~/.newsfed/feed/`, the directory that holds news items as JSON files
 
 newsfed cannot function without these files.
+
+## TUI Usage
+
+Newsfed is designed with a text user interface (or TUI). To run that, you can
+simply invoke `newsfed` with no arguments.
+
+## CLI Usage
 
 ### Adding a feed
 
