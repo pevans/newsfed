@@ -66,7 +66,7 @@ func handleInit(metadataPath, feedDir string, args []string) {
 	// Parse flags for init command
 	fs := flag.NewFlagSet("init", flag.ExitOnError)
 	force := fs.Bool("force", false, "Force reinitialization even if storage already exists")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	fmt.Println("Initializing newsfed storage...")
 	fmt.Println()
@@ -130,7 +130,7 @@ func handleInit(metadataPath, feedDir string, args []string) {
 				fmt.Fprintf(os.Stderr, "  ✗ Failed to initialize metadata database: %v\n", err)
 				initSucceeded = false
 			} else {
-				metadataStore.Close()
+				_ = metadataStore.Close()
 				fmt.Printf("  ✓ Metadata database: %s\n", metadataPath)
 				createdSomething = true
 			}
@@ -143,7 +143,7 @@ func handleInit(metadataPath, feedDir string, args []string) {
 				fmt.Fprintf(os.Stderr, "  ✗ Failed to initialize config table: %v\n", err)
 				initSucceeded = false
 			} else {
-				configStore.Close()
+				_ = configStore.Close()
 			}
 		}
 	}
@@ -200,7 +200,7 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 	// Parse flags for doctor command
 	fs := flag.NewFlagSet("doctor", flag.ExitOnError)
 	verbose := fs.Bool("verbose", false, "Show detailed diagnostic information")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	fmt.Println("Checking newsfed storage health...")
 	fmt.Println()
@@ -226,7 +226,7 @@ func handleDoctor(metadataPath, feedDir string, args []string) {
 			fmt.Printf("  ✗ Failed to open database: %v\n", err)
 			hasErrors = true
 		} else {
-			defer metadataStore.Close()
+			defer func() { _ = metadataStore.Close() }()
 			fmt.Println("  ✓ Database is accessible")
 
 			// Check permissions

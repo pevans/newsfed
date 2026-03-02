@@ -77,7 +77,7 @@ func handleSourcesCommand(action, metadataPath string, args []string) {
 		fmt.Fprintf(os.Stderr, "Error: failed to open source store: %v\n", err)
 		os.Exit(1)
 	}
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	switch action {
 	case "list":

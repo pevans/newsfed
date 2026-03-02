@@ -27,7 +27,7 @@ func handleList(feedDir string, args []string) {
 	limit := fs.Int("limit", 20, "Maximum number of items to display")
 	offset := fs.Int("offset", 0, "Number of items to skip")
 	format := fs.String("format", "table", "Output format: table, json, compact")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Initialize news feed
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
@@ -346,7 +346,7 @@ func handleOpen(metadataPath, feedDir string, args []string) {
 	// Parse flags for open command
 	fs := flag.NewFlagSet("open", flag.ExitOnError)
 	echo := fs.Bool("echo", false, "Echo the command instead of executing it")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Get item ID from remaining args
 	if len(fs.Args()) < 1 {
@@ -389,7 +389,7 @@ func handleOpen(metadataPath, feedDir string, args []string) {
 
 	configStore, err := config.NewConfigStore(metadataPath)
 	if err == nil {
-		defer configStore.Close()
+		defer func() { _ = configStore.Close() }()
 		cfg, err := configStore.GetConfig()
 		if err == nil && cfg.BrowserCommand != "" {
 			// Use configured browser command
@@ -438,7 +438,7 @@ func handlePrune(feedDir string, args []string) {
 	fs := flag.NewFlagSet("prune", flag.ExitOnError)
 	all := fs.Bool("all", false, "Remove all items, not just those older than 90 days")
 	force := fs.Bool("force", false, "Skip confirmation prompt")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Initialize news feed
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
@@ -463,7 +463,7 @@ func handlePrune(feedDir string, args []string) {
 		}
 
 		var response string
-		fmt.Fscanln(os.Stdin, &response)
+		_, _ = fmt.Fscanln(os.Stdin, &response)
 		if response != "y" && response != "Y" {
 			fmt.Println("Cancelled.")
 			return

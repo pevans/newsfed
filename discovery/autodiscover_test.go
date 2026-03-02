@@ -20,17 +20,10 @@ const rssBody = `<?xml version="1.0" encoding="UTF-8"?>
   </channel>
 </rss>`
 
-const atomBody = `<?xml version="1.0" encoding="UTF-8"?>
-<feed xmlns="http://www.w3.org/2005/Atom">
-  <title>Test Atom Feed</title>
-  <link href="http://example.com"/>
-  <id>http://example.com</id>
-</feed>`
-
 func TestDiscoverFeed_DirectRSS(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		w.Write([]byte(rssBody))
+		_, _ = w.Write([]byte(rssBody))
 	}))
 	defer srv.Close()
 
@@ -47,11 +40,11 @@ func TestDiscoverFeed_HTMLLinkTags(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/feed.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		w.Write([]byte(rssBody))
+		_, _ = w.Write([]byte(rssBody))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		fmt.Fprintf(w, `<!DOCTYPE html><html><head>
+		_, _ = fmt.Fprintf(w, `<!DOCTYPE html><html><head>
 <link rel="alternate" type="application/rss+xml" href="%s">
 </head><body>Hello</body></html>`, feedURL)
 	})
@@ -72,11 +65,11 @@ func TestDiscoverFeed_ProbeIndexXML_RootPath(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/index.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		w.Write([]byte(rssBody))
+		_, _ = w.Write([]byte(rssBody))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html><html><head></head><body>Hello</body></html>`))
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head></head><body>Hello</body></html>`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
@@ -93,11 +86,11 @@ func TestDiscoverFeed_ProbeIndexXML_SubPath(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/blog/index.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		w.Write([]byte(rssBody))
+		_, _ = w.Write([]byte(rssBody))
 	})
 	mux.HandleFunc("/blog/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html><html><head></head><body>Hello</body></html>`))
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head></head><body>Hello</body></html>`))
 	})
 	// All other paths return 404.
 	srv := httptest.NewServer(mux)
@@ -112,7 +105,7 @@ func TestDiscoverFeed_ProbeIndexXML_SubPath(t *testing.T) {
 func TestDiscoverFeed_NoFeed(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusNotFound)
-		w.Write([]byte("Not Found"))
+		_, _ = w.Write([]byte("Not Found"))
 	}))
 	defer srv.Close()
 
@@ -134,7 +127,7 @@ func TestDiscoverFeed_HTMLLinkTagsNoLinks_LogsNoFeedLinksInPage(t *testing.T) {
 	// error output should record "no feed links in page" for the input URL.
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
-		w.Write([]byte(`<!DOCTYPE html><html><head></head><body>Hello</body></html>`))
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head></head><body>Hello</body></html>`))
 	}))
 	defer srv.Close()
 
@@ -150,12 +143,12 @@ func TestDiscoverFeed_RelativeHrefResolved(t *testing.T) {
 	mux := http.NewServeMux()
 	mux.HandleFunc("/feed.xml", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "application/rss+xml")
-		w.Write([]byte(rssBody))
+		_, _ = w.Write([]byte(rssBody))
 	})
 	mux.HandleFunc("/post/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		// Use a relative href
-		w.Write([]byte(`<!DOCTYPE html><html><head>
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head>
 <link rel="alternate" type="application/rss+xml" href="/feed.xml">
 </head><body>Hello</body></html>`))
 	})
@@ -197,18 +190,18 @@ func TestDiscoverFeed_CrossStrategyDedup(t *testing.T) {
 		// Return non-feed content so discovery fails, to exercise the full
 		// path.
 		w.Header().Set("Content-Type", "text/plain")
-		w.Write([]byte("not a feed"))
+		_, _ = w.Write([]byte("not a feed"))
 	})
 	mux.HandleFunc("/", func(w http.ResponseWriter, r *http.Request) {
 		w.Header().Set("Content-Type", "text/html")
 		// Link tag points to /index.xml, which is also a Strategy 3 probe.
-		w.Write([]byte(`<!DOCTYPE html><html><head>
+		_, _ = w.Write([]byte(`<!DOCTYPE html><html><head>
 <link rel="alternate" type="application/rss+xml" href="/index.xml">
 </head><body>Hello</body></html>`))
 	})
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	DiscoverFeed(srv.URL + "/")
+	_, _ = DiscoverFeed(srv.URL + "/")
 	assert.Equal(t, 1, tries, "/index.xml should only be fetched once across all strategies")
 }

@@ -34,7 +34,7 @@ func printSourcesUsage() {
 func handleSourcesList(metadataStore *sources.SourceStore, args []string) {
 	// Parse flags for list command
 	fs := flag.NewFlagSet("sources list", flag.ExitOnError)
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Get all sources
 	sourceList, err := metadataStore.ListSources(sources.SourceFilter{})
@@ -190,7 +190,7 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	url := fs.String("url", "", "Source URL")
 	name := fs.String("name", "", "Source name (optional when autodiscovering)")
 	configFile := fs.String("config", "", "Scraper config file (for website sources)")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// URL is always required
 	if *url == "" {
@@ -291,7 +291,7 @@ func handleSourcesUpdate(metadataStore *sources.SourceStore, args []string) {
 	name := fs.String("name", "", "Update source name")
 	interval := fs.String("interval", "", "Update polling interval (e.g., 30m, 1h)")
 	configFile := fs.String("config", "", "Update scraper config file (for website sources)")
-	fs.Parse(args[1:])
+	_ = fs.Parse(args[1:])
 
 	// Check if any updates were provided
 	if *name == "" && *interval == "" && *configFile == "" {
@@ -468,7 +468,7 @@ func handleSourcesStatus(metadataStore *sources.SourceStore, args []string) {
 	// Parse flags
 	fs := flag.NewFlagSet("sources status", flag.ExitOnError)
 	verbose := fs.Bool("verbose", false, "Show detailed error information")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Get all sources to analyze
 	allSources, err := metadataStore.ListSources(sources.SourceFilter{})

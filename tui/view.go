@@ -272,45 +272,45 @@ func (m Model) renderSourceManagementModal() string {
 
 func renderSourceFields(src sources.Source) string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Name:             %s\n", src.Name))
-	sb.WriteString(fmt.Sprintf("URL:              %s\n", src.URL))
-	sb.WriteString(fmt.Sprintf("Type:             %s\n", src.SourceType))
-	sb.WriteString(fmt.Sprintf("Enabled:          %v\n", src.IsEnabled()))
-	sb.WriteString(fmt.Sprintf("Created At:       %s\n", src.CreatedAt.Format("2006-01-02")))
-	sb.WriteString(fmt.Sprintf("Updated At:       %s\n", src.UpdatedAt.Format("2006-01-02")))
+	fmt.Fprintf(&sb, "Name:             %s\n", src.Name)
+	fmt.Fprintf(&sb, "URL:              %s\n", src.URL)
+	fmt.Fprintf(&sb, "Type:             %s\n", src.SourceType)
+	fmt.Fprintf(&sb, "Enabled:          %v\n", src.IsEnabled())
+	fmt.Fprintf(&sb, "Created At:       %s\n", src.CreatedAt.Format("2006-01-02"))
+	fmt.Fprintf(&sb, "Updated At:       %s\n", src.UpdatedAt.Format("2006-01-02"))
 	if src.LastFetchedAt != nil {
-		sb.WriteString(fmt.Sprintf("Last Fetched At:  %s\n", src.LastFetchedAt.Format("2006-01-02")))
+		fmt.Fprintf(&sb, "Last Fetched At:  %s\n", src.LastFetchedAt.Format("2006-01-02"))
 	} else {
 		sb.WriteString("Last Fetched At:  Never\n")
 	}
 	if src.PollingInterval != nil {
-		sb.WriteString(fmt.Sprintf("Polling Interval: %s\n", *src.PollingInterval))
+		fmt.Fprintf(&sb, "Polling Interval: %s\n", *src.PollingInterval)
 	} else {
 		sb.WriteString("Polling Interval: (default)\n")
 	}
-	sb.WriteString(fmt.Sprintf("Error Count:      %d\n", src.FetchErrorCount))
+	fmt.Fprintf(&sb, "Error Count:      %d\n", src.FetchErrorCount)
 	if src.LastError != nil {
-		sb.WriteString(fmt.Sprintf("Last Error:       %s\n", *src.LastError))
+		fmt.Fprintf(&sb, "Last Error:       %s\n", *src.LastError)
 	}
 	return sb.String()
 }
 
 func (m Model) renderSourceEditModal() string {
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Name: %s\n", m.editInputs[0].View()))
-	sb.WriteString(fmt.Sprintf("URL:  %s", m.editInputs[1].View()))
+	fmt.Fprintf(&sb, "Name: %s\n", m.editInputs[0].View())
+	fmt.Fprintf(&sb, "URL:  %s", m.editInputs[1].View())
 	return sb.String()
 }
 
 func (m Model) renderSourceAddModal() string {
 	var sb strings.Builder
 	sb.WriteString("Add Source\n\n")
-	sb.WriteString(fmt.Sprintf("Name: %s\n", m.addInputs[0].View()))
-	sb.WriteString(fmt.Sprintf("URL:  %s", m.addInputs[1].View()))
+	fmt.Fprintf(&sb, "Name: %s\n", m.addInputs[0].View())
+	fmt.Fprintf(&sb, "URL:  %s", m.addInputs[1].View())
 	if m.addDiscovering {
 		sb.WriteString("\n\nDiscovering feed...")
 	} else if m.statusMsg != "" {
-		sb.WriteString(fmt.Sprintf("\n\n%s", m.statusMsg))
+		fmt.Fprintf(&sb, "\n\n%s", m.statusMsg)
 	}
 	return sb.String()
 }
@@ -322,7 +322,7 @@ func (m Model) renderDeleteConfirmModal() string {
 	src := m.sources[m.sourceCursor]
 
 	var sb strings.Builder
-	sb.WriteString(fmt.Sprintf("Delete %q? This cannot be undone.\n\n", src.Name))
+	fmt.Fprintf(&sb, "Delete %q? This cannot be undone.\n\n", src.Name)
 
 	yesLabel := "[ Yes ]"
 	noLabel := "[ No ]"
@@ -356,7 +356,7 @@ func (m Model) itemDetailLines() (lines []string, maxScroll int) {
 
 	var sb strings.Builder
 	sb.WriteString(wrapField("Title:     ", item.Title, modalWidth) + "\n")
-	sb.WriteString(fmt.Sprintf("Published: %s\n", item.PublishedAt.Format("2006-01-02")))
+	fmt.Fprintf(&sb, "Published: %s\n", item.PublishedAt.Format("2006-01-02"))
 	sb.WriteString(wrapField("URL:       ", item.URL, modalWidth) + "\n")
 
 	if item.Summary != "" {

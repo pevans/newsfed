@@ -17,7 +17,7 @@ func createTestSourceStore(t *testing.T) *SourceStore {
 	dbPath := filepath.Join(tempDir, "test.db")
 	store, err := NewSourceStore(dbPath)
 	require.NoError(t, err, "should create source store")
-	t.Cleanup(func() { store.Close() })
+	t.Cleanup(func() { _ = store.Close() })
 	return store
 }
 
@@ -41,7 +41,7 @@ func TestNewSourceStore_CreatesDatabase(t *testing.T) {
 	store, err := NewSourceStore(dbPath)
 	require.NoError(t, err, "should create store")
 	require.NotNil(t, store, "store should not be nil")
-	defer store.Close()
+	defer func() { _ = store.Close() }()
 
 	// Verify we can perform basic operations
 	sources, err := store.ListSources(SourceFilter{})
@@ -71,12 +71,12 @@ func TestNewSourceStore_ExistingDatabase(t *testing.T) {
 	now := time.Now()
 	_, err = store1.CreateSource("rss", "http://example.com", "Test", nil, &now)
 	require.NoError(t, err)
-	store1.Close()
+	_ = store1.Close()
 
 	// Open database again
 	store2, err := NewSourceStore(dbPath)
 	require.NoError(t, err)
-	defer store2.Close()
+	defer func() { _ = store2.Close() }()
 
 	// Verify data persisted
 	sources, err := store2.ListSources(SourceFilter{})

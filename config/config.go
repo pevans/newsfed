@@ -27,7 +27,7 @@ func NewConfigStore(dbPath string) (*ConfigStore, error) {
 
 	store := &ConfigStore{db: db}
 	if err := store.initSchema(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 

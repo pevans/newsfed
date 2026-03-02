@@ -17,7 +17,7 @@ func handleSync(metadataPath, feedDir string, args []string) {
 	// Parse flags for sync command
 	fs := flag.NewFlagSet("sync", flag.ExitOnError)
 	verbose := fs.Bool("verbose", false, "Show verbose output")
-	fs.Parse(args)
+	_ = fs.Parse(args)
 
 	// Check if a specific source ID was provided
 	var sourceID *uuid.UUID
@@ -36,7 +36,7 @@ func handleSync(metadataPath, feedDir string, args []string) {
 		fmt.Fprintf(os.Stderr, "Error: failed to open source store: %v\n", err)
 		os.Exit(1)
 	}
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	// Initialize news feed
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)

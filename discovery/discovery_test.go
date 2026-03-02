@@ -26,7 +26,7 @@ func TestDiscoveryService_filterDueSources(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -78,7 +78,7 @@ func TestDiscoveryService_getPollingInterval(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -134,7 +134,7 @@ func TestDiscoveryService_isSourceDue(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -196,7 +196,7 @@ func TestDiscoveryService_handleFetchError(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -244,7 +244,7 @@ func TestDiscoveryService_handleFetchSuccess(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -291,7 +291,7 @@ func TestDiscoveryService_Run_StartupBehavior(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -327,7 +327,7 @@ func TestDiscoveryService_isPermanentError(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -378,9 +378,8 @@ func TestDiscoveryService_isPermanentError(t *testing.T) {
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			err := assert.AnError
 			// Wrap error with message
-			err = fmt.Errorf("%s", tt.errorMsg)
+			err := fmt.Errorf("%s", tt.errorMsg)
 			isPermanent := service.isPermanentError(err)
 			assert.Equal(t, tt.isPermanent, isPermanent)
 		})
@@ -396,7 +395,7 @@ func TestDiscoveryService_handleFetchError_PermanentError(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -454,7 +453,7 @@ func TestDiscoveryService_extractDomain(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -500,7 +499,7 @@ func TestDiscoveryService_resolveURL(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -557,7 +556,7 @@ func TestDiscoveryService_extractArticleURLs(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -666,7 +665,7 @@ func TestDiscoveryService_extractNextPageURL(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -755,7 +754,7 @@ func TestDiscoveryService_fetchWebsite_InvalidConfig(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -824,7 +823,7 @@ func TestDiscoveryService_Deduplication_WebScraping(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -910,7 +909,7 @@ func TestDiscoveryService_GetMetrics(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)
@@ -939,7 +938,7 @@ func TestDiscoveryService_shouldApplyItemLimit(t *testing.T) {
 
 	sourceStore, err := sources.NewSourceStore(metadataPath)
 	require.NoError(t, err)
-	defer sourceStore.Close()
+	defer func() { _ = sourceStore.Close() }()
 
 	newsFeed, err := newsfeed.NewNewsFeed(feedDir)
 	require.NoError(t, err)

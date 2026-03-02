@@ -21,8 +21,8 @@ func TestConfigFilePath(t *testing.T) {
 func TestWriteDefaultConfigFile_CreatesFile(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	created, err := WriteDefaultConfigFile(false)
 	require.NoError(t, err)
@@ -56,8 +56,8 @@ func TestWriteDefaultConfigFile_CreatesFile(t *testing.T) {
 func TestWriteDefaultConfigFile_SkipsExisting(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	// Create config file manually
 	configDir := filepath.Join(tmpDir, ".newsfed")
@@ -78,8 +78,8 @@ func TestWriteDefaultConfigFile_SkipsExisting(t *testing.T) {
 func TestWriteDefaultConfigFile_ForceOverwrites(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	// Create config file manually
 	configDir := filepath.Join(tmpDir, ".newsfed")
@@ -99,8 +99,8 @@ func TestWriteDefaultConfigFile_ForceOverwrites(t *testing.T) {
 func TestWriteDefaultConfigFile_CreatesDirectory(t *testing.T) {
 	tmpDir := t.TempDir()
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	// Ensure .newsfed does not exist
 	configDir := filepath.Join(tmpDir, ".newsfed")
@@ -124,8 +124,8 @@ func TestLoadConfigFile_NoFile(t *testing.T) {
 
 	// Temporarily change HOME to point to tmpDir
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	cfg, err := LoadConfigFile()
 	require.NoError(t, err)
@@ -154,8 +154,8 @@ func TestLoadConfigFile_ValidConfig(t *testing.T) {
 
 	// Temporarily change HOME to point to tmpDir
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	cfg, err := LoadConfigFile()
 	require.NoError(t, err)
@@ -188,8 +188,8 @@ func TestLoadConfigFile_InvalidYAML(t *testing.T) {
 
 	// Temporarily change HOME to point to tmpDir
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	cfg, err := LoadConfigFile()
 	assert.Error(t, err)
@@ -216,8 +216,8 @@ func TestLoadConfigFile_PartialConfig(t *testing.T) {
 
 	// Temporarily change HOME to point to tmpDir
 	oldHome := os.Getenv("HOME")
-	os.Setenv("HOME", tmpDir)
-	defer os.Setenv("HOME", oldHome)
+	_ = os.Setenv("HOME", tmpDir)
+	defer func() { _ = os.Setenv("HOME", oldHome) }()
 
 	cfg, err := LoadConfigFile()
 	require.NoError(t, err)

@@ -85,14 +85,14 @@ func NewSourceStore(dbPath string) (*SourceStore, error) {
 
 	store := &SourceStore{db: db}
 	if err := store.initSchema(); err != nil {
-		db.Close()
+		_ = db.Close()
 		return nil, fmt.Errorf("failed to initialize schema: %w", err)
 	}
 
 	// Set restricted permissions on newly created database files
 	if isNew {
 		if err := os.Chmod(dbPath, 0o600); err != nil {
-			db.Close()
+			_ = db.Close()
 			return nil, fmt.Errorf("failed to set database permissions: %w", err)
 		}
 	}
@@ -289,7 +289,7 @@ func (s *SourceStore) ListSources(filter SourceFilter) ([]Source, error) {
 	if err != nil {
 		return nil, fmt.Errorf("failed to query sources: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var sources []Source
 	for rows.Next() {
@@ -454,7 +454,7 @@ func (s *SourceStore) ListErrors(sourceID uuid.UUID, limit int) ([]SourceError, 
 	if err != nil {
 		return nil, fmt.Errorf("failed to query errors: %w", err)
 	}
-	defer rows.Close()
+	defer func() { _ = rows.Close() }()
 
 	var errs []SourceError
 	for rows.Next() {

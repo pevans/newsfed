@@ -71,7 +71,6 @@ type fetchDoneMsg struct {
 	itemsAdded int
 	err        error
 }
-type browserOpenCmd struct{ url string }
 
 // Init loads sources on startup.
 func (m Model) Init() tea.Cmd {

@@ -14,7 +14,7 @@ func createTestConfigStore(t *testing.T) *ConfigStore {
 	dbPath := filepath.Join(tempDir, "test.db")
 	store, err := NewConfigStore(dbPath)
 	require.NoError(t, err, "should create config store")
-	t.Cleanup(func() { store.Close() })
+	t.Cleanup(func() { _ = store.Close() })
 	return store
 }
 

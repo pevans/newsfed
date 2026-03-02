@@ -290,7 +290,7 @@ func TestList_SkipsUnreadableFiles(t *testing.T) {
 	err = os.WriteFile(unreadableFile, []byte("{}"), 0o000)
 	require.NoError(t, err)
 	t.Cleanup(func() {
-		os.Chmod(unreadableFile, 0o644) // Restore permissions for cleanup
+		_ = os.Chmod(unreadableFile, 0o644) // Restore permissions for cleanup
 	})
 
 	result, err := feed.List()

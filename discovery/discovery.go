@@ -533,12 +533,7 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 	applyLimit := ds.shouldApplyItemLimit(source)
 	const maxArticles = 20 // Spec 3 section 3.1.1
 
-	for {
-		// Enforce max pages limit
-		if pagesProcessed >= listConfig.MaxPages {
-			break
-		}
-
+	for pagesProcessed < listConfig.MaxPages {
 		// Conditionally enforce max articles limit per Spec 3 section 3.1.1
 		// Only apply for first-time syncs or stale sources
 		if applyLimit && articlesCollected >= maxArticles {
