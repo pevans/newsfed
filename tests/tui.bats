@@ -94,22 +94,13 @@ teardown() {
     [ "$pos_mid" -lt "$pos_zebra" ]
 }
 
-@test "tui: source entry shows type in parentheses" {
-    newsfed sources add -type=rss -url=https://type.example.com/feed -name="Type Test"
-
-    tui_start
-    tui_wait_for "Type Test" 5
-
-    tui_assert_contains "(rss)"
-}
-
-@test "tui: source entry shows Last updated: Never when never fetched" {
+@test "tui: source entry shows (never) when never fetched" {
     newsfed sources add -type=rss -url=https://never.example.com/feed -name="Never Fetched"
 
     tui_start
     tui_wait_for "Never Fetched" 5
 
-    tui_assert_contains "Never"
+    tui_assert_contains "(never)"
 }
 
 # ---------------------------------------------------------------------------
@@ -193,6 +184,18 @@ teardown() {
     # The modal should show Edit and Delete options.
     tui_assert_contains "Edit"
     tui_assert_contains "Delete"
+}
+
+@test "tui: source management modal shows source type" {
+    newsfed sources add -type=rss -url=https://type-modal.example.com/feed -name="Type Modal Src"
+
+    tui_start
+    tui_wait_for "Type Modal Src" 5
+
+    tui_send_keys "Enter"
+    sleep 0.3
+
+    tui_assert_contains "rss"
 }
 
 @test "tui: escape closes source management modal" {
@@ -364,9 +367,11 @@ RSSEOF
 
     start_mock_server "$TEST_DIR/www"
 
+    # Name is kept short (<=14 chars) so it does not trigger truncation alongside
+    # the date suffix at 80 columns; this test validates scroll behaviour only.
     run newsfed sources add -type=rss \
         -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
-        -name="Scroll Test Source"
+        -name="Scroll Source"
     src_id=$(extract_uuid "$output")
     newsfed sync "$src_id" >/dev/null 2>&1
 
@@ -376,7 +381,7 @@ RSSEOF
     # Height 8 with borders gives ~4 inner rows; at 1 line per item only
     # 4 items fit, ensuring the 10-item list requires scrolling.
     tui_start 80 8
-    tui_wait_for "Scroll Test Source" 5
+    tui_wait_for "Scroll Source" 5
 
     tui_send_keys "Tab"
     sleep 0.3
@@ -528,9 +533,12 @@ RSSEOF
 
     start_mock_server "$TEST_DIR/www"
 
+    # Name is kept short (<=14 chars) so it does not trigger truncation
+    # alongside the date suffix at 80 columns; this test validates modal
+    # hard-wrapping behaviour only.
     run newsfed sources add -type=rss \
         -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
-        -name="Desc Wrap Source"
+        -name="Desc Src"
     src_id=$(extract_uuid "$output")
     newsfed sync "$src_id" >/dev/null 2>&1
 
@@ -538,7 +546,7 @@ RSSEOF
 
     # 80-column terminal -- narrow enough to trigger the overflow bug.
     tui_start 80 24
-    tui_wait_for "Desc Wrap Source" 5
+    tui_wait_for "Desc Src" 5
 
     tui_send_keys "Tab"
     tui_wait_for "Desc Wrap Article" 5
@@ -594,9 +602,12 @@ RSSEOF
 
     start_mock_server "$TEST_DIR/www"
 
+    # Name is kept short (<=14 chars) so it does not trigger truncation
+    # alongside the date suffix at 80 columns; this test validates modal
+    # hard-wrapping behaviour only.
     run newsfed sources add -type=rss \
         -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
-        -name="Wrap Test Source"
+        -name="Wrap Src"
     src_id=$(extract_uuid "$output")
     newsfed sync "$src_id" >/dev/null 2>&1
 
@@ -604,10 +615,10 @@ RSSEOF
 
     # 80-column terminal -- narrow enough to trigger the overflow bug.
     tui_start 80 24
-    tui_wait_for "Wrap Test Source" 5
+    tui_wait_for "Wrap Src" 5
 
     tui_send_keys "Tab"
-    tui_wait_for "Wrap Test" 5
+    tui_wait_for "Article with" 5
     tui_send_keys "Enter"
     sleep 0.3
 
@@ -819,8 +830,8 @@ RSSEOF
     tui_start
     tui_wait_for "Refresh Test Source" 5
 
-    # Before any fetch, "Last updated" should display "Never".
-    tui_assert_contains "Never"
+    # Before any fetch, the source should display "(never)".
+    tui_assert_contains "(never)"
 
     # Press r to trigger a refresh of the selected source.
     tui_send_keys "r"
@@ -830,10 +841,8 @@ RSSEOF
 
     stop_mock_server
 
-    # The "Last updated" line should now display today's date in YYYY-MM-DD format.
-    local today
-    today=$(date +%Y-%m-%d)
-    tui_assert_contains "$today"
+    # After a successful fetch the date should show "(today)".
+    tui_wait_for "(today)" 5
 }
 
 @test "tui: newsfed with no arguments launches the TUI" {

@@ -44,6 +44,12 @@ func makeSource(name, url, typ string, enabled bool) sources.Source {
 	}
 }
 
+func makeSourceWithFetch(name string, fetchedAt *time.Time) sources.Source {
+	s := makeSource(name, "https://example.com/feed", "rss", true)
+	s.LastFetchedAt = fetchedAt
+	return s
+}
+
 func makeItem(title, publisher string, published time.Time) newsfeed.NewsItem {
 	return newsfeed.NewsItem{
 		ID:          uuid.New(),
@@ -64,31 +70,23 @@ func pressSpecialKey(m Model, key tea.KeyType) (Model, tea.Cmd) {
 	return result.(Model), cmd
 }
 
-// -- formatDate --
+// -- formatRelativeLabel --
 
-func TestFormatDate_nilReturnsNever(t *testing.T) {
-	assert.Equal(t, "Never", formatDate(nil))
+func TestFormatRelativeLabel_nilReturnsNever(t *testing.T) {
+	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	assert.Equal(t, "(never)", formatRelativeLabel(nil, now))
 }
 
-func TestFormatDate_nonNilReturnsYYYYMMDD(t *testing.T) {
-	cases := []struct {
-		t    time.Time
-		want string
-	}{
-		{time.Date(2024, 1, 5, 12, 0, 0, 0, time.UTC), "2024-01-05"},
-		{time.Date(1999, 12, 31, 0, 0, 0, 0, time.UTC), "1999-12-31"},
-		{time.Date(2000, 6, 15, 23, 59, 59, 0, time.UTC), "2000-06-15"},
-	}
-	for _, c := range cases {
-		assert.Equal(t, c.want, formatDate(&c.t))
-	}
+func TestFormatRelativeLabel_todayReturnsToday(t *testing.T) {
+	now := time.Date(2026, 3, 1, 12, 0, 0, 0, time.UTC)
+	recent := now.Add(-time.Minute)
+	assert.Equal(t, "(today)", formatRelativeLabel(&recent, now))
 }
 
-func TestFormatDate_omitsTime(t *testing.T) {
-	// Any time within the same day should produce the same date string.
-	day := time.Date(2024, 3, 7, 0, 0, 0, 0, time.UTC)
-	night := time.Date(2024, 3, 7, 23, 59, 59, 0, time.UTC)
-	assert.Equal(t, formatDate(&day), formatDate(&night))
+func TestFormatRelativeLabel_pastReturnsAgo(t *testing.T) {
+	now := time.Date(2026, 3, 1, 0, 0, 0, 0, time.UTC)
+	past := time.Date(2025, 3, 1, 0, 0, 0, 0, time.UTC)
+	assert.Equal(t, "(1y ago)", formatRelativeLabel(&past, now))
 }
 
 // -- relativeDate --
@@ -216,6 +214,62 @@ func TestStripHTML_removesTagsPreservesText(t *testing.T) {
 func TestStripHTML_trimsWhitespace(t *testing.T) {
 	got := stripHTML("  <p>  text  </p>  ")
 	assert.Equal(t, "text", got)
+}
+
+// -- renderSourceList --
+
+func TestRenderSourceList_neverFetchedShowsNever(t *testing.T) {
+	m := newModel()
+	m.sources = []sources.Source{makeSourceWithFetch("Example", nil)}
+	got := m.renderSourceList(40, 5)
+	assert.Contains(t, got, "(never)")
+	assert.NotContains(t, got, "(today)")
+}
+
+func TestRenderSourceList_recentFetchShowsToday(t *testing.T) {
+	m := newModel()
+	now := time.Now()
+	m.sources = []sources.Source{makeSourceWithFetch("Example", &now)}
+	got := m.renderSourceList(40, 5)
+	assert.Contains(t, got, "(today)")
+}
+
+func TestRenderSourceList_pastFetchShowsRelativeAgo(t *testing.T) {
+	m := newModel()
+	past := time.Now().AddDate(-1, 0, 0)
+	m.sources = []sources.Source{makeSourceWithFetch("Example", &past)}
+	got := m.renderSourceList(40, 5)
+	assert.Contains(t, got, " ago)")
+	assert.NotContains(t, got, "(today)")
+	assert.NotContains(t, got, "(never)")
+}
+
+func TestRenderSourceList_longNameTruncated(t *testing.T) {
+	m := newModel()
+	// width=20: prefixLen=3, date="(never)"=7, minSpace=1 → nameMax=9
+	// "VeryLongName" (12 chars) must be truncated to 9 chars with "..."
+	m.sources = []sources.Source{makeSourceWithFetch("VeryLongName", nil)}
+	got := m.renderSourceList(20, 5)
+	assert.Contains(t, got, "...")
+	assert.NotContains(t, got, "VeryLongName")
+}
+
+func TestRenderSourceList_nameExactlyFitsNoTruncation(t *testing.T) {
+	m := newModel()
+	// width=25: prefixLen=3, date="(never)"=7, minSpace=1 → nameMax=14
+	name := strings.Repeat("x", 14)
+	m.sources = []sources.Source{makeSourceWithFetch(name, nil)}
+	got := m.renderSourceList(25, 5)
+	assert.Contains(t, got, name)
+	assert.NotContains(t, got, "...")
+}
+
+func TestRenderSourceList_extremelyNarrowDoesNotPanic(t *testing.T) {
+	m := newModel()
+	m.sources = []sources.Source{makeSourceWithFetch("Name", nil)}
+	// Width 5 forces nameMaxWidth to be clamped to 1; must not panic.
+	got := m.renderSourceList(5, 5)
+	assert.NotEmpty(t, got)
 }
 
 // -- Cursor movement --

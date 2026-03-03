@@ -792,8 +792,7 @@ specs:
         testable: true
         tests:
           - "tests/tui.bats::tui: shows sources sorted alphabetically"
-          - "tests/tui.bats::tui: source entry shows type in parentheses"
-          - "tests/tui.bats::tui: source entry shows Last updated: Never when never fetched"
+          - "tests/tui.bats::tui: source entry shows (never) when never fetched"
 
       - section: "4"
         title: News items frame
@@ -808,6 +807,7 @@ specs:
         tests:
           - "tests/tui.bats::tui: enter on source opens source management modal"
           - "tests/tui.bats::tui: escape closes source management modal"
+          - "tests/tui.bats::tui: source management modal shows source type"
 
       - section: "5.1"
         title: Edit
@@ -859,7 +859,7 @@ specs:
         title: Date formatting
         testable: true
         tests:
-          - "tests/tui.bats::tui: source entry shows Last updated: Never when never fetched"
+          - "tests/tui.bats::tui: source entry shows (never) when never fetched"
           - "tests/tui.bats::tui: r key refreshes source and updates Last updated date"
 
       - section: "9"

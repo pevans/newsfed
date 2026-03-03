@@ -125,10 +125,9 @@ func (m Model) renderSourceList(width, height int) string {
 			Render("No sources.")
 	}
 
-	// Each source occupies 2 lines. Determine which source the viewport
-	// starts from so the cursor stays visible.
-	linesPerSource := 2
-	visibleSources := height / linesPerSource
+	// Each source occupies 1 line. Determine which source the viewport starts
+	// from so the cursor stays visible.
+	visibleSources := height
 	if visibleSources < 1 {
 		visibleSources = 1
 	}
@@ -138,21 +137,34 @@ func (m Model) renderSourceList(width, height int) string {
 		startSource = m.sourceCursor - visibleSources + 1
 	}
 
+	now := time.Now()
 	var lines []string
 	for i := startSource; i < len(m.sources); i++ {
 		if len(lines) >= height {
 			break
 		}
 		src := m.sources[i]
-		line1 := ansi.Truncate(fmt.Sprintf("%d. %s (%s)", i+1, src.Name, src.SourceType), width, "...")
-		line2 := ansi.Truncate(fmt.Sprintf("Last updated: %s", formatDate(src.LastFetchedAt)), width, "...")
+		prefix := fmt.Sprintf("%d. ", i+1)
+		date := formatRelativeLabel(src.LastFetchedAt, now)
+		dateLen := utf8.RuneCountInString(date)
+		prefixLen := utf8.RuneCountInString(prefix)
+		nameMaxWidth := width - prefixLen - dateLen - 1
+		if nameMaxWidth < 1 {
+			nameMaxWidth = 1
+		}
+		truncName := ansi.Truncate(src.Name, nameMaxWidth, "...")
+		leftPart := prefix + truncName
+		padding := width - utf8.RuneCountInString(leftPart) - dateLen
+		if padding < 1 {
+			padding = 1
+		}
+		line := leftPart + strings.Repeat(" ", padding) + date
 
 		if i == m.sourceCursor {
-			line1 = selectedStyle.Width(width).Render(line1)
-			line2 = selectedStyle.Width(width).Render(line2)
+			line = selectedStyle.Width(width).Render(line)
 		}
 
-		lines = append(lines, line1, line2)
+		lines = append(lines, line)
 	}
 
 	return strings.Join(lines, "\n")
@@ -187,15 +199,9 @@ func (m Model) renderItemList(width, height int) string {
 		}
 		item := m.items[i]
 		prefix := fmt.Sprintf("%d. ", i+1)
-		rel := relativeDate(item.PublishedAt, now)
-		var date string
-		if rel == "today" {
-			date = "(today)"
-		} else {
-			date = "(" + rel + " ago)"
-		}
+		date := formatRelativeLabel(&item.PublishedAt, now)
 		dateLen := utf8.RuneCountInString(date)
-		prefixLen := len(prefix) // ASCII only
+		prefixLen := utf8.RuneCountInString(prefix)
 		titleMaxWidth := width - prefixLen - dateLen - 1
 		if titleMaxWidth < 1 {
 			titleMaxWidth = 1
@@ -516,12 +522,17 @@ func wrapField(label, value string, width int) string {
 	return result
 }
 
-// formatDate renders a *time.Time as YYYY-MM-DD, or "Never" if nil.
-func formatDate(t *time.Time) string {
+// formatRelativeLabel formats a nullable time as a parenthetical label:
+// "(never)" if nil, "(today)" if the time is today, or "(X ago)" otherwise.
+func formatRelativeLabel(t *time.Time, now time.Time) string {
 	if t == nil {
-		return "Never"
+		return "(never)"
 	}
-	return t.Format("2006-01-02")
+	rel := relativeDate(*t, now)
+	if rel == "today" {
+		return "(today)"
+	}
+	return "(" + rel + " ago)"
 }
 
 // relativeDate returns a compact relative date string such as "1d", "2mo3d",

@@ -48,24 +48,28 @@ Details for how to render the items of the frames and modals are given below.
 # 3. Source frame
 
 The source frame contains a list of news sources. Each item in the frame is
-rendered using the following form:
+rendered on a single line. The name is shown on the left and the last-fetched
+date is shown on the right, separated by spaces to fill the full width of the
+frame:
 
-<item number>. <name of source> (<type of source>)
-Last updated: <updated at date>
+<item number>. <name of source>          (<relative date> ago)
 
 Here's a filled-in example:
 
-3. Fun Times Ahead (rss)
-Last updated: 1999-01-01
+3. Fun Times Ahead                       (3y2mo1d ago)
 
 The item number is the index in the sources list; i.e., the first item is 1;
 the second item is 2; and so forth. The sources should be sorted
 alphabetically.
 
-Each source therefore comprises two lines each of text. If any of the lines
-cannot be rendered fully, then they are truncated with "..." appended to the
-end of what remains. Enough text must be truncated so that "..." can be
-rendered without being cut off.
+The relative date uses the same format as news items (see Section 4): calendar
+years (y), months (mo), and days (d), showing only non-zero components. A
+source fetched today shows "(today)". A source that has never been fetched
+shows "(never)" in place of a relative date.
+
+If the name is too long to fit alongside the date, it is truncated with "..."
+appended to the end of what remains. Enough text is truncated to leave at
+least one space between the name and the date.
 
 No source has any text that comprises a visual border between it and other
 sources.
@@ -233,8 +237,9 @@ when the user navigates away), the mode line reverts to the shortcut summary.
 
 # 8. Date formatting
 
-Dates are rendered in the format YYYY-MM-DD. If a source has never been
-fetched, its "Last updated" field displays "Never" in place of a date.
+News item published dates and source last-fetched dates are both rendered as
+relative dates using the format described in Section 4. If a source has never
+been fetched, its date shows "(never)" in place of a relative date.
 
 # 10. Add Source
 
