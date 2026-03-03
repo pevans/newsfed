@@ -44,6 +44,18 @@ teardown() {
     tui_assert_contains "No sources."
 }
 
+@test "tui: sources frame border shows Feeds label" {
+    tui_start
+    tui_wait_for "No sources." 5
+    tui_assert_contains "Feeds"
+}
+
+@test "tui: news items frame border shows Feed Items label" {
+    tui_start
+    tui_wait_for "No sources." 5
+    tui_assert_contains "Feed Items"
+}
+
 @test "tui: q quits the TUI" {
     tui_start
     tui_wait_for "No sources." 5

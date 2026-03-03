@@ -272,6 +272,31 @@ func TestRenderSourceList_extremelyNarrowDoesNotPanic(t *testing.T) {
 	assert.NotEmpty(t, got)
 }
 
+// -- buildTitledTopBorder --
+
+func TestBuildTitledTopBorder_titleCentered(t *testing.T) {
+	got := buildTitledTopBorder("Feeds", 27)
+	assert.Contains(t, got, " Feeds ")
+	assert.True(t, strings.HasPrefix(got, "╭"), "should start with corner")
+	assert.True(t, strings.HasSuffix(got, "╮"), "should end with corner")
+	assert.Equal(t, 27, len([]rune(got)))
+}
+
+func TestBuildTitledTopBorder_fillBalanced(t *testing.T) {
+	// Width 20: innerWidth=18, title=" Feeds "=7, totalFill=11, leftFill=5,
+	// rightFill=6
+	got := buildTitledTopBorder("Feeds", 20)
+	assert.Equal(t, "╭"+"─────"+" Feeds "+"──────"+"╮", got)
+}
+
+func TestBuildTitledTopBorder_titleTooWideUsesFill(t *testing.T) {
+	// Title wider than available inner space -- should still produce valid
+	// borders
+	got := buildTitledTopBorder("Very Long Title That Exceeds Width", 10)
+	assert.True(t, strings.HasPrefix(got, "╭"), "should start with corner")
+	assert.True(t, strings.HasSuffix(got, "╮"), "should end with corner")
+}
+
 // -- Cursor movement --
 
 func TestMoveCursorDown_sourcesFocusWraps(t *testing.T) {

@@ -42,6 +42,9 @@ Below the title, the screen is split into two frames.
     - Hitting enter opens a floating modal (that again takes up the center of
       the screen) with the full details of the news item.
 - Each frame should have a single lined border with rounded corners.
+- The sources frame displays the label "Feeds" centered in its top border.
+- The news items frame displays the label "Feed Items" centered in its top
+  border.
 
 Details for how to render the items of the frames and modals are given below.
 

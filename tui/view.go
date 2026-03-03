@@ -88,14 +88,47 @@ func (m Model) renderMain() string {
 		rightStyle = focusedBorderStyle
 	}
 
-	leftFrame := leftStyle.Width(leftInner).Height(innerHeight).Render(leftContent)
-	rightFrame := rightStyle.Width(rightInner).Height(innerHeight).Render(rightContent)
+	leftFrame := renderFrameWithTitle(leftStyle, leftContent, "Feeds", leftInner, innerHeight)
+	rightFrame := renderFrameWithTitle(rightStyle, rightContent, "Feed Items", rightInner, innerHeight)
 
 	title := lipgloss.NewStyle().Width(m.width).Align(lipgloss.Center).Render("--=[ newsfed ]=--")
 	frames := lipgloss.JoinHorizontal(lipgloss.Top, leftFrame, rightFrame)
 	modeLine := m.renderModeLine()
 
 	return lipgloss.JoinVertical(lipgloss.Left, title, "", frames, modeLine)
+}
+
+// renderFrameWithTitle renders a styled frame with a custom top border that
+// embeds title centered within it. width and height are the inner dimensions
+// (excluding borders).
+func renderFrameWithTitle(style lipgloss.Style, content, title string, width, height int) string {
+	topFg := style.GetBorderTopForeground()
+	topLine := buildTitledTopBorder(title, width+2)
+	coloredTop := lipgloss.NewStyle().Foreground(topFg).Render(topLine)
+	body := style.BorderTop(false).BorderRight(true).BorderBottom(true).BorderLeft(true).
+		Width(width).Height(height).Render(content)
+	return coloredTop + "\n" + body
+}
+
+// buildTitledTopBorder builds a top border line for a rounded frame with the
+// given title centered in it. width is the total outer width including
+// corners.
+func buildTitledTopBorder(title string, width int) string {
+	const (
+		leftCorner  = "╭"
+		fillChar    = "─"
+		rightCorner = "╮"
+	)
+	paddedTitle := " " + title + " "
+	titleWidth := utf8.RuneCountInString(paddedTitle)
+	innerWidth := width - 2 // subtract corner chars
+	if innerWidth <= titleWidth {
+		return leftCorner + strings.Repeat(fillChar, max(0, innerWidth)) + rightCorner
+	}
+	totalFill := innerWidth - titleWidth
+	leftFill := totalFill / 2
+	rightFill := totalFill - leftFill
+	return leftCorner + strings.Repeat(fillChar, leftFill) + paddedTitle + strings.Repeat(fillChar, rightFill) + rightCorner
 }
 
 // renderModeLine renders the mode line at the bottom of the screen. It shows
