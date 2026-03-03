@@ -857,6 +857,96 @@ RSSEOF
     tui_wait_for "(today)" 5
 }
 
+# ---------------------------------------------------------------------------
+# Refresh All (Spec 11)
+# ---------------------------------------------------------------------------
+
+@test "tui: R key with no enabled sources shows No enabled sources" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_send_keys "R"
+    sleep 0.3
+
+    tui_assert_contains "No enabled sources"
+}
+
+@test "tui: R key opens Refresh All modal with title in border" {
+    mkdir -p "$TEST_DIR/www"
+    create_rss_feed "$TEST_DIR/www/feed.xml" "Refresh All Feed" 2
+    start_mock_server "$TEST_DIR/www"
+
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Refresh All Source"
+
+    tui_start
+    tui_wait_for "Refresh All Source" 5
+
+    tui_send_keys "R"
+
+    tui_wait_for "Refresh All Feeds" 5
+    tui_assert_contains "Refresh All Feeds"
+    tui_assert_contains "Refresh All Source"
+
+    tui_wait_for "Done:" 15
+    stop_mock_server
+}
+
+@test "tui: Refresh All completes and Esc dismisses with summary" {
+    mkdir -p "$TEST_DIR/www"
+    create_rss_feed "$TEST_DIR/www/feed.xml" "Dismiss Test Feed" 1
+    start_mock_server "$TEST_DIR/www"
+
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Dismiss Test Source"
+
+    tui_start
+    tui_wait_for "Dismiss Test Source" 5
+
+    tui_send_keys "R"
+    tui_wait_for "Done:" 15
+
+    stop_mock_server
+
+    # Esc should dismiss the modal and show a summary in the mode line.
+    tui_send_keys "Escape"
+    sleep 0.3
+
+    tui_assert_contains "Refreshed all:"
+    tui_assert_not_contains "Refresh All Feeds"
+}
+
+@test "tui: Refresh All modal shows done indicator after fetch" {
+    mkdir -p "$TEST_DIR/www"
+    create_rss_feed "$TEST_DIR/www/feed.xml" "Done Indicator Feed" 3
+    start_mock_server "$TEST_DIR/www"
+
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Done Indicator Source"
+
+    tui_start
+    tui_wait_for "Done Indicator Source" 5
+
+    tui_send_keys "R"
+    tui_wait_for "Done:" 15
+
+    stop_mock_server
+
+    # The [✓] indicator should be visible for the completed source.
+    tui_assert_contains "[✓]"
+}
+
+
+@test "tui: mode line shows R refresh all hint" {
+    tui_start
+    tui_wait_for "No sources." 5
+
+    tui_assert_contains "[R]efresh all"
+}
+
 @test "tui: newsfed with no arguments launches the TUI" {
     TUI_SESSION="newsfed-tui-$$-$RANDOM"
     tmux new-session -d -s "$TUI_SESSION" -x 120 -y 30 \

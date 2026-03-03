@@ -844,10 +844,34 @@ type SyncError struct {
 	Error  error
 }
 
+// ProgressStatus indicates the fetch status of a source during a sync.
+type ProgressStatus string
+
+const (
+	ProgressFetching ProgressStatus = "fetching"
+	ProgressDone     ProgressStatus = "done"
+	ProgressError    ProgressStatus = "error"
+)
+
+// SourceProgress carries a per-source progress update for use with a progress
+// channel passed to SyncSources. Implements Spec 11 section 4.1.
+type SourceProgress struct {
+	Source   sources.Source
+	Status   ProgressStatus
+	NewItems int           // number of new items discovered (0 while fetching)
+	Error    error         // nil unless Status is ProgressError
+	Duration time.Duration // elapsed fetch time; 0 while fetching
+}
+
 // SyncSources performs a manual sync of sources. If sourceID is provided,
 // only that source is synced. Otherwise, all enabled sources are synced. This
 // is a synchronous operation that returns when all fetches complete.
-func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID) (*SyncResult, error) {
+//
+// progressCh is an optional channel that receives per-source progress updates
+// as each fetch begins and completes. When progressCh is nil, SyncSources
+// behaves exactly as it did before this parameter was added. When non-nil,
+// SyncSources closes the channel after all fetches complete.
+func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID, progressCh chan<- SourceProgress) (*SyncResult, error) {
 	result := &SyncResult{
 		Errors: make([]SyncError, 0),
 	}
@@ -891,6 +915,8 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 	// Fetch sources concurrently with WaitGroup
 	var wg sync.WaitGroup
 
+	// The caller must size progressCh to at least 2 * len(sourceList) to
+	// prevent goroutines from blocking on sends and starving the semaphore.
 	for _, source := range sourceList {
 		select {
 		case <-ctx.Done():
@@ -900,6 +926,13 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 			go func(s sources.Source) {
 				defer wg.Done()
 				defer func() { <-semaphore }() // Release semaphore
+
+				// Signal that this source is now being fetched. Sent before
+				// any lock is acquired so the channel send never blocks while
+				// holding resultMu.
+				if progressCh != nil {
+					progressCh <- SourceProgress{Source: s, Status: ProgressFetching}
+				}
 
 				startTime := time.Now()
 
@@ -922,7 +955,9 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 
 				duration := time.Since(startTime)
 
-				// Update source metadata and results (with mutex protection)
+				// Update source metadata and results (with mutex protection),
+				// then send the progress update outside the lock to avoid
+				// blocking the channel send while holding resultMu.
 				resultMu.Lock()
 				if fetchErr != nil {
 					ds.handleFetchError(s, fetchErr)
@@ -932,20 +967,31 @@ func (ds *DiscoveryService) SyncSources(ctx context.Context, sourceID *uuid.UUID
 						Error:  fetchErr,
 					})
 					log.Printf("ERROR: Failed to sync %s (%s): %v", s.Name, s.URL, fetchErr)
+					resultMu.Unlock()
+					if progressCh != nil {
+						progressCh <- SourceProgress{Source: s, Status: ProgressError, Error: fetchErr}
+					}
 				} else {
 					// Success -- update metadata
 					ds.handleFetchSuccess(s)
 					result.SourcesSynced++
 					result.ItemsDiscovered += newItemCount
 					log.Printf("INFO: Synced %s (%s): %d new items in %v", s.Name, s.URL, newItemCount, duration)
+					resultMu.Unlock()
+					if progressCh != nil {
+						progressCh <- SourceProgress{Source: s, Status: ProgressDone, NewItems: newItemCount, Duration: duration}
+					}
 				}
-				resultMu.Unlock()
 			}(source)
 		}
 	}
 
-	// Wait for all goroutines to complete
+	// Wait for all goroutines to complete, then close the progress channel to
+	// signal that no more updates will arrive.
 	wg.Wait()
+	if progressCh != nil {
+		close(progressCh)
+	}
 
 	return result, nil
 }

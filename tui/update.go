@@ -24,6 +24,20 @@ type sourceDiscoveredMsg struct {
 	generation int
 }
 
+type refreshAllStartedMsg struct {
+	ch    <-chan discovery.SourceProgress
+	errCh <-chan error
+}
+
+type refreshAllSyncErrMsg struct{ err error }
+
+type refreshAllProgressMsg struct {
+	progress discovery.SourceProgress
+	ch       <-chan discovery.SourceProgress
+}
+
+type refreshAllDoneMsg struct{}
+
 type sourceCreatedMsg struct {
 	src *sources.Source
 	err error
@@ -127,11 +141,56 @@ func loadItemsCmd(feed *newsfeed.NewsFeed, sourceID uuid.UUID) tea.Cmd {
 func fetchSourceCmd(discSvc *discovery.DiscoveryService, src sources.Source) tea.Cmd {
 	return func() tea.Msg {
 		id := src.SourceID
-		result, err := discSvc.SyncSources(context.Background(), &id)
+		result, err := discSvc.SyncSources(context.Background(), &id, nil)
 		if err != nil {
 			return fetchDoneMsg{err: err}
 		}
 		return fetchDoneMsg{itemsAdded: result.ItemsDiscovered}
+	}
+}
+
+// startRefreshAllCmd starts a concurrent sync of all enabled sources, routing
+// per-source progress updates through a buffered channel. The channel is
+// closed by SyncSources after all fetches complete. ctx allows the caller to
+// cancel the sync (e.g. on quit).
+func startRefreshAllCmd(ctx context.Context, discSvc *discovery.DiscoveryService, bufSize int) tea.Cmd {
+	return func() tea.Msg {
+		progressCh := make(chan discovery.SourceProgress, bufSize)
+		errCh := make(chan error, 1)
+		go func() {
+			_, err := discSvc.SyncSources(ctx, nil, progressCh)
+			if err != nil {
+				errCh <- err
+			}
+			close(errCh)
+		}()
+		return refreshAllStartedMsg{ch: progressCh, errCh: errCh}
+	}
+}
+
+// listenRefreshAllCmd blocks until the next progress update arrives on ch,
+// then returns it as a refreshAllProgressMsg. When ch is closed it returns
+// refreshAllDoneMsg to signal completion.
+func listenRefreshAllCmd(ch <-chan discovery.SourceProgress) tea.Cmd {
+	return func() tea.Msg {
+		progress, ok := <-ch
+		if !ok {
+			return refreshAllDoneMsg{}
+		}
+		return refreshAllProgressMsg{progress: progress, ch: ch}
+	}
+}
+
+// listenRefreshAllErrCmd blocks until the error channel from SyncSources is
+// closed. If SyncSources returned an error, it is forwarded as
+// refreshAllSyncErrMsg; otherwise nil is returned (no message dispatched).
+func listenRefreshAllErrCmd(errCh <-chan error) tea.Cmd {
+	return func() tea.Msg {
+		err, ok := <-errCh
+		if !ok || err == nil {
+			return nil
+		}
+		return refreshAllSyncErrMsg{err: err}
 	}
 }
 
@@ -232,6 +291,32 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.modal = modalNone
 		return m, loadSourcesAndRestoreCursorCmd(m.sourceStore, msg.src.SourceID)
 
+	case refreshAllStartedMsg:
+		return m, tea.Batch(listenRefreshAllCmd(msg.ch), listenRefreshAllErrCmd(msg.errCh))
+
+	case refreshAllProgressMsg:
+		if m.refreshAllProgress == nil {
+			m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+		}
+		m.refreshAllProgress[msg.progress.Source.SourceID] = msg.progress
+		// Auto-scroll to keep the most recently updated source visible.
+		for i, src := range m.refreshAllSources {
+			if src.SourceID == msg.progress.Source.SourceID {
+				m = m.autoScrollRefreshAll(i)
+				break
+			}
+		}
+		return m, listenRefreshAllCmd(msg.ch)
+
+	case refreshAllDoneMsg:
+		m.refreshAllDone = true
+		return m, nil
+
+	case refreshAllSyncErrMsg:
+		m.refreshAllSyncErr = msg.err
+		m.refreshAllDone = true
+		return m, nil
+
 	case tea.KeyMsg:
 		return m.handleKey(msg)
 	}
@@ -251,11 +336,16 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleItemDetailKey(msg)
 	case modalSourceAdd:
 		return m.handleSourceAddKey(msg)
+	case modalRefreshAll:
+		return m.handleRefreshAllKey(msg)
 	}
 
 	// Global keys (no modal open)
 	switch msg.String() {
 	case "q":
+		if m.refreshAllCancel != nil {
+			m.refreshAllCancel()
+		}
 		return m, tea.Quit
 	case "tab":
 		if m.focus == focusSources {
@@ -283,6 +373,8 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		return m.handleEnter()
 	case "r":
 		return m.handleFetch()
+	case "R":
+		return m.handleRefreshAll()
 	case "a":
 		if m.focus == focusSources {
 			return m.handleOpenSourceAdd()
@@ -518,4 +610,118 @@ func (m Model) handleItemDetailKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		}
 	}
 	return m, nil
+}
+
+// handleRefreshAll opens the Refresh All modal and starts syncing every
+// enabled source concurrently. Implements Spec 11 section 2.
+func (m Model) handleRefreshAll() (tea.Model, tea.Cmd) {
+	if m.modal == modalRefreshAll {
+		return m, nil // already in progress -- ignore per Spec 11 section 6.2
+	}
+
+	// Collect enabled sources (m.sources is already sorted alphabetically).
+	var enabled []sources.Source
+	for _, src := range m.sources {
+		if src.IsEnabled() {
+			enabled = append(enabled, src)
+		}
+	}
+
+	if len(enabled) == 0 {
+		m.statusMsg = "No enabled sources"
+		return m, nil
+	}
+
+	m.modal = modalRefreshAll
+	m.refreshAllSources = enabled
+	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+	m.refreshAllScroll = 0
+	m.refreshAllDone = false
+	m.refreshAllSyncErr = nil
+
+	ctx, cancel := context.WithCancel(context.Background())
+	m.refreshAllCancel = cancel
+
+	// Buffer size: each source sends at most 2 messages (fetching + result).
+	return m, startRefreshAllCmd(ctx, m.discSvc, len(enabled)*2)
+}
+
+// refreshAllSummary iterates the refresh-all progress map and returns the
+// total new items and total failed-source count.
+func (m Model) refreshAllSummary() (totalNew, totalFailed int) {
+	for _, p := range m.refreshAllProgress {
+		switch p.Status {
+		case discovery.ProgressDone:
+			totalNew += p.NewItems
+		case discovery.ProgressError:
+			totalFailed++
+		}
+	}
+	return
+}
+
+// handleRefreshAllKey handles key events while the Refresh All modal is open.
+// Implements Spec 11 section 5.4 (scrolling) and 5.5 (dismissal).
+func (m Model) handleRefreshAllKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
+	switch msg.String() {
+	case "esc", "q":
+		if !m.refreshAllDone {
+			// Cannot dismiss while a refresh is still in progress.
+			return m, nil
+		}
+		// Compute dismissal summary.
+		totalNew, totalFailed := m.refreshAllSummary()
+		m.modal = modalNone
+		if totalFailed > 0 {
+			m.statusMsg = fmt.Sprintf("Refreshed all: %d new item(s), %d failed", totalNew, totalFailed)
+		} else {
+			m.statusMsg = fmt.Sprintf("Refreshed all: %d new item(s)", totalNew)
+		}
+		var restoreID uuid.UUID
+		if m.sourceCursor < len(m.sources) {
+			restoreID = m.sources[m.sourceCursor].SourceID
+		}
+		return m, tea.Batch(
+			m.loadItemsForCurrent(),
+			loadSourcesAndRestoreCursorCmd(m.sourceStore, restoreID),
+		)
+	case "up", "k":
+		if m.refreshAllScroll > 0 {
+			m.refreshAllScroll--
+		}
+	case "down", "j":
+		maxScroll := len(m.refreshAllSources) - m.refreshAllVisibleSources()
+		if maxScroll < 0 {
+			maxScroll = 0
+		}
+		if m.refreshAllScroll < maxScroll {
+			m.refreshAllScroll++
+		}
+	}
+	return m, nil
+}
+
+// refreshAllVisibleSources returns the number of source rows that fit in the
+// Refresh All modal's scrollable list area.
+func (m Model) refreshAllVisibleSources() int {
+	// 80 % of terminal height, minus 4 lines of border/padding overhead,
+	// minus 2 lines reserved for the blank separator and summary line.
+	maxHeight := m.height * 80 / 100
+	visible := maxHeight - 4 - 2
+	if visible < 1 {
+		visible = 1
+	}
+	return visible
+}
+
+// autoScrollRefreshAll adjusts refreshAllScroll so that the source at
+// sourceIdx is visible.
+func (m Model) autoScrollRefreshAll(sourceIdx int) Model {
+	visible := m.refreshAllVisibleSources()
+	if sourceIdx < m.refreshAllScroll {
+		m.refreshAllScroll = sourceIdx
+	} else if sourceIdx >= m.refreshAllScroll+visible {
+		m.refreshAllScroll = sourceIdx - visible + 1
+	}
+	return m
 }

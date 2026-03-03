@@ -9,6 +9,7 @@ import (
 	"github.com/PuerkitoBio/goquery"
 	"github.com/charmbracelet/lipgloss"
 	"github.com/charmbracelet/x/ansi"
+	"github.com/pevans/newsfed/discovery"
 	"github.com/pevans/newsfed/sources"
 )
 
@@ -138,9 +139,9 @@ func (m Model) renderModeLine() string {
 	content := m.statusMsg
 	if content == "" {
 		if m.focus == focusSources {
-			content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open  [A]dd source"
+			content = "[Q]uit  [r]efresh  [R]efresh all  [Tab] Switch  [Enter] Open  [A]dd source"
 		} else {
-			content = "[Q]uit  [R]efresh  [Tab] Switch  [Enter] Open"
+			content = "[Q]uit  [r]efresh  [R]efresh all  [Tab] Switch  [Enter] Open"
 		}
 	}
 	if m.width > 0 {
@@ -258,21 +259,27 @@ func (m Model) renderItemList(width, height int) string {
 }
 
 func (m Model) renderWithModal(background string) string {
-	modalContent := ""
-	switch m.modal {
-	case modalSourceManagement:
-		modalContent = m.renderSourceManagementModal()
-	case modalSourceEdit:
-		modalContent = m.renderSourceEditModal()
-	case modalSourceDeleteConfirm:
-		modalContent = m.renderDeleteConfirmModal()
-	case modalItemDetail:
-		modalContent = m.renderItemDetailModal()
-	case modalSourceAdd:
-		modalContent = m.renderSourceAddModal()
+	var modal string
+	if m.modal == modalRefreshAll {
+		// renderRefreshAllModal builds a custom titled-border box; Place it
+		// here alongside all other modals for visual consistency.
+		modal = m.renderRefreshAllModal()
+	} else {
+		modalContent := ""
+		switch m.modal {
+		case modalSourceManagement:
+			modalContent = m.renderSourceManagementModal()
+		case modalSourceEdit:
+			modalContent = m.renderSourceEditModal()
+		case modalSourceDeleteConfirm:
+			modalContent = m.renderDeleteConfirmModal()
+		case modalItemDetail:
+			modalContent = m.renderItemDetailModal()
+		case modalSourceAdd:
+			modalContent = m.renderSourceAddModal()
+		}
+		modal = modalBorderStyle.Render(modalContent)
 	}
-
-	modal := modalBorderStyle.Render(modalContent)
 
 	return lipgloss.Place(
 		m.width,
@@ -553,6 +560,138 @@ func wrapField(label, value string, width int) string {
 		result += "\n" + indent + chunk
 	}
 	return result
+}
+
+// renderRefreshAllModal renders the Refresh All modal box with its title
+// embedded in the top border. It returns the styled box only (no placement);
+// the caller (renderWithModal) handles centering via lipgloss.Place.
+// Implements Spec 11 section 5.
+func (m Model) renderRefreshAllModal() string {
+	// Inner content width: min(60, 60% of terminal width) minus
+	// border/padding.
+	contentWidth := m.width * 60 / 100
+	if contentWidth > 60 {
+		contentWidth = 60
+	}
+	contentWidth -= modalBorderOverhead
+	if contentWidth < 20 {
+		contentWidth = 20
+	}
+
+	visible := m.refreshAllVisibleSources()
+
+	content := m.renderRefreshAllContent(contentWidth, visible)
+
+	// Build titled top border then attach the remaining sides.
+	totalWidth := contentWidth + modalBorderOverhead
+	topLine := buildTitledTopBorder("Refresh All Feeds", totalWidth)
+	topColored := lipgloss.NewStyle().Foreground(lipgloss.Color("117")).Render(topLine)
+
+	// Omit Width/Height so lipgloss does not word-wrap the pre-formatted
+	// content. Every line produced by renderRefreshAllContent is already
+	// padded to exactly contentWidth, so the body renders at the correct size
+	// without any reflowing.
+	body := lipgloss.NewStyle().
+		Border(lipgloss.RoundedBorder()).
+		BorderForeground(lipgloss.Color("117")).
+		BorderTop(false).
+		BorderRight(true).
+		BorderBottom(true).
+		BorderLeft(true).
+		Padding(1, 2).
+		Render(content)
+
+	return topColored + "\n" + body
+}
+
+// renderRefreshAllContent builds the scrollable source list and summary line
+// for the Refresh All modal. contentWidth is the available text width;
+// visibleSources is how many source rows fit in the scroll viewport.
+func (m Model) renderRefreshAllContent(contentWidth, visibleSources int) string {
+	var lines []string
+
+	end := m.refreshAllScroll + visibleSources
+	if end > len(m.refreshAllSources) {
+		end = len(m.refreshAllSources)
+	}
+
+	for i := m.refreshAllScroll; i < end; i++ {
+		src := m.refreshAllSources[i]
+
+		indicator := "[ ]"
+		result := ""
+
+		if p, ok := m.refreshAllProgress[src.SourceID]; ok {
+			switch p.Status {
+			case discovery.ProgressFetching:
+				indicator = "[~]"
+			case discovery.ProgressDone:
+				indicator = "[✓]"
+				result = fmt.Sprintf("%d new", p.NewItems)
+			case discovery.ProgressError:
+				indicator = "[!]"
+				if p.Error != nil {
+					result = ansi.Truncate(p.Error.Error(), 20, "...")
+				}
+			}
+		}
+
+		// Layout: indicator(3) + " "(2) + name + right-aligned result
+		resultLen := utf8.RuneCountInString(result)
+		nameMax := contentWidth - 3 - 2 - resultLen - 1
+		if nameMax < 1 {
+			nameMax = 1
+		}
+		truncName := ansi.Truncate(src.Name, nameMax, "...")
+		leftPart := indicator + "  " + truncName
+		gap := contentWidth - utf8.RuneCountInString(leftPart) - resultLen
+		if gap < 1 {
+			gap = 1
+		}
+		lines = append(lines, leftPart+strings.Repeat(" ", gap)+result)
+	}
+
+	// Summary: blank line followed by progress or completion text.
+	var summaryLine string
+	if m.refreshAllDone {
+		totalNew, totalFailed := m.refreshAllSummary()
+		total := len(m.refreshAllSources)
+		if totalFailed > 0 {
+			summaryLine = fmt.Sprintf("Done: %d new item(s) from %d source(s), %d failed",
+				totalNew, total, totalFailed)
+		} else {
+			summaryLine = fmt.Sprintf("Done: %d new item(s) from %d source(s)",
+				totalNew, total)
+		}
+		if m.refreshAllSyncErr != nil {
+			summaryLine += fmt.Sprintf(" (error: %v)", m.refreshAllSyncErr)
+		}
+	} else {
+		done := 0
+		for _, p := range m.refreshAllProgress {
+			if p.Status == discovery.ProgressDone || p.Status == discovery.ProgressError {
+				done++
+			}
+		}
+		summaryLine = fmt.Sprintf("Fetching %d/%d sources...", done, len(m.refreshAllSources))
+	}
+
+	// Pad every line to contentWidth so the border renders at a consistent
+	// width without lipgloss needing to reflow or word-wrap the content.
+	padLine := func(s string) string {
+		n := utf8.RuneCountInString(s)
+		if n < contentWidth {
+			return s + strings.Repeat(" ", contentWidth-n)
+		}
+		return s
+	}
+	for i, l := range lines {
+		lines[i] = padLine(l)
+	}
+	lines = append(lines, padLine(""))          // blank separator
+	lines = append(lines, padLine(summaryLine)) // summary
+
+	return strings.Join(lines, "\n")
 }
 
 // formatRelativeLabel formats a nullable time as a parenthetical label:

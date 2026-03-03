@@ -1,11 +1,13 @@
 package tui
 
 import (
+	"context"
 	"io"
 	"log"
 
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
+	"github.com/google/uuid"
 	"github.com/pevans/newsfed/discovery"
 	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
@@ -27,6 +29,7 @@ const (
 	modalSourceDeleteConfirm
 	modalItemDetail
 	modalSourceAdd
+	modalRefreshAll
 )
 
 // Model is the Bubble Tea model for the TUI.
@@ -55,6 +58,14 @@ type Model struct {
 
 	// Item detail modal
 	itemDetailScroll int
+
+	// Refresh All modal (Spec 11)
+	refreshAllSources  []sources.Source
+	refreshAllProgress map[uuid.UUID]discovery.SourceProgress
+	refreshAllScroll   int
+	refreshAllDone     bool
+	refreshAllCancel   context.CancelFunc
+	refreshAllSyncErr  error
 
 	// Status
 	statusMsg string

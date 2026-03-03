@@ -997,6 +997,72 @@ func TestDiscoveryService_shouldApplyItemLimit(t *testing.T) {
 	}
 }
 
+// TestSyncSources_progressChannel verifies that SyncSources sends "fetching"
+// and "error"/"done" progress messages and closes the channel when finished.
+// Implements Spec 11 section 4.
+func TestSyncSources_progressChannel(t *testing.T) {
+	tempDir := t.TempDir()
+	sourceStore, err := sources.NewSourceStore(tempDir + "/metadata.db")
+	require.NoError(t, err)
+	defer func() { _ = sourceStore.Close() }()
+
+	newsFeed, err := newsfeed.NewNewsFeed(tempDir + "/.news")
+	require.NoError(t, err)
+
+	config := DefaultDiscoveryConfig()
+	config.FetchTimeout = 2 * time.Second
+	svc := NewDiscoveryService(sourceStore, newsFeed, config)
+
+	// Create a source with an unreachable URL so the fetch fails quickly.
+	now := time.Now()
+	_, err = sourceStore.CreateSource("rss", "http://127.0.0.1:1/nonexistent", "Test Source", nil, &now)
+	require.NoError(t, err)
+
+	progressCh := make(chan SourceProgress, 10)
+	ctx := context.Background()
+
+	result, err := svc.SyncSources(ctx, nil, progressCh)
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.SourcesFailed)
+
+	// Drain the (now-closed) channel.
+	var messages []SourceProgress
+	for msg := range progressCh {
+		messages = append(messages, msg)
+	}
+
+	// Expect exactly two messages per source: fetching then error.
+	require.Len(t, messages, 2)
+	assert.Equal(t, ProgressFetching, messages[0].Status)
+	assert.Equal(t, ProgressError, messages[1].Status)
+	assert.NotNil(t, messages[1].Error)
+}
+
+// TestSyncSources_progressChannelNil verifies that passing a nil progress
+// channel leaves SyncSources behaviour unchanged.
+func TestSyncSources_progressChannelNil(t *testing.T) {
+	tempDir := t.TempDir()
+	sourceStore, err := sources.NewSourceStore(tempDir + "/metadata.db")
+	require.NoError(t, err)
+	defer func() { _ = sourceStore.Close() }()
+
+	newsFeed, err := newsfeed.NewNewsFeed(tempDir + "/.news")
+	require.NoError(t, err)
+
+	config := DefaultDiscoveryConfig()
+	config.FetchTimeout = 2 * time.Second
+	svc := NewDiscoveryService(sourceStore, newsFeed, config)
+
+	now := time.Now()
+	_, err = sourceStore.CreateSource("rss", "http://127.0.0.1:1/nonexistent", "Test Source", nil, &now)
+	require.NoError(t, err)
+
+	// nil channel must not panic and must still return results.
+	result, err := svc.SyncSources(context.Background(), nil, nil)
+	require.NoError(t, err)
+	assert.Equal(t, 1, result.SourcesFailed)
+}
+
 // Helper functions
 func strPtr(s string) *string {
 	return &s

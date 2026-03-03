@@ -10,6 +10,7 @@ import (
 	"github.com/charmbracelet/bubbles/textinput"
 	tea "github.com/charmbracelet/bubbletea"
 	"github.com/google/uuid"
+	"github.com/pevans/newsfed/discovery"
 	"github.com/pevans/newsfed/newsfeed"
 	"github.com/pevans/newsfed/sources"
 	"github.com/stretchr/testify/assert"
@@ -739,7 +740,8 @@ func TestRenderModeLine_defaultShowsHelp(t *testing.T) {
 	m.statusMsg = ""
 	got := m.renderModeLine()
 	assert.Contains(t, got, "[Q]uit")
-	assert.Contains(t, got, "[R]efresh")
+	assert.Contains(t, got, "[r]efresh")
+	assert.Contains(t, got, "[R]efresh all")
 	assert.Contains(t, got, "[Tab]")
 	assert.Contains(t, got, "[Enter]")
 }
@@ -942,4 +944,269 @@ func TestRenderSourceFields_datesAreYYYYMMDD(t *testing.T) {
 	// The date "2024-06-15" should appear; "12:34:56" must not.
 	assert.Contains(t, got, "2024-06-15", "date value should appear in YYYY-MM-DD format")
 	assert.NotContains(t, got, "12:34:56", "time-of-day component should not appear in date fields")
+}
+
+// ---------------------------------------------------------------------------
+// Refresh All -- handleRefreshAll
+// ---------------------------------------------------------------------------
+
+func TestHandleRefreshAll_noEnabledSources_setsStatusMsg(t *testing.T) {
+	m := newModel()
+	// No sources at all.
+	m2, cmd := m.handleRefreshAll()
+	got := m2.(Model)
+	assert.Equal(t, "No enabled sources", got.statusMsg)
+	assert.Equal(t, modalNone, got.modal)
+	assert.Nil(t, cmd)
+}
+
+func TestHandleRefreshAll_onlyDisabledSources_setsStatusMsg(t *testing.T) {
+	m := newModel()
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", false)}
+	m2, cmd := m.handleRefreshAll()
+	got := m2.(Model)
+	assert.Equal(t, "No enabled sources", got.statusMsg)
+	assert.Equal(t, modalNone, got.modal)
+	assert.Nil(t, cmd)
+}
+
+func TestHandleRefreshAll_enabledSources_opensModal(t *testing.T) {
+	m := newModel()
+	m.sources = []sources.Source{
+		makeSource("Alpha", "u1", "rss", true),
+		makeSource("Beta", "u2", "rss", true),
+		makeSource("Disabled", "u3", "rss", false),
+	}
+	m2, cmd := m.handleRefreshAll()
+	got := m2.(Model)
+	assert.Equal(t, modalRefreshAll, got.modal)
+	assert.Len(t, got.refreshAllSources, 2, "only enabled sources included")
+	assert.NotNil(t, got.refreshAllProgress)
+	assert.False(t, got.refreshAllDone)
+	assert.NotNil(t, cmd)
+}
+
+func TestHandleRefreshAll_alreadyOpen_noOp(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+	m2, cmd := m.handleRefreshAll()
+	got := m2.(Model)
+	assert.Equal(t, modalRefreshAll, got.modal)
+	assert.Nil(t, cmd)
+}
+
+// ---------------------------------------------------------------------------
+// Refresh All -- message handling
+// ---------------------------------------------------------------------------
+
+func TestUpdate_refreshAllProgressMsg_updatesProgress(t *testing.T) {
+	m := newModel()
+	src := makeSource("A", "u1", "rss", true)
+	m.modal = modalRefreshAll
+	m.refreshAllSources = []sources.Source{src}
+	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+
+	fakeCh := make(chan discovery.SourceProgress, 1)
+	msg := refreshAllProgressMsg{
+		progress: discovery.SourceProgress{Source: src, Status: "fetching"},
+		ch:       fakeCh,
+	}
+	result, cmd := m.Update(msg)
+	got := result.(Model)
+	assert.Equal(t, discovery.ProgressFetching, got.refreshAllProgress[src.SourceID].Status)
+	assert.NotNil(t, cmd, "should return a listen command")
+}
+
+func TestUpdate_refreshAllDoneMsg_setsDoneFlag(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+	result, cmd := m.Update(refreshAllDoneMsg{})
+	got := result.(Model)
+	assert.True(t, got.refreshAllDone)
+	assert.Nil(t, cmd)
+}
+
+// ---------------------------------------------------------------------------
+// Refresh All -- key handling
+// ---------------------------------------------------------------------------
+
+func TestHandleRefreshAllKey_escWhileInProgress_noOp(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.refreshAllDone = false
+	m2, cmd := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalRefreshAll, m2.modal, "modal must stay open while in progress")
+	assert.Nil(t, cmd)
+}
+
+func TestHandleRefreshAllKey_escWhenDone_closesModal(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.refreshAllDone = true
+	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+	src := makeSource("A", "u1", "rss", true)
+	m.refreshAllProgress[src.SourceID] = discovery.SourceProgress{
+		Source: src, Status: "done", NewItems: 3,
+	}
+	m.refreshAllSources = []sources.Source{src}
+	m.sources = []sources.Source{src}
+	m2, _ := pressSpecialKey(m, tea.KeyEsc)
+	assert.Equal(t, modalNone, m2.modal)
+	assert.Contains(t, m2.statusMsg, "3")
+}
+
+func TestHandleRefreshAllKey_qWhenDone_closesModal(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.refreshAllDone = true
+	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+	m.refreshAllSources = nil
+	m2, _ := pressKey(m, "q")
+	assert.Equal(t, modalNone, m2.modal)
+}
+
+func TestHandleRefreshAllKey_jkScrolls(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.height = 30
+	// Populate enough sources to allow scrolling.
+	for i := 0; i < 20; i++ {
+		m.refreshAllSources = append(m.refreshAllSources, makeSource(fmt.Sprintf("Src%d", i), fmt.Sprintf("u%d", i), "rss", true))
+	}
+	m.refreshAllScroll = 0
+
+	m2, _ := pressKey(m, "j")
+	assert.Equal(t, 1, m2.refreshAllScroll, "j should scroll down")
+
+	m3, _ := pressKey(m2, "k")
+	assert.Equal(t, 0, m3.refreshAllScroll, "k should scroll up")
+}
+
+func TestHandleRefreshAllKey_kAtTopNoOp(t *testing.T) {
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.refreshAllScroll = 0
+	m2, _ := pressKey(m, "k")
+	assert.Equal(t, 0, m2.refreshAllScroll)
+}
+
+func TestHandleRefreshAllKey_rKeyIgnored(t *testing.T) {
+	// While refresh-all modal is open, r should not trigger a single-source
+	// fetch.
+	m := newModel()
+	m.modal = modalRefreshAll
+	m.refreshAllDone = false
+	m.sources = []sources.Source{makeSource("A", "u1", "rss", true)}
+	m2, cmd := pressKey(m, "r")
+	assert.Equal(t, modalRefreshAll, m2.modal, "modal must remain open")
+	assert.Nil(t, cmd, "r should not start a single-source fetch during refresh-all")
+}
+
+// ---------------------------------------------------------------------------
+// Refresh All -- rendering
+// ---------------------------------------------------------------------------
+
+func TestRenderRefreshAllContent_showsPendingIndicator(t *testing.T) {
+	m := newModel()
+	src := makeSource("MyFeed", "u1", "rss", true)
+	m.refreshAllSources = []sources.Source{src}
+	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+	got := m.renderRefreshAllContent(40, 10)
+	assert.Contains(t, got, "[ ]")
+	assert.Contains(t, got, "MyFeed")
+}
+
+func TestRenderRefreshAllContent_showsFetchingIndicator(t *testing.T) {
+	m := newModel()
+	src := makeSource("MyFeed", "u1", "rss", true)
+	m.refreshAllSources = []sources.Source{src}
+	m.refreshAllProgress = map[uuid.UUID]discovery.SourceProgress{
+		src.SourceID: {Source: src, Status: "fetching"},
+	}
+	got := m.renderRefreshAllContent(40, 10)
+	assert.Contains(t, got, "[~]")
+}
+
+func TestRenderRefreshAllContent_showsDoneIndicatorAndCount(t *testing.T) {
+	m := newModel()
+	src := makeSource("MyFeed", "u1", "rss", true)
+	m.refreshAllSources = []sources.Source{src}
+	m.refreshAllProgress = map[uuid.UUID]discovery.SourceProgress{
+		src.SourceID: {Source: src, Status: "done", NewItems: 7},
+	}
+	got := m.renderRefreshAllContent(40, 10)
+	assert.Contains(t, got, "[✓]")
+	assert.Contains(t, got, "7 new")
+}
+
+func TestRenderRefreshAllContent_showsErrorIndicator(t *testing.T) {
+	m := newModel()
+	src := makeSource("MyFeed", "u1", "rss", true)
+	m.refreshAllSources = []sources.Source{src}
+	m.refreshAllProgress = map[uuid.UUID]discovery.SourceProgress{
+		src.SourceID: {Source: src, Status: "error", Error: fmt.Errorf("timeout")},
+	}
+	got := m.renderRefreshAllContent(40, 10)
+	assert.Contains(t, got, "[!]")
+	assert.Contains(t, got, "timeout")
+}
+
+func TestRenderRefreshAllContent_inProgressSummary(t *testing.T) {
+	m := newModel()
+	for i := 0; i < 3; i++ {
+		m.refreshAllSources = append(m.refreshAllSources, makeSource(fmt.Sprintf("S%d", i), "u", "rss", true))
+	}
+	m.refreshAllProgress = map[uuid.UUID]discovery.SourceProgress{
+		m.refreshAllSources[0].SourceID: {Status: "done"},
+	}
+	m.refreshAllDone = false
+	got := m.renderRefreshAllContent(40, 10)
+	assert.Contains(t, got, "Fetching 1/3 sources...")
+}
+
+func TestRenderRefreshAllContent_doneSummaryNoFailures(t *testing.T) {
+	m := newModel()
+	src := makeSource("S", "u", "rss", true)
+	m.refreshAllSources = []sources.Source{src}
+	m.refreshAllProgress = map[uuid.UUID]discovery.SourceProgress{
+		src.SourceID: {Status: "done", NewItems: 5},
+	}
+	m.refreshAllDone = true
+	got := m.renderRefreshAllContent(40, 10)
+	assert.Contains(t, got, "Done: 5 new item(s) from 1 source(s)")
+	assert.NotContains(t, got, "failed")
+}
+
+func TestRenderRefreshAllContent_doneSummaryWithFailures(t *testing.T) {
+	m := newModel()
+	srcA := makeSource("A", "u1", "rss", true)
+	srcB := makeSource("B", "u2", "rss", true)
+	m.refreshAllSources = []sources.Source{srcA, srcB}
+	m.refreshAllProgress = map[uuid.UUID]discovery.SourceProgress{
+		srcA.SourceID: {Status: "done", NewItems: 2},
+		srcB.SourceID: {Status: "error", Error: fmt.Errorf("err")},
+	}
+	m.refreshAllDone = true
+	got := m.renderRefreshAllContent(50, 10)
+	assert.Contains(t, got, "Done: 2 new item(s) from 2 source(s), 1 failed")
+}
+
+// ---------------------------------------------------------------------------
+// Mode line -- [R]efresh all hint
+// ---------------------------------------------------------------------------
+
+func TestRenderModeLine_includesRefreshAllHint(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	got := m.renderModeLine()
+	assert.Contains(t, got, "[R]efresh all")
+}
+
+func TestRenderModeLine_includesLowercaseRefreshHint(t *testing.T) {
+	m := newModel()
+	m.focus = focusSources
+	got := m.renderModeLine()
+	assert.Contains(t, got, "[r]efresh")
 }

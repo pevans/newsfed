@@ -70,7 +70,7 @@ func handleSync(metadataPath, feedDir string, args []string) {
 	}
 
 	ctx := context.Background()
-	result, err := service.SyncSources(ctx, sourceID)
+	result, err := service.SyncSources(ctx, sourceID, nil)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Error: sync failed: %v\n", err)
 		os.Exit(1)
