@@ -275,6 +275,83 @@ teardown() {
     tui_assert_contains "Article 1"
 }
 
+@test "tui: item title with embedded whitespace is collapsed to single spaces" {
+    mkdir -p "$TEST_DIR/www"
+
+    cat > "$TEST_DIR/www/feed.xml" <<'RSSEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Whitespace Test Feed</title>
+    <link>http://example.com</link>
+    <description>A test feed</description>
+    <item>
+      <title>Word1   Word2	Word3</title>
+      <link>http://example.com/article1</link>
+      <description>desc</description>
+    </item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" -name="WS Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    tui_start
+    tui_wait_for "WS Source" 5
+
+    tui_send_keys "Tab"
+    sleep 0.3
+
+    # The title should appear with single spaces between words, not multiple.
+    tui_assert_contains "Word1 Word2 Word3"
+    tui_assert_not_contains "Word1   Word2"
+}
+
+@test "tui: item title with embedded newline is collapsed to a single space" {
+    mkdir -p "$TEST_DIR/www"
+
+    # The title contains a literal newline between the two words.
+    cat > "$TEST_DIR/www/feed.xml" <<'RSSEOF'
+<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0">
+  <channel>
+    <title>Newline Test Feed</title>
+    <link>http://example.com</link>
+    <description>A test feed</description>
+    <item>
+      <title>LineOne
+LineTwo</title>
+      <link>http://example.com/article1</link>
+      <description>desc</description>
+    </item>
+  </channel>
+</rss>
+RSSEOF
+
+    start_mock_server "$TEST_DIR/www"
+
+    run newsfed sources add -type=rss -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" -name="NL Source"
+    src_id=$(extract_uuid "$output")
+    newsfed sync "$src_id" >/dev/null 2>&1
+
+    stop_mock_server
+
+    tui_start
+    tui_wait_for "NL Source" 5
+
+    tui_send_keys "Tab"
+    sleep 0.3
+
+    # The newline should be collapsed to a single space.
+    tui_assert_contains "LineOne LineTwo"
+}
+
 @test "tui: selecting a different source updates the items frame" {
     mkdir -p "$TEST_DIR/www"
 

@@ -150,6 +150,10 @@ func (m Model) renderModeLine() string {
 	return selectedStyle.Width(m.width).Render(content)
 }
 
+func collapseWhitespace(s string) string {
+	return strings.Join(strings.Fields(s), " ")
+}
+
 func (m Model) renderSourceList(width, height int) string {
 	if len(m.sources) == 0 {
 		return lipgloss.NewStyle().
@@ -186,7 +190,7 @@ func (m Model) renderSourceList(width, height int) string {
 		if nameMaxWidth < 1 {
 			nameMaxWidth = 1
 		}
-		truncName := ansi.Truncate(src.Name, nameMaxWidth, "...")
+		truncName := ansi.Truncate(collapseWhitespace(src.Name), nameMaxWidth, "...")
 		leftPart := prefix + truncName
 		padding := width - utf8.RuneCountInString(leftPart) - dateLen
 		if padding < 1 {
@@ -240,7 +244,7 @@ func (m Model) renderItemList(width, height int) string {
 		if titleMaxWidth < 1 {
 			titleMaxWidth = 1
 		}
-		truncTitle := ansi.Truncate(item.Title, titleMaxWidth, "...")
+		truncTitle := ansi.Truncate(collapseWhitespace(item.Title), titleMaxWidth, "...")
 		leftPart := prefix + truncTitle
 		padding := width - utf8.RuneCountInString(leftPart) - dateLen
 		if padding < 1 {

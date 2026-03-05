@@ -70,6 +70,9 @@ years (y), months (mo), and days (d), showing only non-zero components. A
 source fetched today shows "(today)". A source that has never been fetched
 shows "(never)" in place of a relative date.
 
+Before rendering, any run of one or more whitespace characters (spaces, tabs,
+newlines) in the name is collapsed to a single space.
+
 If the name is too long to fit alongside the date, it is truncated with "..."
 appended to the end of what remains. Enough text is truncated to leave at
 least one space between the name and the date.
@@ -108,6 +111,9 @@ only the non-zero components from most to least significant. For example:
 - An item published three years, two months, and one day ago shows
   "(3y2mo1d ago)"
 - An item published today shows "(today)"
+
+Before rendering, any run of one or more whitespace characters (spaces, tabs,
+newlines) in the title is collapsed to a single space.
 
 If the title is too long to fit alongside the date, it is truncated with "..."
 appended to the end of what remains. Enough text is truncated to leave at
