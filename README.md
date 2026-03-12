@@ -37,7 +37,9 @@ newsfed cannot function without these files.
 ## TUI Usage
 
 Newsfed is designed with a text user interface (or TUI). To run that, you can
-simply invoke `newsfed` with no arguments.
+simply invoke `newsfed` with no arguments. It looks like the following:
+
+![A screenshot of newsfed's text user interface](screenshots/basic-usage.png)
 
 ## CLI Usage
 
