@@ -183,20 +183,32 @@ func (m Model) renderSourceList(width, height int) string {
 		}
 		src := m.sources[i]
 		prefix := fmt.Sprintf("%d. ", i+1)
-		date := formatRelativeLabel(src.LastFetchedAt, now)
-		dateLen := utf8.RuneCountInString(date)
+
+		// After a refresh-all, show per-source new-item counts instead of
+		// relative dates (Spec 11, Section 5.5).
+		var label string
+		if m.refreshAllNewCounts != nil {
+			if n, ok := m.refreshAllNewCounts[src.SourceID]; ok && n > 0 {
+				label = fmt.Sprintf("(%d)", n)
+			}
+			// Sources with zero new items show no label.
+		} else {
+			label = formatRelativeLabel(src.LastFetchedAt, now)
+		}
+
+		labelLen := utf8.RuneCountInString(label)
 		prefixLen := utf8.RuneCountInString(prefix)
-		nameMaxWidth := width - prefixLen - dateLen - 1
+		nameMaxWidth := width - prefixLen - labelLen - 1
 		if nameMaxWidth < 1 {
 			nameMaxWidth = 1
 		}
 		truncName := ansi.Truncate(collapseWhitespace(src.Name), nameMaxWidth, "...")
 		leftPart := prefix + truncName
-		padding := width - utf8.RuneCountInString(leftPart) - dateLen
+		padding := width - utf8.RuneCountInString(leftPart) - labelLen
 		if padding < 1 {
 			padding = 1
 		}
-		line := leftPart + strings.Repeat(" ", padding) + date
+		line := leftPart + strings.Repeat(" ", padding) + label
 
 		if i == m.sourceCursor {
 			line = selectedStyle.Width(width).Render(line)

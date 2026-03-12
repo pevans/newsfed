@@ -1017,6 +1017,43 @@ RSSEOF
 }
 
 
+@test "tui: Refresh All dismissal shows new-item counts instead of dates" {
+    mkdir -p "$TEST_DIR/www"
+    create_rss_feed "$TEST_DIR/www/feed.xml" "Count Feed" 5
+    start_mock_server "$TEST_DIR/www"
+
+    newsfed sources add -type=rss \
+        -url="http://127.0.0.1:$MOCK_SERVER_PORT/feed.xml" \
+        -name="Count Source"
+
+    tui_start
+    tui_wait_for "Count Source" 5
+
+    # Before refresh, the source shows (never) since it hasn't been fetched.
+    tui_assert_contains "(never)"
+
+    tui_send_keys "R"
+    tui_wait_for "Done:" 15
+
+    stop_mock_server
+
+    # Dismiss the modal.
+    tui_send_keys "Escape"
+    sleep 0.3
+
+    # The source had 5 new items -- should show (5) instead of a date.
+    tui_assert_contains "(5)"
+
+    # The old (never) label should be gone.
+    tui_assert_not_contains "(never)"
+
+    # Counts persist across key presses -- navigating should not clear them.
+    tui_send_keys "Tab"
+    sleep 0.3
+
+    tui_assert_contains "(5)"
+}
+
 @test "tui: mode line shows R refresh all hint" {
     tui_start
     tui_wait_for "No sources." 5

@@ -60,12 +60,13 @@ type Model struct {
 	itemDetailScroll int
 
 	// Refresh All modal (Spec 11)
-	refreshAllSources  []sources.Source
-	refreshAllProgress map[uuid.UUID]discovery.SourceProgress
-	refreshAllScroll   int
-	refreshAllDone     bool
-	refreshAllCancel   context.CancelFunc
-	refreshAllSyncErr  error
+	refreshAllSources   []sources.Source
+	refreshAllProgress  map[uuid.UUID]discovery.SourceProgress
+	refreshAllScroll    int
+	refreshAllDone      bool
+	refreshAllCancel    context.CancelFunc
+	refreshAllSyncErr   error
+	refreshAllNewCounts map[uuid.UUID]int // per-source new-item counts shown after dismissal
 
 	// Status
 	statusMsg string

@@ -136,6 +136,11 @@ Once all fetches have completed, the user dismisses the modal by pressing `Esc`
 or `q`. Upon dismissal:
 
 - The sources frame and items frame reload to reflect any newly fetched items.
+- The sources frame replaces each source's relative date with a new-item count
+  from the refresh. Sources where new items were discovered show the count in
+  parentheses -- e.g., `(2)` instead of `(1d ago)`. Sources where no new items
+  were discovered show nothing in place of the date. These counts persist until
+  the next Refresh All operation replaces them with fresh results.
 - The mode line briefly shows a summary (e.g., `Refreshed all: 12 new item(s)`)
   before reverting to the default shortcut hints.
 

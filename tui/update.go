@@ -677,6 +677,14 @@ func (m Model) handleRefreshAllKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		} else {
 			m.statusMsg = fmt.Sprintf("Refreshed all: %d new item(s)", totalNew)
 		}
+		// Store per-source new-item counts for the sources frame to display
+		// in place of relative dates (Spec 11, Section 5.5).
+		m.refreshAllNewCounts = make(map[uuid.UUID]int)
+		for id, p := range m.refreshAllProgress {
+			if p.Status == discovery.ProgressDone {
+				m.refreshAllNewCounts[id] = p.NewItems
+			}
+		}
 		var restoreID uuid.UUID
 		if m.sourceCursor < len(m.sources) {
 			restoreID = m.sources[m.sourceCursor].SourceID
