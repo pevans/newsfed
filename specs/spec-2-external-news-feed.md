@@ -50,6 +50,13 @@ feed's publication date if available.
 XML-based feeds (RSS, Atom) should be fetched via HTTP/HTTPS GET requests. The
 system should:
 
+- Apply a per-request HTTP timeout of 10 seconds to every outbound request.
+  This is the single authoritative limit on how long any individual HTTP
+  round-trip may take -- it applies uniformly to feed fetches, HTML fetches,
+  and autodiscovery probes. Any higher-level timeout (e.g., a per-source
+  context deadline) governs the total time budget for an operation that may
+  involve multiple requests, but does not replace or override the per-request
+  timeout.
 - Respect standard HTTP caching headers (`ETag`, `Last-Modified`)
 - Include a reasonable `User-Agent` header identifying the newsfed system
 - Handle HTTP errors gracefully (404, 500, etc.) and retry with exponential

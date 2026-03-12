@@ -1,14 +1,20 @@
 package discovery
 
 import (
+	"context"
 	"errors"
 	"fmt"
 	"net/url"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/PuerkitoBio/goquery"
 )
+
+// AutodiscoverTimeout is the recommended overall timeout for a complete feed
+// autodiscovery operation, per Spec 10 section 5.2.
+const AutodiscoverTimeout = 30 * time.Second
 
 // DiscoveredFeed holds the result of a successful feed autodiscovery.
 type DiscoveredFeed struct {
@@ -19,9 +25,11 @@ type DiscoveredFeed struct {
 }
 
 // DiscoverFeed runs the three-strategy probe sequence defined in Spec 10
-// section 3. Returns a DiscoveredFeed on success, or a descriptive error
-// listing every URL tried and why it failed.
-func DiscoverFeed(inputURL string) (*DiscoveredFeed, error) {
+// section 3. The context controls the overall deadline for the discovery
+// operation; callers should apply a 30-second timeout per Spec 10 section
+// 5.2. Returns a DiscoveredFeed on success, or a descriptive error listing
+// every URL tried and why it failed.
+func DiscoverFeed(ctx context.Context, inputURL string) (*DiscoveredFeed, error) {
 	type attempt struct {
 		url    string
 		reason string
@@ -37,7 +45,7 @@ func DiscoverFeed(inputURL string) (*DiscoveredFeed, error) {
 			return nil
 		}
 		triedSet[u] = true
-		feed, err := FetchFeed(u)
+		feed, err := FetchFeed(ctx, u)
 		if err != nil {
 			tried = append(tried, attempt{u, describeErr(err)})
 			return nil
@@ -51,10 +59,30 @@ func DiscoverFeed(inputURL string) (*DiscoveredFeed, error) {
 		return result, nil
 	}
 
+	// buildErr assembles a descriptive error listing every URL tried and why
+	// it failed, optionally wrapping a cause (e.g. context deadline).
+	buildErr := func(cause error) error {
+		var sb strings.Builder
+		fmt.Fprintf(&sb, "no feed found at %s\n\nTried:\n", inputURL)
+		for _, a := range tried {
+			fmt.Fprintf(&sb, "  %s -- %s\n", a.url, a.reason)
+		}
+		msg := strings.TrimRight(sb.String(), "\n")
+		if cause != nil {
+			return fmt.Errorf("%s: %w", msg, cause)
+		}
+		return errors.New(msg)
+	}
+
+	// Stop early if the context has been cancelled between strategies.
+	if ctx.Err() != nil {
+		return nil, buildErr(ctx.Err())
+	}
+
 	// Strategy 2 -- HTML link tags. The HTML-fetch outcome is recorded in
 	// tried separately from the feed-parse attempts made against each
 	// discovered link URL.
-	if doc, err := FetchHTML(inputURL); err == nil {
+	if doc, err := FetchHTML(ctx, inputURL); err == nil {
 		var linkURLs []string
 		doc.Find(`link[rel="alternate"]`).Each(func(_ int, s *goquery.Selection) {
 			t := s.AttrOr("type", "")
@@ -80,22 +108,23 @@ func DiscoverFeed(inputURL string) (*DiscoveredFeed, error) {
 		}
 	}
 
+	// Stop early if the context has been cancelled between strategies.
+	if ctx.Err() != nil {
+		return nil, buildErr(ctx.Err())
+	}
+
 	// Strategy 3 -- common path probing. tryFeed skips any URL already in
 	// triedSet, providing cross-strategy deduplication at no extra cost.
 	for _, pu := range generateProbeURLs(inputURL) {
+		if ctx.Err() != nil {
+			return nil, buildErr(ctx.Err())
+		}
 		if result := tryFeed(pu); result != nil {
 			return result, nil
 		}
 	}
 
-	// Build the error message. No trailing newline -- callers control
-	// spacing.
-	var sb strings.Builder
-	fmt.Fprintf(&sb, "no feed found at %s\n\nTried:\n", inputURL)
-	for _, a := range tried {
-		fmt.Fprintf(&sb, "  %s -- %s\n", a.url, a.reason)
-	}
-	return nil, errors.New(strings.TrimRight(sb.String(), "\n"))
+	return nil, buildErr(nil)
 }
 
 // generateProbeURLs returns candidate feed URLs for the given input URL,

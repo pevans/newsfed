@@ -5,7 +5,6 @@ import (
 	"errors"
 	"fmt"
 	"log"
-	"net/http"
 	"net/url"
 	"strings"
 	"sync"
@@ -23,7 +22,6 @@ type DiscoveryService struct {
 	sourceStore     *sources.SourceStore
 	newsFeed        *newsfeed.NewsFeed
 	config          *DiscoveryConfig
-	httpClient      *http.Client
 	stopChan        chan struct{}
 	wg              sync.WaitGroup
 	sourceSemaphore chan struct{}
@@ -157,12 +155,9 @@ func NewDiscoveryService(
 	}
 
 	return &DiscoveryService{
-		sourceStore: sourceStore,
-		newsFeed:    newsFeed,
-		config:      config,
-		httpClient: &http.Client{
-			Timeout: 10 * time.Second, // Per Spec 3 section 3.2
-		},
+		sourceStore:     sourceStore,
+		newsFeed:        newsFeed,
+		config:          config,
 		stopChan:        make(chan struct{}),
 		sourceSemaphore: make(chan struct{}, config.Concurrency),
 		rateLimiter:     newDomainRateLimiter(config.RateLimitInterval),
@@ -405,9 +400,9 @@ func (ds *DiscoveryService) shouldApplyItemLimit(source sources.Source) bool {
 
 // fetchRSSFeed fetches and processes an RSS or Atom feed. Implements Spec 7
 // section 4 with conditional 20-item limit per Spec 2 section 2.2.3.
-func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source sources.Source) (int, error) {
+func (ds *DiscoveryService) fetchRSSFeed(ctx context.Context, source sources.Source) (int, error) {
 	// Fetch the feed (FetchFeed from Spec 2)
-	feed, err := FetchFeed(source.URL)
+	feed, err := FetchFeed(ctx, source.URL)
 	if err != nil {
 		return 0, fmt.Errorf("failed to fetch feed: %w", err)
 	}
@@ -450,7 +445,7 @@ func (ds *DiscoveryService) fetchRSSFeed(_ context.Context, source sources.Sourc
 
 // fetchWebsite fetches and processes a website source. Implements Spec 7
 // section 5.
-func (ds *DiscoveryService) fetchWebsite(_ context.Context, source sources.Source) (int, error) {
+func (ds *DiscoveryService) fetchWebsite(ctx context.Context, source sources.Source) (int, error) {
 	if source.ScraperConfig == nil {
 		return 0, fmt.Errorf("scraper config is required for website sources")
 	}
@@ -465,9 +460,9 @@ func (ds *DiscoveryService) fetchWebsite(_ context.Context, source sources.Sourc
 
 	switch config.DiscoveryMode {
 	case "direct":
-		return ds.fetchDirectMode(source, config, domain)
+		return ds.fetchDirectMode(ctx, source, config, domain)
 	case "list":
-		return ds.fetchListMode(source, config, domain)
+		return ds.fetchListMode(ctx, source, config, domain)
 	default:
 		return 0, fmt.Errorf("unsupported discovery mode: %s", config.DiscoveryMode)
 	}
@@ -475,12 +470,12 @@ func (ds *DiscoveryService) fetchWebsite(_ context.Context, source sources.Sourc
 
 // fetchDirectMode fetches a single article page directly. Implements Spec 7
 // section 5.1.1.
-func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *ScraperConfig, domain string) (int, error) {
+func (ds *DiscoveryService) fetchDirectMode(ctx context.Context, source sources.Source, config *ScraperConfig, domain string) (int, error) {
 	// Rate limit before fetching
 	ds.rateLimiter.wait(domain)
 
 	// Scrape the article
-	article, err := ScrapeArticle(source.URL, config.ArticleConfig)
+	article, err := ScrapeArticle(ctx, source.URL, config.ArticleConfig)
 	if err != nil {
 		return 0, fmt.Errorf("failed to scrape article: %w", err)
 	}
@@ -517,7 +512,7 @@ func (ds *DiscoveryService) fetchDirectMode(source sources.Source, config *Scrap
 
 // fetchListMode fetches articles from a list/index page. Implements Spec 7
 // section 5.1.2 with conditional 20-article cap per Spec 3 section 3.1.1.
-func (ds *DiscoveryService) fetchListMode(source sources.Source, config *ScraperConfig, domain string) (int, error) {
+func (ds *DiscoveryService) fetchListMode(ctx context.Context, source sources.Source, config *ScraperConfig, domain string) (int, error) {
 	if config.ListConfig == nil {
 		return 0, fmt.Errorf("list_config is required for list mode")
 	}
@@ -544,7 +539,7 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 		ds.rateLimiter.wait(domain)
 
 		// Fetch the list page
-		doc, err := FetchHTML(currentURL)
+		doc, err := FetchHTML(ctx, currentURL)
 		if err != nil {
 			return newItemCount, fmt.Errorf("failed to fetch list page: %w", err)
 		}
@@ -588,7 +583,7 @@ func (ds *DiscoveryService) fetchListMode(source sources.Source, config *Scraper
 			ds.rateLimiter.wait(domain)
 
 			// Scrape the article
-			article, err := ScrapeArticle(articleURL, config.ArticleConfig)
+			article, err := ScrapeArticle(ctx, articleURL, config.ArticleConfig)
 			if err != nil {
 				log.Printf("WARN: Failed to scrape article %s: %v", articleURL, err)
 				continue

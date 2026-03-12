@@ -1,7 +1,9 @@
 package discovery
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"sort"
 	"strings"
 	"time"
@@ -11,11 +13,21 @@ import (
 	"github.com/pevans/newsfed/newsfeed"
 )
 
+// httpClient is the shared HTTP client used for all outbound requests in the
+// discovery package. Its 10-second timeout is the per-request limit defined
+// in Spec 2, Section 2.2.1.
+var httpClient = &http.Client{
+	Timeout: 10 * time.Second,
+}
+
 // FetchFeed fetches and parses an RSS or Atom feed from the given URL. The
 // gofeed library automatically detects and handles both RSS and Atom formats.
-func FetchFeed(url string) (*gofeed.Feed, error) {
+// The context is used for cancellation; each request is also subject to a
+// 10-second per-request HTTP timeout per Spec 2 section 2.2.1.
+func FetchFeed(ctx context.Context, url string) (*gofeed.Feed, error) {
 	fp := gofeed.NewParser()
-	feed, err := fp.ParseURL(url)
+	fp.Client = httpClient
+	feed, err := fp.ParseURLWithContext(url, ctx)
 	if err != nil {
 		return nil, fmt.Errorf("failed to parse feed: %w", err)
 	}

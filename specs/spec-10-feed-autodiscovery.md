@@ -95,9 +95,30 @@ feed type (`rss` or `atom`) is determined from the parsed feed document. The
 format of the `<feed>` or `<rss>` root element identifies the type. The source
 is stored with the discovered type.
 
-# 5. Discovery Outcomes
+# 5. Timeouts
 
-## 5.1. Feed Found
+## 5.1. Context Propagation
+
+The autodiscovery function must accept a `context.Context` parameter. All HTTP
+requests made during discovery -- feed parses, HTML fetches, and probe
+attempts -- must respect this context. If the context is cancelled or its
+deadline expires, discovery stops immediately and returns the context error.
+
+## 5.2. Overall Discovery Timeout
+
+Callers must provide a context with a deadline. The recommended overall
+timeout for a complete discovery operation is 30 seconds. This bounds the
+total wall-clock time across all three strategies, which in the worst case may
+issue over a dozen sequential HTTP requests.
+
+Individual HTTP requests within the discovery process are subject to the
+10-second per-request timeout defined in Spec 2, Section 2.2.1. The overall
+discovery timeout is a separate, higher-level limit that caps the cumulative
+time of the entire operation.
+
+# 6. Discovery Outcomes
+
+## 6.1. Feed Found
 
 When a feed is found, a source is created using the **discovered feed URL**
 (not the original URL the user provided, if different) and the discovered feed
@@ -106,28 +127,28 @@ type. The source is created in the enabled state.
 If the user provided a `--name` flag, that name is used. If `--name` was not
 provided, the feed's own title is used as the source name.
 
-## 5.2. No Feed Found
+## 6.2. No Feed Found
 
 If all three strategies are exhausted without finding a valid feed, the command
 fails with an error. The error message should indicate that no feed was found
 at the given URL and suggest adding the source explicitly as a website type
 if the user wants to use CSS-selector scraping instead.
 
-# 6. CLI Changes
+# 7. CLI Changes
 
-## 6.1. The `--type` Flag Becomes Optional
+## 7.1. The `--type` Flag Becomes Optional
 
 The `--type` flag in `newsfed sources add` becomes optional. When omitted,
 autodiscovery runs. When provided, the given type is used without any
 autodiscovery.
 
-## 6.2. The `--name` Flag Becomes Optional During Autodiscovery
+## 7.2. The `--name` Flag Becomes Optional During Autodiscovery
 
 When `--type` is omitted (autodiscovery mode), `--name` is also optional.
 If omitted, the name is taken from the discovered feed's title. If `--type`
 is provided, `--name` remains required as today.
 
-## 6.3. Output
+## 7.3. Output
 
 When autodiscovery finds a feed at a different URL than the one provided, the
 output should make clear what was found and where:
@@ -142,7 +163,7 @@ Created source: Hillel Wayne (rss)
 When the given URL is itself a feed, no discovery notice is shown -- just the
 standard created source output.
 
-## 6.4. Error Output
+## 7.4. Error Output
 
 When no feed is found, the error output should list the strategies that were
 attempted and suggest the website source alternative:
@@ -162,7 +183,7 @@ To add this URL as a website source using CSS-selector scraping:
   newsfed sources add --type=website --url=<url> --name=<name> --config=<file>
 ```
 
-## 6.5. Example Usage
+## 7.5. Example Usage
 
 ```bash
 # Autodiscovery: type inferred, name taken from feed title
@@ -175,9 +196,9 @@ newsfed sources add --url="https://www.hillelwayne.com/post/" --name="Hillel Way
 newsfed sources add --type=rss --url="https://www.hillelwayne.com/index.xml" --name="Hillel Wayne"
 ```
 
-# 7. TUI Changes
+# 8. TUI Changes
 
-## 7.1. Add Source Modal
+## 8.1. Add Source Modal
 
 The "Add Source" modal defined in Spec 9, Section 10 is updated to remove
 the Type field. The updated modal presents two labeled fields:
@@ -193,7 +214,7 @@ The Name field is optional. If left blank, the feed's own title is used as the
 source name. The URL field is the only required field; if it is empty when the
 user presses enter, a status message is shown and the modal remains open.
 
-## 7.2. Discovering State
+## 8.2. Discovering State
 
 When the user presses enter with a valid URL, the modal enters a discovering
 state:
@@ -204,12 +225,12 @@ state:
 - The user cannot interact with the modal while discovery is in progress
 - The escape key has no effect during discovery
 
-## 7.3. Success
+## 8.3. Success
 
 On successful discovery, the modal closes and the new source appears in the
 source list with the cursor positioned on it, as today.
 
-## 7.4. Failure
+## 8.4. Failure
 
 If discovery fails, the modal returns to its editable state. The status line
 shows a brief error message:
@@ -221,28 +242,28 @@ No feed found. Check the URL and try again.
 The user may correct the URL and try again, or press escape to dismiss the
 modal without adding a source.
 
-# 8. Relationship to Other Specifications
+# 9. Relationship to Other Specifications
 
-## 8.1. Feed Ingestion (Spec 2)
+## 9.1. Feed Ingestion (Spec 2)
 
 Autodiscovery produces sources that are consumed by the feed ingestion process
 defined in Spec 2. Discovered feed sources are identical in structure to
 manually configured feed sources.
 
-## 8.2. Web Scraping (Spec 3)
+## 9.2. Web Scraping (Spec 3)
 
 Autodiscovery does not fall back to website scraping. If no feed is found, the
 command fails. Users who want CSS-selector-based scraping must explicitly use
 `--type=website` via the CLI.
 
-## 8.3. Basic Client (Spec 8)
+## 9.3. Basic Client (Spec 8)
 
 This specification extends the `sources add` command defined in Spec 8,
 Section 3.2.3, by making `--type` and `--name` optional and defining the
 autodiscovery behavior that runs when `--type` is absent.
 
-## 8.4. Text User Interface (Spec 9)
+## 9.4. Text User Interface (Spec 9)
 
 This specification updates the "Add Source" modal defined in Spec 9, Section
 10, removing the Type field and adding the discovering state described in
-Section 7 above.
+Section 8 above.

@@ -63,7 +63,10 @@ func togglePinCmd(feed *newsfeed.NewsFeed, item newsfeed.NewsItem) tea.Cmd {
 
 func discoverAndAddSourceCmd(name, inputURL string, generation int) tea.Cmd {
 	return func() tea.Msg {
-		result, err := discovery.DiscoverFeed(inputURL)
+		// Per Spec 10 section 5.2
+		ctx, cancel := context.WithTimeout(context.Background(), discovery.AutodiscoverTimeout)
+		defer cancel()
+		result, err := discovery.DiscoverFeed(ctx, inputURL)
 		if err != nil {
 			return sourceDiscoveredMsg{err: err, generation: generation}
 		}

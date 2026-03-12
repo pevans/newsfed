@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/http/httptest"
@@ -27,7 +28,7 @@ func TestDiscoverFeed_DirectRSS(t *testing.T) {
 	}))
 	defer srv.Close()
 
-	result, err := DiscoverFeed(srv.URL)
+	result, err := DiscoverFeed(context.Background(), srv.URL)
 	require.NoError(t, err)
 	assert.Equal(t, srv.URL, result.FeedURL)
 	assert.Equal(t, "rss", result.FeedType)
@@ -52,7 +53,7 @@ func TestDiscoverFeed_HTMLLinkTags(t *testing.T) {
 	defer srv.Close()
 	feedURL = srv.URL + "/feed.xml"
 
-	result, err := DiscoverFeed(srv.URL + "/")
+	result, err := DiscoverFeed(context.Background(), srv.URL+"/")
 	require.NoError(t, err)
 	assert.Equal(t, feedURL, result.FeedURL)
 	assert.Equal(t, "rss", result.FeedType)
@@ -74,7 +75,7 @@ func TestDiscoverFeed_ProbeIndexXML_RootPath(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	result, err := DiscoverFeed(srv.URL + "/")
+	result, err := DiscoverFeed(context.Background(), srv.URL+"/")
 	require.NoError(t, err)
 	assert.Equal(t, srv.URL+"/index.xml", result.FeedURL)
 	assert.False(t, result.FoundDirect)
@@ -96,7 +97,7 @@ func TestDiscoverFeed_ProbeIndexXML_SubPath(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	result, err := DiscoverFeed(srv.URL + "/blog/")
+	result, err := DiscoverFeed(context.Background(), srv.URL+"/blog/")
 	require.NoError(t, err)
 	assert.Equal(t, srv.URL+"/blog/index.xml", result.FeedURL)
 	assert.False(t, result.FoundDirect)
@@ -110,7 +111,7 @@ func TestDiscoverFeed_NoFeed(t *testing.T) {
 	defer srv.Close()
 
 	inputURL := srv.URL + "/"
-	_, err := DiscoverFeed(inputURL)
+	_, err := DiscoverFeed(context.Background(), inputURL)
 	require.Error(t, err)
 
 	msg := err.Error()
@@ -132,7 +133,7 @@ func TestDiscoverFeed_HTMLLinkTagsNoLinks_LogsNoFeedLinksInPage(t *testing.T) {
 	defer srv.Close()
 
 	inputURL := srv.URL + "/"
-	_, err := DiscoverFeed(inputURL)
+	_, err := DiscoverFeed(context.Background(), inputURL)
 	require.Error(t, err)
 
 	msg := err.Error()
@@ -155,7 +156,7 @@ func TestDiscoverFeed_RelativeHrefResolved(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	result, err := DiscoverFeed(srv.URL + "/post/")
+	result, err := DiscoverFeed(context.Background(), srv.URL+"/post/")
 	require.NoError(t, err)
 	assert.Equal(t, srv.URL+"/feed.xml", result.FeedURL)
 }
@@ -202,6 +203,6 @@ func TestDiscoverFeed_CrossStrategyDedup(t *testing.T) {
 	srv := httptest.NewServer(mux)
 	defer srv.Close()
 
-	_, _ = DiscoverFeed(srv.URL + "/")
+	_, _ = DiscoverFeed(context.Background(), srv.URL+"/")
 	assert.Equal(t, 1, tries, "/index.xml should only be fetched once across all strategies")
 }

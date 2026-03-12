@@ -111,7 +111,8 @@ allowing regular polling to capture all new articles since the last fetch.
 
 When fetching HTML pages, the system should:
 
-- Use HTTP/HTTPS GET requests with a reasonable timeout (e.g., 10 seconds)
+- Use HTTP/HTTPS GET requests with the 10-second per-request HTTP timeout
+  defined in Spec 2, Section 2.2.1
 - Include a `User-Agent` header identifying the newsfed system
 - Respect `robots.txt` directives
 - Follow HTTP redirects (up to a reasonable limit, e.g., 5 redirects)

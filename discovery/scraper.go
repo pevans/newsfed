@@ -1,6 +1,7 @@
 package discovery
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -177,15 +178,11 @@ func URLExists(feed *newsfeed.NewsFeed, url string) (bool, error) {
 }
 
 // FetchHTML fetches HTML content from the given URL. Implements Spec 3
-// section 3.2.
-func FetchHTML(url string) (*goquery.Document, error) {
-	// Create HTTP client with 10 second timeout per Spec 3 section 3.2
-	client := &http.Client{
-		Timeout: 10 * time.Second,
-	}
-
-	// Create request
-	req, err := http.NewRequest("GET", url, nil)
+// section 3.2. The context is used for cancellation; each request is also
+// subject to a 10-second per-request HTTP timeout per Spec 2 section 2.2.1.
+func FetchHTML(ctx context.Context, url string) (*goquery.Document, error) {
+	// Create request with context
+	req, err := http.NewRequestWithContext(ctx, "GET", url, nil)
 	if err != nil {
 		return nil, fmt.Errorf("failed to create request: %w", err)
 	}
@@ -193,8 +190,8 @@ func FetchHTML(url string) (*goquery.Document, error) {
 	// Set User-Agent header identifying newsfed per Spec 3 section 3.2
 	req.Header.Set("User-Agent", "newsfed/1.0 (RSS/Atom aggregator with web scraping)")
 
-	// Perform the request
-	resp, err := client.Do(req)
+	// Perform the request using the shared HTTP client (Spec 2 section 2.2.1)
+	resp, err := httpClient.Do(req)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch URL: %w", err)
 	}
@@ -271,9 +268,9 @@ func ExtractArticle(doc *goquery.Document, config scraper.ArticleConfig, article
 
 // ScrapeArticle is a convenience function that fetches and extracts an
 // article in one call. Combines FetchHTML and ExtractArticle.
-func ScrapeArticle(url string, config scraper.ArticleConfig) (*ScrapedArticle, error) {
+func ScrapeArticle(ctx context.Context, url string, config scraper.ArticleConfig) (*ScrapedArticle, error) {
 	// Fetch HTML
-	doc, err := FetchHTML(url)
+	doc, err := FetchHTML(ctx, url)
 	if err != nil {
 		return nil, fmt.Errorf("failed to fetch HTML: %w", err)
 	}

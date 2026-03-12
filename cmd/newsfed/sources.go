@@ -1,6 +1,7 @@
 package main
 
 import (
+	"context"
 	"encoding/json"
 	"flag"
 	"fmt"
@@ -202,9 +203,11 @@ func handleSourcesAdd(metadataStore *sources.SourceStore, args []string) {
 	var scraperConfig *discovery.ScraperConfig
 
 	if *sourceType == "" {
-		// Autodiscovery path
+		// Autodiscovery path per Spec 10 section 5.2
+		ctx, cancel := context.WithTimeout(context.Background(), discovery.AutodiscoverTimeout)
+		defer cancel()
 		originalURL := *url
-		result, err := discovery.DiscoverFeed(*url)
+		result, err := discovery.DiscoverFeed(ctx, *url)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\n\nTo add this URL as a website source using CSS-selector scraping:\n  newsfed sources add --type=website --url=%s --name=<name> --config=<file>\n", err.Error(), *url)
 			os.Exit(1)
