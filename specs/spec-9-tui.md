@@ -279,3 +279,30 @@ The user dismisses the modal without adding a source by pressing escape.
 
 > **Note:** Spec 10 (Feed Auto-Discovery), Section 7.1 updates this modal to
 > remove the Type field and add auto-discovery behavior.
+
+# 11. Pin / Unpin
+
+When the news items frame is focused, pressing `P` (uppercase or lowercase)
+toggles the pinned state of the currently selected news item. If the item is
+unpinned, it becomes pinned; if it is already pinned, it becomes unpinned.
+
+Pinned items are displayed with a pin indicator prepended to their title in the
+news items frame:
+
+```
+2. [📌] Scientists Discover Talking Badger          (3y2mo1d ago)
+```
+
+Unpinned items have no such indicator.
+
+Pinned items are always sorted above unpinned items, regardless of published
+date. Within the pinned group and within the unpinned group, items retain the
+default reverse-chronological sort order.
+
+The pin state is persisted so that it survives restarts of the TUI.
+
+Pressing `P` while the source frame is focused has no effect. Pressing `P`
+while a modal is open has no effect.
+
+When the news items frame is focused, the mode line includes `[P]in` in the
+keyboard shortcut summary.

@@ -1068,3 +1068,239 @@ RSSEOF
     tui_wait_for "No sources." 5
     tui_assert_contains "No sources."
 }
+
+# ---------------------------------------------------------------------------
+# Pin / Unpin (Spec 9 section 11)
+# ---------------------------------------------------------------------------
+
+@test "tui: mode line shows [P]in when items frame is focused" {
+    run newsfed sources add -type=rss -url=https://pin-modeline.example.com/feed -name="Pin Modeline Feed"
+    local src_id
+    src_id=$(extract_uuid "$output")
+
+    local item_id="aaaaaaaa-0000-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${item_id}.json" <<EOF
+{
+  "id": "$item_id",
+  "title": "Modeline Test Article",
+  "summary": "Summary",
+  "url": "https://example.com/modeline-test",
+  "authors": [],
+  "published_at": "2024-06-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "source_id": "$src_id"
+}
+EOF
+
+    tui_start
+    tui_wait_for "Pin Modeline Feed" 5
+
+    # Source frame focused by default -- [P]in should not appear.
+    tui_assert_not_contains "[P]in"
+
+    # Tab to items frame -- [P]in should appear.
+    tui_send_keys "Tab"
+    tui_wait_for "Modeline Test Article" 5
+    tui_assert_contains "[P]in"
+}
+
+@test "tui: P shows pin indicator on item" {
+    run newsfed sources add -type=rss -url=https://pin-show.example.com/feed -name="Pin Show Feed"
+    local src_id
+    src_id=$(extract_uuid "$output")
+
+    local item_id="bbbbbbbb-0000-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${item_id}.json" <<EOF
+{
+  "id": "$item_id",
+  "title": "Pin Show Article",
+  "summary": "Summary",
+  "url": "https://example.com/pin-show",
+  "authors": [],
+  "published_at": "2024-06-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "source_id": "$src_id"
+}
+EOF
+
+    tui_start
+    tui_wait_for "Pin Show Feed" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Pin Show Article" 5
+
+    # Before pinning, no indicator should appear.
+    tui_assert_not_contains "[📌]"
+
+    # Press P to pin.
+    tui_send_keys "P"
+    tui_wait_for "[📌]" 3
+
+    tui_assert_contains "[📌]"
+}
+
+@test "tui: P removes pin indicator when item is already pinned" {
+    run newsfed sources add -type=rss -url=https://pin-unpin.example.com/feed -name="Pin Unpin Feed"
+    local src_id
+    src_id=$(extract_uuid "$output")
+
+    local item_id="cccccccc-0000-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${item_id}.json" <<EOF
+{
+  "id": "$item_id",
+  "title": "Unpin Test Article",
+  "summary": "Summary",
+  "url": "https://example.com/unpin-test",
+  "authors": [],
+  "published_at": "2024-06-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "pinned_at": "2024-06-02T00:00:00Z",
+  "source_id": "$src_id"
+}
+EOF
+
+    tui_start
+    tui_wait_for "Pin Unpin Feed" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "[📌]" 5
+
+    # Item starts pinned -- indicator is visible.
+    tui_assert_contains "[📌]"
+
+    # Press P to unpin.
+    tui_send_keys "P"
+    sleep 0.5
+
+    tui_assert_not_contains "[📌]"
+}
+
+@test "tui: pinned items appear before unpinned items" {
+    run newsfed sources add -type=rss -url=https://pin-order.example.com/feed -name="Pin Order Feed"
+    local src_id
+    src_id=$(extract_uuid "$output")
+
+    # Older item (published first) will be pinned.
+    local older_id="dddddddd-0000-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${older_id}.json" <<EOF
+{
+  "id": "$older_id",
+  "title": "Older Article",
+  "summary": "Summary",
+  "url": "https://example.com/older",
+  "authors": [],
+  "published_at": "2024-01-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "pinned_at": "2024-06-01T00:00:00Z",
+  "source_id": "$src_id"
+}
+EOF
+
+    # Newer item (published second) is unpinned.
+    local newer_id="eeeeeeee-0000-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${newer_id}.json" <<EOF
+{
+  "id": "$newer_id",
+  "title": "Newer Article",
+  "summary": "Summary",
+  "url": "https://example.com/newer",
+  "authors": [],
+  "published_at": "2024-07-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "source_id": "$src_id"
+}
+EOF
+
+    tui_start
+    tui_wait_for "Pin Order Feed" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Older Article" 5
+
+    local screen
+    screen=$(tui_capture)
+
+    # Both items must appear.
+    echo "$screen" | grep -qF "Older Article"
+    echo "$screen" | grep -qF "Newer Article"
+
+    # Pinned older item must appear above unpinned newer item.
+    local pos_older pos_newer
+    pos_older=$(echo "$screen" | grep -n "Older Article" | head -1 | cut -d: -f1)
+    pos_newer=$(echo "$screen" | grep -n "Newer Article" | head -1 | cut -d: -f1)
+    [ "$pos_older" -lt "$pos_newer" ]
+}
+
+@test "tui: P has no effect when source frame is focused" {
+    run newsfed sources add -type=rss -url=https://pin-noop-src.example.com/feed -name="Pin Noop Src Feed"
+    local src_id
+    src_id=$(extract_uuid "$output")
+
+    local item_id="ffffffff-0000-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${item_id}.json" <<EOF
+{
+  "id": "$item_id",
+  "title": "Noop Src Article",
+  "summary": "Summary",
+  "url": "https://example.com/noop-src",
+  "authors": [],
+  "published_at": "2024-06-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "source_id": "$src_id"
+}
+EOF
+
+    tui_start
+    tui_wait_for "Pin Noop Src Feed" 5
+
+    # Source frame is focused by default. Press P -- should have no effect.
+    tui_send_keys "P"
+    sleep 0.3
+
+    # Tab to items frame and verify no pin indicator appeared.
+    tui_send_keys "Tab"
+    tui_wait_for "Noop Src Article" 5
+
+    tui_assert_not_contains "[📌]"
+}
+
+@test "tui: P has no effect when a modal is open" {
+    run newsfed sources add -type=rss -url=https://pin-noop-modal.example.com/feed -name="Pin Noop Modal Feed"
+    local src_id
+    src_id=$(extract_uuid "$output")
+
+    local item_id="11111111-1111-0000-0000-000000000001"
+    cat > "$NEWSFED_FEED_DSN/${item_id}.json" <<EOF
+{
+  "id": "$item_id",
+  "title": "Noop Modal Article",
+  "summary": "Summary",
+  "url": "https://example.com/noop-modal",
+  "authors": [],
+  "published_at": "2024-06-01T00:00:00Z",
+  "discovered_at": "$(date -u +%Y-%m-%dT%H:%M:%SZ)",
+  "source_id": "$src_id"
+}
+EOF
+
+    tui_start
+    tui_wait_for "Pin Noop Modal Feed" 5
+
+    tui_send_keys "Tab"
+    tui_wait_for "Noop Modal Article" 5
+
+    # Open the item detail modal.
+    tui_send_keys "Enter"
+    tui_wait_for "Title:" 3
+
+    # Press P while modal is open -- should have no effect.
+    tui_send_keys "P"
+    sleep 0.3
+
+    # Close modal.
+    tui_send_keys "Escape"
+    sleep 0.3
+
+    # No pin indicator should appear.
+    tui_assert_not_contains "[📌]"
+}

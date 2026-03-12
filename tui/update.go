@@ -43,6 +43,24 @@ type sourceCreatedMsg struct {
 	err error
 }
 
+type itemPinToggledMsg struct {
+	err error
+}
+
+// togglePinCmd toggles the pinned state of the given item and persists the
+// change to storage.
+func togglePinCmd(feed *newsfeed.NewsFeed, item newsfeed.NewsItem) tea.Cmd {
+	return func() tea.Msg {
+		if item.PinnedAt == nil {
+			now := time.Now().UTC()
+			item.PinnedAt = &now
+		} else {
+			item.PinnedAt = nil
+		}
+		return itemPinToggledMsg{err: feed.Update(item)}
+	}
+}
+
 func discoverAndAddSourceCmd(name, inputURL string, generation int) tea.Cmd {
 	return func() tea.Msg {
 		result, err := discovery.DiscoverFeed(inputURL)
@@ -132,6 +150,11 @@ func loadItemsCmd(feed *newsfeed.NewsFeed, sourceID uuid.UUID) tea.Cmd {
 			}
 		}
 		sort.Slice(filtered, func(i, j int) bool {
+			iPinned := filtered[i].PinnedAt != nil
+			jPinned := filtered[j].PinnedAt != nil
+			if iPinned != jPinned {
+				return iPinned
+			}
 			return filtered[i].PublishedAt.After(filtered[j].PublishedAt)
 		})
 		return itemsLoadedMsg{items: filtered}
@@ -291,6 +314,13 @@ func (m Model) Update(msg tea.Msg) (tea.Model, tea.Cmd) {
 		m.modal = modalNone
 		return m, loadSourcesAndRestoreCursorCmd(m.sourceStore, msg.src.SourceID)
 
+	case itemPinToggledMsg:
+		if msg.err != nil {
+			m.statusMsg = fmt.Sprintf("Pin error: %v", msg.err)
+			return m, nil
+		}
+		return m, m.loadItemsForCurrent()
+
 	case refreshAllStartedMsg:
 		return m, tea.Batch(listenRefreshAllCmd(msg.ch), listenRefreshAllErrCmd(msg.errCh))
 
@@ -379,9 +409,20 @@ func (m Model) handleKey(msg tea.KeyMsg) (tea.Model, tea.Cmd) {
 		if m.focus == focusSources {
 			return m.handleOpenSourceAdd()
 		}
+	case "P", "p":
+		if m.focus == focusItems {
+			return m.handleTogglePin()
+		}
 	}
 
 	return m, nil
+}
+
+func (m Model) handleTogglePin() (tea.Model, tea.Cmd) {
+	if len(m.items) == 0 {
+		return m, nil
+	}
+	return m, togglePinCmd(m.newsFeed, m.items[m.itemCursor])
 }
 
 func (m Model) moveCursorUp() Model {

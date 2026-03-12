@@ -141,7 +141,7 @@ func (m Model) renderModeLine() string {
 		if m.focus == focusSources {
 			content = "[Q]uit  [r]efresh  [R]efresh all  [Tab] Switch  [Enter] Open  [A]dd source"
 		} else {
-			content = "[Q]uit  [r]efresh  [R]efresh all  [Tab] Switch  [Enter] Open"
+			content = "[Q]uit  [r]efresh  [R]efresh all  [Tab] Switch  [Enter] Open  [P]in"
 		}
 	}
 	if m.width > 0 {
@@ -252,13 +252,29 @@ func (m Model) renderItemList(width, height int) string {
 		date := formatRelativeLabel(&item.PublishedAt, now)
 		dateLen := utf8.RuneCountInString(date)
 		prefixLen := utf8.RuneCountInString(prefix)
-		titleMaxWidth := width - prefixLen - dateLen - 1
+
+		// Pin indicator: [📌] takes 5 visual columns ([=1, 📌=2wide, ]=1,
+		// space=1) but utf8.RuneCountInString counts it as 4 runes, so we
+		// track both.
+		indicator := ""
+		indicatorVisualWidth := 0
+		if item.PinnedAt != nil {
+			indicator = "[📌] "
+			indicatorVisualWidth = 5
+		}
+
+		titleMaxWidth := width - prefixLen - indicatorVisualWidth - dateLen - 1
 		if titleMaxWidth < 1 {
 			titleMaxWidth = 1
 		}
 		truncTitle := ansi.Truncate(collapseWhitespace(item.Title), titleMaxWidth, "...")
-		leftPart := prefix + truncTitle
+		leftPart := prefix + indicator + truncTitle
+		// Correct padding for the wide emoji: its visual width exceeds its
+		// rune count by 1.
 		padding := width - utf8.RuneCountInString(leftPart) - dateLen
+		if indicatorVisualWidth > 0 {
+			padding-- // wide emoji takes 2 columns but counts as 1 rune
+		}
 		if padding < 1 {
 			padding = 1
 		}
