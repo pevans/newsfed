@@ -679,6 +679,7 @@ func (m Model) handleRefreshAll() (tea.Model, tea.Cmd) {
 	m.modal = modalRefreshAll
 	m.refreshAllSources = enabled
 	m.refreshAllProgress = make(map[uuid.UUID]discovery.SourceProgress)
+	m.refreshAllNewCounts = nil
 	m.refreshAllScroll = 0
 	m.refreshAllDone = false
 	m.refreshAllSyncErr = nil

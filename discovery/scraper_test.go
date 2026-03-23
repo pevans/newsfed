@@ -209,51 +209,71 @@ func TestParseAuthors_PreferCommaOverAnd(t *testing.T) {
 }
 
 // TestURLExists_NotFound verifies URL doesn't exist
-func TestURLExists_NotFound(t *testing.T) {
-	tempDir := t.TempDir()
-	feed, err := newsfeed.NewNewsFeed(tempDir)
-	require.NoError(t, err)
-
-	exists, err := URLExists(feed, "http://example.com/nonexistent")
-	require.NoError(t, err)
-	assert.False(t, exists)
-}
-
-// TestURLExists_Found verifies URL exists
-func TestURLExists_Found(t *testing.T) {
-	tempDir := t.TempDir()
-	feed, err := newsfeed.NewNewsFeed(tempDir)
-	require.NoError(t, err)
-
-	// Add an item
-	publisher := "Test"
-	item := newsfeed.NewsItem{
-		Title:        "Test",
-		Summary:      "Summary",
-		URL:          "http://example.com/article",
-		Publisher:    &publisher,
-		Authors:      []string{},
-		PublishedAt:  time.Now(),
-		DiscoveredAt: time.Now(),
+func TestNormalizeURL(t *testing.T) {
+	tests := []struct {
+		name     string
+		input    string
+		expected string
+	}{
+		{"strips fragment", "http://example.com/post#comments", "http://example.com/post"},
+		{"strips changing fragment", "http://example.com/post#section-2", "http://example.com/post"},
+		{"lowercases scheme", "HTTP://example.com/post", "http://example.com/post"},
+		{"lowercases host", "http://Example.COM/Post", "http://example.com/Post"},
+		{"removes default http port", "http://example.com:80/post", "http://example.com/post"},
+		{"removes default https port", "https://example.com:443/post", "https://example.com/post"},
+		{"keeps non-default port", "http://example.com:8080/post", "http://example.com:8080/post"},
+		{"removes trailing slash", "http://example.com/post/", "http://example.com/post"},
+		{"keeps root path", "http://example.com/", "http://example.com/"},
+		{"preserves query params", "http://example.com/post?a=1&b=2", "http://example.com/post?a=1&b=2"},
+		{"combined normalization", "HTTPS://Example.COM:443/Blog/Post/#anchor?", "https://example.com/Blog/Post"},
+		{"unparseable returns raw", "://broken", "://broken"},
 	}
-	err = feed.Add(item)
-	require.NoError(t, err)
 
-	// Check if URL exists
-	exists, err := URLExists(feed, "http://example.com/article")
-	require.NoError(t, err)
-	assert.True(t, exists)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			assert.Equal(t, tt.expected, normalizeURL(tt.input))
+		})
+	}
 }
 
-// TestURLExists_EmptyFeed verifies empty feed handling
-func TestURLExists_EmptyFeed(t *testing.T) {
-	tempDir := t.TempDir()
-	feed, err := newsfeed.NewNewsFeed(tempDir)
-	require.NoError(t, err)
+func TestURLExists(t *testing.T) {
+	tests := []struct {
+		name      string
+		storedURL string
+		queryURL  string
+		expected  bool
+	}{
+		{"exact match", "http://example.com/article", "http://example.com/article", true},
+		{"different fragment", "http://example.com/article#section-1", "http://example.com/article#section-2", true},
+		{"trailing slash difference", "http://example.com/article/", "http://example.com/article", true},
+		{"scheme/host case difference", "HTTP://Example.COM/article", "http://example.com/article", true},
+		{"different path", "http://example.com/article", "http://example.com/other", false},
+		{"not found in empty feed", "", "http://example.com/anything", false},
+	}
 
-	exists, err := URLExists(feed, "http://example.com/anything")
-	require.NoError(t, err)
-	assert.False(t, exists)
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tempDir := t.TempDir()
+			feed, err := newsfeed.NewNewsFeed(tempDir)
+			require.NoError(t, err)
+
+			if tt.storedURL != "" {
+				item := newsfeed.NewsItem{
+					ID:           uuid.New(),
+					Title:        "Test",
+					URL:          tt.storedURL,
+					Authors:      []string{},
+					PublishedAt:  time.Now(),
+					DiscoveredAt: time.Now(),
+				}
+				require.NoError(t, feed.Add(item))
+			}
+
+			exists, err := URLExists(feed, tt.queryURL)
+			require.NoError(t, err)
+			assert.Equal(t, tt.expected, exists)
+		})
+	}
 }
 
 // TestExtractArticle_BasicExtraction verifies basic HTML extraction

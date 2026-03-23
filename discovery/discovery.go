@@ -416,27 +416,27 @@ func (ds *DiscoveryService) fetchRSSFeed(ctx context.Context, source sources.Sou
 	// Convert feed items to NewsItems (FeedToNewsItems from Spec 2)
 	newsItems := FeedToNewsItems(feed, applyLimit, source.SourceID)
 
-	// Process each item with deduplication
+	// Build URL set once for deduplication (Spec 7 section 4.2).
+	knownURLs, err := BuildURLSet(ds.newsFeed)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build URL set: %w", err)
+	}
+
 	newItemCount := 0
 	for _, item := range newsItems {
-		// Check if URL already exists (Spec 7 section 4.2)
-		exists, err := URLExists(ds.newsFeed, item.URL)
-		if err != nil {
-			log.Printf("WARN: Failed to check URL existence for %s: %v", item.URL, err)
+		normalized := normalizeURL(item.URL)
+		if _, exists := knownURLs[normalized]; exists {
 			continue
 		}
 
-		if exists {
-			// Skip duplicate
-			continue
-		}
-
-		// Add new item to feed
 		if err := ds.newsFeed.Add(item); err != nil {
 			log.Printf("WARN: Failed to add item %s: %v", item.URL, err)
 			continue
 		}
 
+		// Track the newly added URL so later items in the same batch are also
+		// deduplicated.
+		knownURLs[normalized] = struct{}{}
 		newItemCount++
 	}
 
@@ -528,6 +528,12 @@ func (ds *DiscoveryService) fetchListMode(ctx context.Context, source sources.So
 	applyLimit := ds.shouldApplyItemLimit(source)
 	const maxArticles = 20 // Spec 3 section 3.1.1
 
+	// Build URL set once for deduplication.
+	knownURLs, err := BuildURLSet(ds.newsFeed)
+	if err != nil {
+		return 0, fmt.Errorf("failed to build URL set: %w", err)
+	}
+
 	for pagesProcessed < listConfig.MaxPages {
 		// Conditionally enforce max articles limit per Spec 3 section 3.1.1
 		// Only apply for first-time syncs or stale sources
@@ -568,14 +574,8 @@ func (ds *DiscoveryService) fetchListMode(ctx context.Context, source sources.So
 			}
 
 			// Check if URL already exists (deduplication)
-			exists, err := URLExists(ds.newsFeed, articleURL)
-			if err != nil {
-				log.Printf("WARN: Failed to check URL existence for %s: %v", articleURL, err)
-				continue
-			}
-
-			if exists {
-				// Skip duplicate
+			normalized := normalizeURL(articleURL)
+			if _, exists := knownURLs[normalized]; exists {
 				continue
 			}
 
@@ -604,6 +604,7 @@ func (ds *DiscoveryService) fetchListMode(ctx context.Context, source sources.So
 				continue
 			}
 
+			knownURLs[normalized] = struct{}{}
 			newItemCount++
 		}
 

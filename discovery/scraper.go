@@ -160,21 +160,64 @@ func ParseAuthors(authorText string) []string {
 	return []string{strings.TrimSpace(authorText)}
 }
 
-// URLExists checks if a NewsItem with the given URL already exists in the
-// feed. Implements Spec 3 section 4.2 deduplication strategy.
-func URLExists(feed *newsfeed.NewsFeed, url string) (bool, error) {
+// normalizeURL canonicalizes a URL for deduplication. It lowercases the
+// scheme and host, strips fragments, removes default ports (80/443), and
+// removes trailing slashes from the path.
+func normalizeURL(raw string) string {
+	u, err := url.Parse(raw)
+	if err != nil {
+		return raw
+	}
+
+	u.Scheme = strings.ToLower(u.Scheme)
+	u.Host = strings.ToLower(u.Host)
+	u.Fragment = ""
+	u.RawFragment = ""
+
+	// Strip default ports.
+	hostname := u.Hostname()
+	port := u.Port()
+	if (u.Scheme == "http" && port == "80") || (u.Scheme == "https" && port == "443") {
+		u.Host = hostname
+	}
+
+	// Remove trailing slash from path (but keep "/" for root).
+	if len(u.Path) > 1 {
+		u.Path = strings.TrimRight(u.Path, "/")
+	}
+
+	return u.String()
+}
+
+// BuildURLSet reads the feed once and returns a set of normalized URLs for
+// efficient deduplication. Callers should build the set once before a batch
+// of checks rather than calling URLExists per item.
+func BuildURLSet(feed *newsfeed.NewsFeed) (map[string]struct{}, error) {
 	result, err := feed.List()
+	if err != nil {
+		return nil, err
+	}
+
+	set := make(map[string]struct{}, len(result.Items))
+	for _, item := range result.Items {
+		set[normalizeURL(item.URL)] = struct{}{}
+	}
+	return set, nil
+}
+
+// URLExists checks if a NewsItem with the given URL already exists in the
+// feed. Implements Spec 3 section 4.2 deduplication strategy. URLs are
+// compared after normalization (case-insensitive scheme/host, fragments
+// stripped, default ports removed, trailing slashes removed).
+//
+// For batch operations, prefer BuildURLSet to avoid repeated disk reads.
+func URLExists(feed *newsfeed.NewsFeed, rawURL string) (bool, error) {
+	set, err := BuildURLSet(feed)
 	if err != nil {
 		return false, err
 	}
-
-	for _, item := range result.Items {
-		if item.URL == url {
-			return true, nil
-		}
-	}
-
-	return false, nil
+	_, exists := set[normalizeURL(rawURL)]
+	return exists, nil
 }
 
 // FetchHTML fetches HTML content from the given URL. Implements Spec 3
